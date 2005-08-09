@@ -1,0 +1,15 @@
+-rw-r--r--     Aug 5 23:49 /etc/fstab
+-rw-r--r--     Aug 5 23:49 /etc/hostname.fxp0
+-rw-r--r--     Aug 5 23:50 /etc/resolv.conf
+-rw-r--r--     Aug 5 23:50 /etc/mygate
+-rw-r--r--     Aug 5 23:54 /etc/rc.conf.local
+-rw-r--r--     Aug 5 23:54 /etc/sysctl.conf
+-rw-r--r--     Aug 5 23:54 /etc/myname
+-rw-r--r--     Aug 5 23:54 /etc/hosts
+-rw-r--r--     Aug 5 23:54 /etc/dhclient.conf
+-rw-------     Aug 5 23:54 /etc/master.passwd
+-rw-r-----     Aug 5 23:54 /etc/spwd.db
+-rw-r--r--     Aug 5 23:54 /etc/pwd.db
+-rw-r--r--     Aug 5 23:54 /etc/passwd
+lrwxr-xr-x     Aug 5 23:54 /etc/localtime -> /usr/share/zoneinfo/Japan
+-rw-rw-r--     Aug 5 23:57 /etc/motd

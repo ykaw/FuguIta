@@ -1,0 +1,86 @@
+#====================
+# setup file systems
+#
+cd /
+
+#-------------------------------
+# create fstab then mount by it
+#
+mount -w /dev/rd0a /
+
+mfs_alloc_mb=$((`sysctl -n hw.usermem`/1024/1024/2))
+echo -n "your mfs size in megabytes? [$mfs_alloc_mb] -> "; read ans
+if [ X"$ans" != X ]; then
+    mfs_alloc_mb=$ans
+fi
+echo Allocating $mfs_alloc_mb MB for mfs.
+cat <<EOF >/boottmp/fstab
+/dev/rd0a	/	ffs	rw	0 0
+/dev/cd0c	/cdrom	cd9660	ro	0 0
+swap		/mfs	mfs	rw,async,-s=$(($mfs_alloc_mb*1024*2)) 0 0
+EOF
+if /sbin/mount -a; then
+    :
+else
+    echo "Mount failed. Invoking shell to debugging."
+    /bin/sh
+fi
+
+#----------------------------
+# re-link bin dirs to CD-ROM
+#
+rm -rf /bin /sbin
+/boottmp/ln -sf cdrom/bin cdrom/sbin .
+
+#-------------------------------------
+# copy CD-ROM contents to rw-able mfs
+#
+cd /mfs
+(cd ../cdrom && tar cf - etc home tmp root var) | tar xvpf -
+
+#-----------------------
+# symlink from / to mfs
+#
+cd /
+rm -rf /tmp
+mv /etc /bootetc
+ln -sf mfs/* .
+cp /boottmp/fstab /etc
+
+#-------------------------------------------
+# symlink rest of contents from / to CD-ROM
+#
+ln -s cdrom/* .     2>/dev/null
+#ln -s cdrom/.??* . 2>/dev/null ; # not needed?
+
+#========================================
+# setup in /etc (network etc...)
+#
+echo -n 'Setting up configurations? -> '; read ans
+case X"$ans" in
+    X[Yy])
+        echo "========================================"
+        ifconfig -a
+        echo "========================================"
+        echo -n 'your network interface ? -> '; read mynic
+        echo -n 'your IPv4 addr or "dhcp" ? -> '; read myv4addr
+        if [ X"$myv4addr" = Xdhcp ]; then
+            echo "dhcp" > /etc/hostname.$mynic
+        else
+            echo -n 'your netmask ? -> '; read mynetmask
+            echo -n 'your FQDN ? -> '; read myfqdn
+            echo -n 'your DNS server ? -> '; read mydns
+            echo -n 'your default gateway ? -> '; read mygw
+
+            echo "inet $myv4addr $mynetmask NONE" > /etc/hostname.$mynic
+            echo "nameserver $mydns" > /etc/resolv.conf
+            echo "$myfqdn" > /etc/myname
+            echo "$mygw" > /etc/mygate
+        fi
+    ;;
+esac
+
+#========================================
+# run original /etc/rc
+#
+. /etc/rc

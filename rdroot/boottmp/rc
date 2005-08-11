@@ -14,11 +14,9 @@ if [ X"$ans" != X ]; then
     mfs_alloc_mb=$ans
 fi
 echo Allocating $mfs_alloc_mb MB for mfs.
-cat <<EOF >/boottmp/fstab
-/dev/rd0a	/	ffs	rw	0 0
+echo "/dev/rd0a	/	ffs	rw	0 0
 /dev/cd0c	/cdrom	cd9660	ro	0 0
-swap		/mfs	mfs	rw,async,-s=$(($mfs_alloc_mb*1024*2)) 0 0
-EOF
+swap		/mfs	mfs	rw,async,-s=$(($mfs_alloc_mb*1024*2)) 0 0" >/boottmp/fstab
 if /sbin/mount -a; then
     :
 else
@@ -29,8 +27,8 @@ fi
 #----------------------------
 # re-link bin dirs to CD-ROM
 #
-rm -rf /bin /sbin
-/boottmp/ln -sf cdrom/bin cdrom/sbin .
+/cdrom/bin/rm -rf /bin /sbin
+/cdrom/bin/ln -sf cdrom/bin cdrom/sbin .
 
 #-------------------------------------
 # copy CD-ROM contents to rw-able mfs

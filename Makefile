@@ -10,7 +10,7 @@ cdburn: livecd.iso
 	cdrecord dev=/dev/rcd0c livecd.iso
 
 livecd.iso: tree
-	cd cdroot && mkhybrid -a -R -T -L -l -d -v -o ../livecd.iso -b cdbr -c boot.catalog .
+	cd cdroot && mkhybrid -a -R -L -l -d -v -o ../livecd.iso -b cdbr -c boot.catalog .
 
 tree: bsd.rdcd lib/cdbr lib/cdboot
 	cp lib/cdbr lib/cdboot cdroot

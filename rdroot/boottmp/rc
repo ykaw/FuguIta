@@ -68,7 +68,10 @@ while :;
 do
     echo `kbd -l`
     echo -n ' -> '; read kbtype
-    kbd $kbtype && break
+    if kbd $kbtype; then
+        echo $kbtype > /etc/kbdtype
+        break
+    fi
 done
 
 echo "Set your root password..... please wait....."

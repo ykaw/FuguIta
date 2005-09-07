@@ -8,15 +8,20 @@ cd /
 #
 mount -w /dev/rd0a /
 
-mfs_alloc_mb=$((`sysctl -n hw.usermem`/1024/1024/2))
-echo -n "your mfs size in megabytes? [$mfs_alloc_mb] -> "; read ans
+mfs_alloc_mb=$((`sysctl -n hw.usermem`/1024/1024))
+echo $mfs_alloc_mb MB of memory available for you.
+
+mfs_alloc_mb=$(($mfs_alloc_mb/2))
+echo -n "your mfs size in megabytes? [default: $mfs_alloc_mb] -> "; read ans
 if [ X"$ans" != X ]; then
     mfs_alloc_mb=$ans
 fi
 echo Allocating $mfs_alloc_mb MB for mfs.
+
 echo "/dev/rd0a	/	ffs	rw	0 0
 /dev/cd0c	/cdrom	cd9660	ro	0 0
 swap		/mfs	mfs	rw,async,-s=$(($mfs_alloc_mb*1024*2)) 0 0" >/boottmp/fstab
+
 if /sbin/mount -a; then
     :
 else
@@ -33,8 +38,10 @@ fi
 #-------------------------------------
 # copy CD-ROM contents to rw-able mfs
 #
+echo -n "Copying files ... "
 cd /mfs
-(cd ../cdrom && tar cf - etc home tmp root var) | tar xvpf -
+(cd ../cdrom && tar cf - etc home tmp root var) | tar xpf -
+echo "done"
 
 #-----------------------
 # symlink from / to mfs
@@ -54,7 +61,23 @@ ln -s cdrom/* .     2>/dev/null
 #========================================
 # setup in /etc (network etc...)
 #
-echo -n 'Setting up configurations? -> '; read ans
+echo ""
+
+echo "Set your keyboard type;"
+while :;
+do
+    echo `kbd -l`
+    echo -n ' -> '; read kbtype
+    kbd $kbtype && break
+done
+
+echo "Set your root password..... please wait....."
+until passwd root
+do
+    echo "passwd failed, Try again."
+done
+
+echo -n 'Setting up network configurations? -> '; read ans
 case X"$ans" in
     X[Yy])
         echo "========================================"
@@ -75,6 +98,13 @@ case X"$ans" in
             echo "$myfqdn" > /etc/myname
             echo "$mygw" > /etc/mygate
         fi
+    ;;
+esac
+
+echo -n 'Generate cryptographic keys? -> '; read ans
+case X"$ans" in
+    X[Yy])
+        rm -f /etc/ssh/*_key* /etc/isakmpd/private/local.key
     ;;
 esac
 

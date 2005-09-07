@@ -2,12 +2,12 @@ all:
 	@echo lets go
 
 cdrclean:
-	cdrecord dev=/dev/rcd0c blank=fast
+	cdrecord -v dev=/dev/rcd0c blank=fast
 
 cdrburn: cdrclean cdburn
 
 cdburn: livecd.iso
-	cdrecord dev=/dev/rcd0c livecd.iso
+	cdrecord -v dev=/dev/rcd0c livecd.iso
 
 livecd.iso: tree
 	cd cdroot && mkhybrid -a -R -L -l -d -v -o ../livecd.iso -b cdbr -c boot.catalog .

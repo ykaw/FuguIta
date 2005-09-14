@@ -58,6 +58,15 @@ cp /boottmp/fstab /etc
 ln -s cdrom/* .     2>/dev/null
 #ln -s cdrom/.??* . 2>/dev/null ; # not needed?
 
+#-------------------------------------------
+# lndir from /mfs/usr to /cdrom/usr
+#
+echo -n "Linking files ... "
+mkdir /mfs/usr && cd /mfs/usr && lndir -s /cdrom/usr
+cd /mfs/usr/libexec/auth && rm * && cp -p /cdrom/usr/libexec/auth/* .
+cd / && ln -sf mfs/usr .
+echo "done"
+
 #========================================
 # setup in /etc (network etc...)
 #
@@ -66,7 +75,7 @@ echo ""
 echo "Set your keyboard type;"
 while :;
 do
-    echo `kbd -l`
+    echo -n `kbd -l`
     echo -n ' -> '; read kbtype
     if kbd $kbtype; then
         echo $kbtype > /etc/kbdtype
@@ -110,6 +119,7 @@ case X"$ans" in
         rm -f /etc/ssh/*_key* /etc/isakmpd/private/local.key
     ;;
 esac
+echo "========================================"
 
 #========================================
 # run original /etc/rc

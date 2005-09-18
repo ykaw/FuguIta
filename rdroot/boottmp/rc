@@ -8,11 +8,19 @@ cd /
 #
 mount -w /dev/rd0a /
 
-mfs_alloc_mb=$((`sysctl -n hw.usermem`/1024/1024))
-echo $mfs_alloc_mb MB of memory available for you.
+mfs_alloc_mb_max=$((`sysctl -n hw.usermem`/1024/1024))
+mfs_alloc_mb=$(($mfs_alloc_mb_max/2))
 
-mfs_alloc_mb=$(($mfs_alloc_mb/2))
-echo -n "your mfs size in megabytes? [default: $mfs_alloc_mb] -> "; read ans
+greet_pc98=NO
+
+if [ X"$greet_pc98" = XYES ]; then
+    echo -n "[H[2JHow many megabytes(16-$mfs_alloc_mb_max)? "; read ans
+else
+    echo "========================================"
+    echo $mfs_alloc_mb_max MB of memory available for you.
+    echo -n "your mfs size in megabytes? [default: $mfs_alloc_mb] -> "; read ans
+fi
+
 if [ X"$ans" != X ]; then
     mfs_alloc_mb=$ans
 fi
@@ -20,12 +28,12 @@ echo Allocating $mfs_alloc_mb MB for mfs.
 
 echo "/dev/rd0a	/	ffs	rw	0 0
 /dev/cd0c	/cdrom	cd9660	ro	0 0
-swap		/mfs	mfs	rw,async,-s=$(($mfs_alloc_mb*1024*2)) 0 0" >/boottmp/fstab
+swap		/mfs	mfs	rw,async,-b=4096,-f=512,-i=1024,-s=$(($mfs_alloc_mb*1024*2)) 0 0" >/boottmp/fstab
 
 if /sbin/mount -a; then
     :
 else
-    echo "Mount failed. Invoking shell to debugging."
+    echo "Mount failed. Invoking shell to debug..."
     /bin/sh
 fi
 
@@ -38,7 +46,7 @@ fi
 #-------------------------------------
 # copy CD-ROM contents to rw-able mfs
 #
-echo -n "Copying files ... "
+echo -n "Copying files from CD-ROM to mfs ... "
 cd /mfs
 (cd ../cdrom && tar cf - etc home tmp root var) | tar xpf -
 echo "done"
@@ -56,12 +64,12 @@ cp /boottmp/fstab /etc
 # symlink rest of contents from / to CD-ROM
 #
 ln -s cdrom/* .     2>/dev/null
-#ln -s cdrom/.??* . 2>/dev/null ; # not needed?
+#ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
 
 #-------------------------------------------
 # lndir from /mfs/usr to /cdrom/usr
 #
-echo -n "Linking files ... "
+echo -n "Linking files from mfs to CD-ROM ... "
 mkdir /mfs/usr && cd /mfs/usr && lndir -s /cdrom/usr
 cd /mfs/usr/libexec/auth && rm * && cp -p /cdrom/usr/libexec/auth/* .
 cd / && ln -sf mfs/usr .
@@ -83,7 +91,7 @@ do
     fi
 done
 
-echo "Set your root password..... please wait....."
+echo -n " Please wait ... "
 until passwd root
 do
     echo "passwd failed, Try again."

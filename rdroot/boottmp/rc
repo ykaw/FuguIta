@@ -129,6 +129,8 @@ case X"$ans" in
 esac
 echo "========================================"
 
+date > /boottmp/operation_starts
+
 #========================================
 # run original /etc/rc
 #

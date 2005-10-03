@@ -16,7 +16,19 @@ greet_pc98=NO
 if [ X"$greet_pc98" = XYES ]; then
     echo -n "[H[2JHow many megabytes(16-$mfs_alloc_mb_max)? "; read ans
 else
-    echo "========================================"
+    echo '================================================
+=     _____                 ____   _____ _____
+=    / ___ \               |  _ \ / ____|  __ \
+=   / /  / /___  ___  ____ | |_) | (___ | |  | |
+=  / /  / / __ \/ _ \/ __ \|  _ < \___ \| |  | |
+= / /__/ / /_/ /  __/ / / /| |_) |____) | |__| |
+= \_____/ .___/\___/_/ /_/ |____/|_____/|_____/
+=      /_/
+= Welcome to OpenBSD LiveCD!
+=                         For more further info,
+=       please access http://kaw.ath.cx/openbsd/
+================================================
+'
     echo $mfs_alloc_mb_max MB of memory available for you.
     echo -n "your mfs size in megabytes? [default: $mfs_alloc_mb] -> "; read ans
 fi
@@ -71,7 +83,19 @@ ln -s cdrom/* .     2>/dev/null
 #
 echo -n "Linking files from mfs to CD-ROM ... "
 mkdir /mfs/usr && cd /mfs/usr && lndir -s /cdrom/usr
-cd /mfs/usr/libexec/auth && rm * && cp -p /cdrom/usr/libexec/auth/* .
+
+#-------------------------------------------
+# Then, copy again for trivial dirs
+#
+for d in \
+    usr/libexec/auth \
+    usr/local/lib/wnn
+do
+    if [ -d /mfs/$d ]; then
+        rm -rf /mfs/$d && cd `dirname /cdrom/$d` && pax -rwpe `basename $d` `dirname /mfs/$d`
+    fi
+done
+
 cd / && ln -sf mfs/usr .
 echo "done"
 
@@ -91,7 +115,7 @@ do
     fi
 done
 
-echo -n " Please wait ... "
+echo -n "Please wait ... "
 until passwd root
 do
     echo "passwd failed, Try again."

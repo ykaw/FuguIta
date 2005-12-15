@@ -64,102 +64,109 @@ fi
 /cdrom/bin/rm -rf /bin /sbin
 /cdrom/bin/ln -sf cdrom/bin cdrom/sbin .
 
-setup_rw_mode=0
-echo 'Select boot method;'
-echo '   0: manual setup   (CD-ROM only)'
-echo '   1: with user data (copy from USB flash)'
-echo -n '-->'; read setup_rw_mode
+while :; do
+    echo 'Select boot method;'
+    echo '   0: CD-ROM only'
+    echo '   1: CD-ROM only (for low mem)'
+    echo '   2: CD-ROM + USB flash'
+    echo -n '-->'; read setup_rw_mode
 
-case X"$setup_rw_mode" in
-    X1)
-	echo "usbflash" > /boottmp/boot_mode
+    case X"$setup_rw_mode" in
+        X2)
+        echo "usbflash" > /boottmp/boot_mode
 
         #-----------------------
         # search USB mass storage
         # (works on a subshell not to destroy positional parameters...)
         #
-	( set X `dmesg | while read ln; do case Y"$ln" in Yscsibus[0-9]" at "umass[0-9]*) echo $ln;; esac; done`
-	  if [ $# -gt 2 ]; then
-	      usb_scsi_umass=${2%:}
-	      usb_umass=$4
+        ( set X `dmesg | while read ln; do case Y"$ln" in Yscsibus[0-9]" at "umass[0-9]*) echo $ln;; esac; done`
+        if [ $# -gt 2 ]; then
+                usb_scsi_umass=${2%:}
+                usb_umass=$4
 
-	      set X `dmesg | while read ln; do case Y"$ln" in Ysd[0-9]" at "scsibus[0-9]*) echo $ln;; esac; done`
-	      if [ $# -gt 2 ]; then
-		  usb_sd=$2
-		  usb_sd_scsi=$4
-		  if [ "$usb_scsi_umass" = "$usb_sd_scsi" ]; then
-		      echo "USB flash memory found as $usb_sd"
-		  else
-		      echo "SCSI bus between sd($usb_sd at $usb_sd_scsi) and umass($usb_scsi_umass at $usb_umass) not match"
-		      exit 1
-		  fi
-	      else
-		  echo 'SCSI-simulated USB disk storage not found'
-		  exit 1
-	      fi
-	  else
-	      echo 'USB mass storage device not found'
-	      exit 1
-	  fi
+                set X `dmesg | while read ln; do case Y"$ln" in Ysd[0-9]" at "scsibus[0-9]*) echo $ln;; esac; done`
+                if [ $# -gt 2 ]; then
+                        usb_sd=$2
+                        usb_sd_scsi=$4
+                        if [ "$usb_scsi_umass" = "$usb_sd_scsi" ]; then
+                            echo "USB flash memory found as $usb_sd"
+                        else
+                            echo "SCSI bus between sd($usb_sd at $usb_sd_scsi) and umass($usb_scsi_umass at $usb_umass) not match"
+                            exit 1
+                        fi
+                else
+                    echo 'SCSI-simulated USB disk storage not found'
+                    exit 1
+                fi
+        else
+            echo 'USB mass storage device not found'
+            exit 1
+        fi
 
-	  usb_devname=/dev/${usb_sd}a
-	  echo "$usb_devname" > /boottmp/boot_restore_devname )
+        usb_devname=/dev/${usb_sd}a
+        echo "$usb_devname" > /boottmp/boot_restore_devname )
 
         #-----------------------
         # mount user's storage
         #
-	if mount -r `cat /boottmp/boot_restore_devname` /mnt; then
-	    #-----------------------
-	    # select config files
-	    #
-	    if [ ! -d /mnt/livecd-config ]; then
-		echo 'cannot find config dir'
-		exit 1
-	    fi
+        if mount -r `cat /boottmp/boot_restore_devname` /mnt; then
+            #-----------------------
+            # select config files
+            #
+            if [ ! -d /mnt/livecd-config ]; then
+                echo 'cannot find config dir'
+                exit 1
+            fi
 
-	    while :; do
-	        echo 'avairable configs;'
-	        (cd /mnt/livecd-config && echo ""; ls -C; echo "")
-	        echo -n 'your config name? -> '; read confdir
-		if [ -d "/mnt/livecd-config/$confdir" ]; then
-		    echo "$confdir" > /boottmp/boot_user_config
-		    break
-		else
-		    echo 'cannot find config dir'
-		fi
-	    done
+            while :; do
+                echo 'avairable configs;'
+                (cd /mnt/livecd-config && echo ""; ls -C; echo "")
+                echo -n 'your config name? -> '; read confdir
+                if [ -d "/mnt/livecd-config/$confdir" ]; then
+                    echo "$confdir" > /boottmp/boot_user_config
+                    break
+                else
+                    echo 'cannot find config dir'
+                fi
+            done
 
-	    #-----------------------
-	    # symlink from / to mfs
-	    #
+            #-----------------------
+            # symlink from / to mfs
+            #
             echo -n "Copying files from flash to mfs ... "
             cd /mfs
             (cd /mnt/livecd-config/$confdir && tar cf - .) | tar xpf -
             echo "done"
 
-	    #-----------------------
-	    # symlink from / to mfs
-	    #
-	    cd /
-	    rm -rf /tmp
-	    mv /etc /bootetc
-	    ln -sf mfs/* .
-	    cp /boottmp/fstab /etc
+            #-----------------------
+            # symlink from / to mfs
+            #
+            cd /
+            rm -rf /tmp
+            mv /etc /bootetc
+            ln -sf mfs/* .
+            cp /boottmp/fstab /etc
 
-	    #-------------------------------------------
-	    # symlink rest of contents from / to CD-ROM
-	    #
-	    ln -s cdrom/* .     2>/dev/null
-	    #ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
+            #-------------------------------------------
+            # symlink rest of contents from / to CD-ROM
+            #
+            ln -s cdrom/* .     2>/dev/null
+            #ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
 
-	    umount /mnt
-	else
-	    echo "Failed to mount user's storage"
-	    exit 1
-	fi
-    ;;
-    *)
-	echo "manual" > /boottmp/boot_mode
+            umount /mnt
+        else
+            echo "Failed to mount user's storage"
+            exit 1
+        fi
+        break
+        ;;
+
+        X[01])
+        if [ X"$setup_rw_mode" = X0 ]; then
+            echo "manual"
+        elif [ X"$setup_rw_mode" = X1 ]; then
+            echo "manual_less_mfs"
+        fi > /boottmp/boot_mode
 
         #-------------------------------------
         # copy CD-ROM contents to rw-able mfs
@@ -167,7 +174,17 @@ case X"$setup_rw_mode" in
         echo "Running manual setup."
         echo -n "Copying files from CD-ROM to mfs ... "
         cd /mfs
-        (cd ../cdrom && tar cf - etc home tmp root var) | tar xpf -
+        if [ X"$setup_rw_mode" = X0 ]; then
+            (cd ../cdrom && tar cf - etc home tmp root var) | tar xpf -
+        elif [ X"$setup_rw_mode" = X1 ]; then
+            (cd ../cdrom && tar cf - etc home tmp root var) \
+            | tar -x \
+                  -p \
+                  -f - \
+                  -s '|^etc/X11/.*||' \
+                  -s '|^var/dict/.*||' \
+                  -s '|^var/www/htdocs/.*||'
+        fi
         echo "done"
 
         #-----------------------
@@ -185,25 +202,32 @@ case X"$setup_rw_mode" in
         ln -s cdrom/* .     2>/dev/null
         #ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
 
-        #-------------------------------------------
-        # lndir from /mfs/usr to /cdrom/usr
-        #
-        echo -n "Linking files from mfs to CD-ROM ... "
-        mkdir /mfs/usr && cd /mfs/usr && lndir -s /cdrom/usr
+        if [ X"$setup_rw_mode" = X0 ]; then
+            #-------------------------------------------
+            # lndir from /mfs/usr to /cdrom/usr
+            #
+            echo -n "Linking files from mfs to CD-ROM ... "
+            mkdir /mfs/usr && cd /mfs/usr && lndir -s /cdrom/usr
 
-        #-------------------------------------------
-        # Then, copy again for trivial dirs
-        #
-        for d in \
-            usr/libexec/auth \
-            usr/local/lib/wnn
-        do
-            if [ -d /mfs/$d ]; then
-                rm -rf /mfs/$d && cd `dirname /cdrom/$d` && pax -rwpe `basename $d` `dirname /mfs/$d`
-            fi
-        done
+            #-------------------------------------------
+            # Then, copy again for trivial dirs
+            #
+            for d in \
+                usr/libexec/auth \
+                usr/local/lib/wnn
+              do
+              if [ -d /mfs/$d ]; then
+                  rm -rf /mfs/$d && cd `dirname /cdrom/$d` && pax -rwpe `basename $d` `dirname /mfs/$d`
+              fi
+            done
 
-        cd / && ln -sf mfs/usr .
+            cd / && ln -sf mfs/usr .
+        elif [ X"$setup_rw_mode" = X1 ]; then
+            (cd /mfs/etc/X11        && lndir -s /cdrom/etc/X11)
+            (cd /mfs/var/dict       && lndir -s /cdrom/var/dict)
+            (cd /mfs/var/www/htdocs && lndir -s /cdrom/var/www/htdocs)
+        fi
+
         echo "done"
 
         #========================================
@@ -212,8 +236,7 @@ case X"$setup_rw_mode" in
         echo ""
 
         echo "Set your keyboard type;"
-        while :;
-        do
+        while :; do
             echo -n `kbd -l`
             echo -n ' -> '; read kbtype
             if kbd $kbtype; then
@@ -224,47 +247,49 @@ case X"$setup_rw_mode" in
 
         echo -n "Please wait ... "
         until passwd root
-        do
-            echo "passwd failed, Try again."
+          do
+          echo "passwd failed, Try again."
         done
 
         echo -n 'Setting up network configurations? -> '; read ans
         case X"$ans" in
             X[Yy])
-                echo "========================================"
-                ifconfig -a
-                echo "========================================"
-                echo -n 'your network interface? -> '; read mynic
-                echo -n 'your IPv4 addr or "dhcp"? -> '; read myv4addr
-                if [ X"$myv4addr" = Xdhcp ]; then
-                    echo "dhcp" > /etc/hostname.$mynic
-                else
-                    echo -n 'your netmask? -> '; read mynetmask
-                    echo -n 'your FQDN? -> '; read myfqdn
-                    echo -n 'your DNS server? -> '; read mydns
-                    echo -n 'your default gateway? -> '; read mygw
+            echo "========================================"
+            ifconfig -a
+            echo "========================================"
+            echo -n 'your network interface? -> '; read mynic
+            echo -n 'your IPv4 addr or "dhcp"? -> '; read myv4addr
+            if [ X"$myv4addr" = Xdhcp ]; then
+                echo "dhcp" > /etc/hostname.$mynic
+            else
+                echo -n 'your netmask? -> '; read mynetmask
+                echo -n 'your FQDN? -> '; read myfqdn
+                echo -n 'your DNS server? -> '; read mydns
+                echo -n 'your default gateway? -> '; read mygw
 
-                    echo "inet $myv4addr $mynetmask NONE" > /etc/hostname.$mynic
-                    echo "lookup file bind"  >  /etc/resolv.conf
-                    echo "nameserver $mydns" >> /etc/resolv.conf
-                    echo "$myfqdn" > /etc/myname
-                    echo "$mygw" > /etc/mygate
-                    echo "::1 localhost.localnet localhost"       >  /etc/hosts
-                    echo "127.0.0.1 localhost.localnet localhost" >> /etc/hosts
-                    echo "$myv4addr $myfqdn ${myfqdn%%.*}"        >> /etc/hosts
-                fi
+                echo "inet $myv4addr $mynetmask NONE" > /etc/hostname.$mynic
+                echo "lookup file bind"  >  /etc/resolv.conf
+                echo "nameserver $mydns" >> /etc/resolv.conf
+                echo "$myfqdn" > /etc/myname
+                echo "$mygw" > /etc/mygate
+                echo "::1 localhost.localnet localhost"       >  /etc/hosts
+                echo "127.0.0.1 localhost.localnet localhost" >> /etc/hosts
+                echo "$myv4addr $myfqdn ${myfqdn%%.*}"        >> /etc/hosts
+            fi
             ;;
         esac
 
         echo -n 'Generate cryptographic keys? -> '; read ans
         case X"$ans" in
             X[Yy])
-                rm -f /etc/ssh/*_key* /etc/isakmpd/private/local.key
+            rm -f /etc/ssh/*_key* /etc/isakmpd/private/local.key
             ;;
         esac
-    ;;
-esac
-
+        break
+        ;;
+    esac
+done
+        
 echo "========================================"
 date > /boottmp/boot_livecd_rc_ends
 

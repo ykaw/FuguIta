@@ -69,98 +69,18 @@ while :; do
     echo '   0: CD-ROM only'
     echo '   1: CD-ROM only (for low mem)'
     echo '   2: CD-ROM + USB flash'
+    echo '   3: CD-ROM + tar.gz on floppy'
+    echo '   4: CD-ROM + interactive shell'
     echo -n '-->'; read setup_rw_mode
 
     case X"$setup_rw_mode" in
-        X2)
-        echo "usbflash" > /boottmp/boot_mode
 
         #-----------------------
-        # search USB mass storage
-        # (works on a subshell not to destroy positional parameters...)
-        #
-        ( set X `dmesg | while read ln; do case Y"$ln" in Yscsibus[0-9]" at "umass[0-9]*) echo $ln;; esac; done`
-        if [ $# -gt 2 ]; then
-                usb_scsi_umass=${2%:}
-                usb_umass=$4
-
-                set X `dmesg | while read ln; do case Y"$ln" in Ysd[0-9]" at "scsibus[0-9]*) echo $ln;; esac; done`
-                if [ $# -gt 2 ]; then
-                        usb_sd=$2
-                        usb_sd_scsi=$4
-                        if [ "$usb_scsi_umass" = "$usb_sd_scsi" ]; then
-                            echo "USB flash memory found as $usb_sd"
-                        else
-                            echo "SCSI bus between sd($usb_sd at $usb_sd_scsi) and umass($usb_scsi_umass at $usb_umass) not match"
-                            exit 1
-                        fi
-                else
-                    echo 'SCSI-simulated USB disk storage not found'
-                    exit 1
-                fi
-        else
-            echo 'USB mass storage device not found'
-            exit 1
-        fi
-
-        usb_devname=/dev/${usb_sd}a
-        echo "$usb_devname" > /boottmp/boot_restore_devname )
-
         #-----------------------
-        # mount user's storage
+        # CD-ROM only mode
+        #-----------------------
+        #-----------------------
         #
-        if mount -r `cat /boottmp/boot_restore_devname` /mnt; then
-            #-----------------------
-            # select config files
-            #
-            if [ ! -d /mnt/livecd-config ]; then
-                echo 'cannot find config dir'
-                exit 1
-            fi
-
-            while :; do
-                echo 'avairable configs;'
-                (cd /mnt/livecd-config && echo ""; ls -C; echo "")
-                echo -n 'your config name? -> '; read confdir
-                if [ -d "/mnt/livecd-config/$confdir" ]; then
-                    echo "$confdir" > /boottmp/boot_user_config
-                    break
-                else
-                    echo 'cannot find config dir'
-                fi
-            done
-
-            #-----------------------
-            # symlink from / to mfs
-            #
-            echo -n "Copying files from flash to mfs ... "
-            cd /mfs
-            (cd /mnt/livecd-config/$confdir && tar cf - .) | tar xpf -
-            echo "done"
-
-            #-----------------------
-            # symlink from / to mfs
-            #
-            cd /
-            rm -rf /tmp
-            mv /etc /bootetc
-            ln -sf mfs/* .
-            cp /boottmp/fstab /etc
-
-            #-------------------------------------------
-            # symlink rest of contents from / to CD-ROM
-            #
-            ln -s cdrom/* .     2>/dev/null
-            #ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
-
-            umount /mnt
-        else
-            echo "Failed to mount user's storage"
-            exit 1
-        fi
-        break
-        ;;
-
         X[01])
         if [ X"$setup_rw_mode" = X0 ]; then
             echo "manual"
@@ -285,11 +205,173 @@ while :; do
             rm -f /etc/ssh/*_key* /etc/isakmpd/private/local.key
             ;;
         esac
+
         break
         ;;
+
+        #-----------------------
+        #-----------------------
+        # Restore from USB flash mode
+        #-----------------------
+        #-----------------------
+        #
+        X2)
+        echo "usbflash" > /boottmp/boot_mode
+
+        #-----------------------
+        # search USB mass storage
+        # (works on a subshell not to destroy positional parameters...)
+        #
+        ( set X `dmesg | while read ln; do case Y"$ln" in Yscsibus[0-9]" at "umass[0-9]*) echo $ln;; esac; done`
+        if [ $# -gt 2 ]; then
+                usb_scsi_umass=${2%:}
+                usb_umass=$4
+
+                set X `dmesg | while read ln; do case Y"$ln" in Ysd[0-9]" at "scsibus[0-9]*) echo $ln;; esac; done`
+                if [ $# -gt 2 ]; then
+                        usb_sd=$2
+                        usb_sd_scsi=$4
+                        if [ "$usb_scsi_umass" = "$usb_sd_scsi" ]; then
+                            echo "USB flash memory found as $usb_sd"
+                        else
+                            echo "SCSI bus between sd($usb_sd at $usb_sd_scsi) and umass($usb_scsi_umass at $usb_umass) not match"
+                            exit 1
+                        fi
+                else
+                    echo 'SCSI-simulated USB disk storage not found'
+                    exit 1
+                fi
+        else
+            echo 'USB mass storage device not found'
+            exit 1
+        fi
+
+        usb_devname=/dev/${usb_sd}a
+        echo "$usb_devname" > /boottmp/boot_restore_devname )
+
+        #-----------------------
+        # mount user's storage
+        #
+        if mount -r `cat /boottmp/boot_restore_devname` /mnt; then
+            #-----------------------
+            # select config files
+            #
+            if [ ! -d /mnt/livecd-config ]; then
+                echo 'cannot find config dir'
+                exit 1
+            fi
+
+            while :; do
+                echo 'avairable configs;'
+                (cd /mnt/livecd-config && echo ""; ls -C; echo "")
+                echo -n 'your config name? -> '; read confdir
+                if [ -d "/mnt/livecd-config/$confdir" ]; then
+                    echo "$confdir" > /boottmp/boot_user_config
+                    break
+                else
+                    echo 'cannot find config dir'
+                fi
+            done
+
+            #-----------------------
+            # copying to mfs
+            #
+            echo -n "Copying files from flash to mfs ... "
+            cd /mfs
+            (cd /mnt/livecd-config/$confdir && tar cf - .) | tar xpf -
+            echo "done"
+
+            #-----------------------
+            # symlink from / to mfs
+            #
+            cd /
+            rm -rf /tmp
+            mv /etc /bootetc
+            ln -sf mfs/* .
+            cp /boottmp/fstab /etc
+
+            #-------------------------------------------
+            # symlink rest of contents from / to CD-ROM
+            #
+            ln -s cdrom/* .     2>/dev/null
+            #ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
+
+            umount /mnt
+        else
+            echo "Failed to mount user's storage"
+            exit 1
+        fi
+
+        break
+        ;;
+
+        #-----------------------
+        #-----------------------
+        # Restore from floppy tgz mode
+        #-----------------------
+        #-----------------------
+        #
+        X3)
+        echo "floppy" > /boottmp/boot_mode
+
+        #-----------------------
+        # copying to mfs
+        #
+        if mount -r /dev/fd0a /mnt; then
+            echo -n "Extracting files from floppy to mfs ... "
+            ln -sf cdrom/usr /
+            cd /mfs
+            tar xpvzf /mnt/livecd-config.tar.gz
+            umount /mnt
+            echo "done"
+
+            #-----------------------
+            # symlink from / to mfs
+            #
+            cd /
+            rm -rf /tmp
+            mv /etc /bootetc
+            ln -sf mfs/* .
+            cp /boottmp/fstab /etc
+
+            #-------------------------------------------
+            # symlink rest of contents from / to CD-ROM
+            #
+            ln -s cdrom/* .     2>/dev/null
+            #ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
+        else
+            echo "Failed to read /mnt/livecd-config.tar.gz on /dev/fd0a"
+            exit 1
+        fi
+
+        break
+        ;;
+
+        #-----------------------
+        #-----------------------
+        # Interactive shell mode
+        #-----------------------
+        #-----------------------
+        #
+        X4)
+        echo "intr-shell" > /boottmp/boot_mode
+        echo "==INTERACTIVE SHELL MODE================
+=
+= An interactive shell invoked for manual operation.
+= Now, just CD-ROM mounted on /cdrom.
+=
+= After exit this shell, rest of boot sequence will follow.
+=
+========================================"
+        PATH="/cdrom/sbin:/cdrom/bin" /cdrom/bin/sh
+
+        break
+        ;;
+
+        *) echo "What?" ;;
     esac
 done
-        
+
 echo "========================================"
 date > /boottmp/boot_livecd_rc_ends
 

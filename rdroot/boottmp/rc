@@ -307,7 +307,7 @@ while :; do
 
         #-----------------------
         #-----------------------
-        # Restore from floppy tgz mode
+        # Restore from floppy mode
         #-----------------------
         #-----------------------
         #
@@ -318,27 +318,15 @@ while :; do
         # copying to mfs
         #
         if mount -r /dev/fd0a /mnt; then
-            echo -n "Extracting files from floppy to mfs ... "
-            ln -sf cdrom/usr /
-            cd /mfs
-            tar xpvzf /mnt/livecd-config.tar.gz
+            if [ -r /mnt/livecd-retr.sh.inc ]; then
+                cp  /mnt/livecd-retr.sh.inc /tmp
+                .  /tmp/livecd-retr.sh.inc
+                rm -f /tmp/livecd-retr.sh.inc
+            else
+                echo "Retrieving script not found on fd0a."
+                exit 1
+            fi
             umount /mnt
-            echo "done"
-
-            #-----------------------
-            # symlink from / to mfs
-            #
-            cd /
-            rm -rf /tmp
-            mv /etc /bootetc
-            ln -sf mfs/* .
-            cp /boottmp/fstab /etc
-
-            #-------------------------------------------
-            # symlink rest of contents from / to CD-ROM
-            #
-            ln -s cdrom/* .     2>/dev/null
-            #ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
         else
             echo "Failed to read /mnt/livecd-config.tar.gz on /dev/fd0a"
             exit 1

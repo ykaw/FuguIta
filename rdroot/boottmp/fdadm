@@ -1,0 +1,109 @@
+#!/bin/sh
+
+#========================================
+#
+# fdadm - Floppy Disk ADMinistration tool
+# KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
+#
+#========================================
+
+echo 'Welcome to Floppy Disk maintenance tool.'
+echo ''
+echo 'Type ? for help.'
+
+#-------------------
+# command loop
+#
+while :; do
+    #-------------------
+    # prompting
+    #
+    echo ''
+    echo -n "Cmd -> "; read cmd
+    echo ''
+
+    set X $cmd
+
+    #-------------------
+    # process every command
+    #
+    case X"$2" in
+        #-------------------
+        # make new FFS file system
+        # on floppy disk, /dev/fd0a
+        #
+        Xfdform)
+        echo -n "Format /dev/rfd0a, OK? -> "; read yn
+        if [ 1 = `expr "$yn" : '[Yy]$'` ]; then
+            disklabel -w fd0 floppy
+            newfs /dev/rfd0a
+        fi
+        ;;
+
+        #-------------------
+        # make list of modified files
+        #
+        Xmklist)
+        echo -n "Making list of modified files ..."
+        (cd /mfs
+            find * \! -type d -ls \
+                | awk '$12 != "->" || ($13 != "/cdrom/" $11) { print "cmp -s " $11 " /cdrom/" $11 " || echo " $11 }' \
+                | sh \
+                | sort > /tmp/fdfiles )
+        echo " done."
+        ;;
+
+        #-------------------
+        # edit list of modified files
+        #
+        Xedlist)
+            ${EDITOR:-vi} /tmp/fdfiles
+        ;;
+
+        #-------------------
+        # write back files listed in /tmp/fdlist
+        # to floppy disk
+        #
+        Xwrite)
+        echo -n "Write list of files into /mnt/livecd-config.tar.gz , OK? -> "; read yn
+        if [ 1 = `expr "$yn" : '[Yy]$'` ]; then
+            if mount /dev/fd0a /mnt; then
+                (cd /mfs && tar -cvzp -f /mnt/livecd-config.tar.gz -I /tmp/fdfiles)
+                cp /boottmp/livecd-retr.sh.inc /mnt
+                umount /mnt
+            else
+                echo "mounting /dev/fd0a failed"
+            fi
+        fi
+        ;;
+
+        #-------------------
+        # finish all
+        #
+        Xquit|Xbye|Xexit)
+        rm -f /tmp/fdfiles
+        break;
+        ;;
+
+        #-------------------
+        # null command
+        # ... only RET or EOF
+        X)
+        : # do nothing
+        ;;
+
+        #-------------------
+        # other strings are invalid
+        # then for help message
+        #
+        *)
+        echo "Commands are;
+    fdform  -  format /dev/rfd0a as FFS
+    mklist  -  make list of modified files
+    edlist  -  edit list of modified files
+    write   -  write list files to floppy
+    bye, exit, quit
+            - end of this utility"
+        ;;
+    esac
+done

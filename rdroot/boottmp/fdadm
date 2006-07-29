@@ -32,7 +32,7 @@ while :; do
         # make new FFS file system
         # on floppy disk, /dev/fd0a
         #
-        Xfdform)
+        Xmkfs)
         echo -n "Format /dev/rfd0a, OK? -> "; read yn
         if [ 1 = `expr "$yn" : '[Yy]$'` ]; then
             disklabel -w fd0 floppy
@@ -46,10 +46,10 @@ while :; do
         Xmklist)
         echo -n "Making list of modified files ..."
         (cd /mfs
-            find * \! -type d -ls \
-                | awk '$12 != "->" || ($13 != "/cdrom/" $11) { print "cmp -s " $11 " /cdrom/" $11 " || echo " $11 }' \
-                | sh \
-                | sort > /tmp/fdfiles )
+         find * -type f -cnewer /boottmp/boot_starts -print   \
+         | awk '{print "cmp -s", $1, "/cdrom/" $1, "|| echo", $1}' \
+         | sh
+         find * -type l -cnewer /boottmp/boot_livecd_rc_ends -print) | sort > /tmp/fdfiles
         echo " done."
         ;;
 
@@ -61,7 +61,7 @@ while :; do
         ;;
 
         #-------------------
-        # write back files listed in /tmp/fdlist
+        # write back files listed in /tmp/fdfiles
         # to floppy disk
         #
         Xwrite)
@@ -98,7 +98,7 @@ while :; do
         #
         *)
         echo "Commands are;
-    fdform  -  format /dev/rfd0a as FFS
+    mkfs    -  make FFS on /dev/rfd0a
     mklist  -  make list of modified files
     edlist  -  edit list of modified files
     write   -  write list files to floppy

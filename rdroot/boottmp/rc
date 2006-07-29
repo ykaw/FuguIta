@@ -1,31 +1,32 @@
-#====================
-# interim rc file for LiveCD
-#
-# KAWAMATA, Yoshihiro
-# kaw@on.rim.or.jp
-#
+(
+ #====================
+ # interim rc file for LiveCD
+ #
+ # KAWAMATA, Yoshihiro
+ # kaw@on.rim.or.jp
+ #
 
-cd /
+ cd /
 
-#====================
-# setup file systems
-#
+ #====================
+ # setup file systems
+ #
 
-#-------------------------------
-# create fstab then mount by it
-#
-mount -w /dev/rd0a /
-: > /boottmp/boot_starts
+ #-------------------------------
+ # create fstab then mount by it
+ #
+ mount -w /dev/rd0a /
+ : > /boottmp/boot_starts
 
-mfs_alloc_mb_max=$((`sysctl -n hw.usermem`/1024/1024))
-mfs_alloc_mb=$(($mfs_alloc_mb_max/2))
+ mfs_alloc_mb_max=$((`sysctl -n hw.usermem`/1024/1024))
+ mfs_alloc_mb=$(($mfs_alloc_mb_max/2))
 
-greet_pc98=NO
+ greet_pc98=NO
 
-if [ X"$greet_pc98" = XYES ]; then
-    echo -n "[H[2JHow many megabytes(16-$mfs_alloc_mb_max)? "; read ans
-else
-    echo '================================================
+ if [ X"$greet_pc98" = XYES ]; then
+     echo -n "[H[2JHow many megabytes(16-$mfs_alloc_mb_max)? "; read ans
+ else
+     echo '================================================
 =     _____                 ____   _____ _____
 =    / ___ \               |  _ \ / ____|  __ \
 =   / /  / /___  ___  ____ | |_) | (___ | |  | |
@@ -38,332 +39,397 @@ else
 =       please access http://kaw.ath.cx/openbsd/
 ================================================
 '
-    echo "$mfs_alloc_mb_max MB of memory available for you."
-    echo -n "your mfs size in megabytes? [default: $mfs_alloc_mb] -> "; read ans
-fi
+     echo "$mfs_alloc_mb_max MB of memory available for you."
+     echo -n "your mfs size in megabytes? [default: $mfs_alloc_mb] -> "; read ans
+ fi
 
-if [ X"$ans" != X ]; then
-    mfs_alloc_mb=$ans
-fi
-echo "Allocating $mfs_alloc_mb MB for mfs."
+ if [ X"$ans" != X ]; then
+     mfs_alloc_mb=$ans
+ fi
+ echo "Allocating $mfs_alloc_mb MB for mfs."
 
-echo "/dev/rd0a /       ffs     rw      0 0
+ echo "/dev/rd0a /       ffs     rw      0 0
 /dev/cd0c       /cdrom  cd9660  ro      0 0
 swap            /mfs    mfs     rw,async,-b=4096,-f=512,-i=1024,-s=$(($mfs_alloc_mb*1024*2)) 0 0" >/boottmp/fstab
 
-if /sbin/mount -a; then
-    :
-else
-    echo 'Mount failed.'
-    exit 1
-fi
+ if /sbin/mount -a; then
+     :
+ else
+     echo 'Mount failed.'
+     exit 1
+ fi
 
-#----------------------------
-# re-link bin dirs to CD-ROM
-#
-/cdrom/bin/rm -rf /bin /sbin
-/cdrom/bin/ln -sf cdrom/bin cdrom/sbin .
+ #----------------------------
+ # re-link bin dirs to CD-ROM
+ #
+ /cdrom/bin/rm -rf /bin /sbin
+ /cdrom/bin/ln -sf cdrom/bin cdrom/sbin .
 
-while :; do
-    echo 'Select boot method;'
-    echo '   0: CD-ROM only'
-    echo '   1: CD-ROM only (for low mem)'
-    echo '   2: CD-ROM + USB flash'
-    echo '   3: CD-ROM + tar.gz on floppy'
-    echo '   4: CD-ROM + interactive shell'
-    echo -n '-->'; read setup_rw_mode
+ while :; do
+     echo 'Select boot method;'
+     echo '   0: CD-ROM only'
+     echo '   1: CD-ROM only (for low mem)'
+     echo '   2: CD-ROM + USB flash'
+     echo '   3: CD-ROM + tar.gz on floppy'
+     echo '   4: CD-ROM + interactive shell'
+     echo -n '-->'; read setup_rw_mode
 
-    case X"$setup_rw_mode" in
+     case X"$setup_rw_mode" in
 
-        #-----------------------
-        #-----------------------
-        # CD-ROM only mode
-        #-----------------------
-        #-----------------------
-        #
-        X[01])
-        if [ X"$setup_rw_mode" = X0 ]; then
-            echo "manual"
-        elif [ X"$setup_rw_mode" = X1 ]; then
-            echo "manual_less_mfs"
-        fi > /boottmp/boot_mode
+	 #-----------------------
+	 #-----------------------
+	 # CD-ROM only mode
+	 #-----------------------
+	 #-----------------------
+	 #
+	 X[01])
+	 if [ X"$setup_rw_mode" = X0 ]; then
+	     echo "manual"
+	 elif [ X"$setup_rw_mode" = X1 ]; then
+	     echo "manual_less_mfs"
+	 fi > /boottmp/boot_mode
 
-        #-------------------------------------
-        # copy CD-ROM contents to rw-able mfs
-        #
-        echo "Running manual setup."
-        echo -n "Copying files from CD-ROM to mfs ... "
-        cd /mfs
-        if [ X"$setup_rw_mode" = X0 ]; then
-            (cd ../cdrom && tar cf - etc home tmp root var) | tar xpf -
-        elif [ X"$setup_rw_mode" = X1 ]; then
-            (cd ../cdrom && tar cf - etc home tmp root var) \
-            | tar -x \
-                  -p \
-                  -f - \
-                  -s '|^etc/X11/.*||' \
-                  -s '|^var/dict/.*||' \
-                  -s '|^var/www/htdocs/.*||'
-        fi
-        echo "done"
+	 #-------------------------------------
+	 # copy CD-ROM contents to rw-able mfs
+	 #
+	 echo "Running manual setup."
+	 echo -n "Copying files from CD-ROM to mfs ... "
+	 cd /mfs
+	 if [ X"$setup_rw_mode" = X0 ]; then
+	     (cd ../cdrom && tar cf - etc home tmp root var) | tar xpf -
+	 elif [ X"$setup_rw_mode" = X1 ]; then
+	     (cd ../cdrom && tar cf - etc home tmp root var) \
+	     | tar -x \
+		   -p \
+		   -f - \
+		   -s '|^etc/X11/.*||' \
+		   -s '|^var/dict/.*||' \
+		   -s '|^var/www/htdocs/.*||'
+	 fi
+	 echo "done"
 
-        #-----------------------
-        # symlink from / to mfs
-        #
-        cd /
-        rm -rf /tmp
-        mv /etc /bootetc
-        ln -sf mfs/* .
-        cp /boottmp/fstab /etc
+	 #-----------------------
+	 # symlink from / to mfs
+	 #
+	 cd /
+	 rm -rf /tmp
+	 mv /etc /bootetc
+	 ln -sf mfs/* .
+	 cp /boottmp/fstab /etc
 
-        #-------------------------------------------
-        # symlink rest of contents from / to CD-ROM
-        #
-        ln -s cdrom/* .     2>/dev/null
-        #ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
+	 #-------------------------------------------
+	 # symlink rest of contents from / to CD-ROM
+	 #
+	 ln -s cdrom/* .     2>/dev/null
+	 #ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
 
-        if [ X"$setup_rw_mode" = X0 ]; then
-            #-------------------------------------------
-            # lndir from /mfs/usr to /cdrom/usr
-            #
-            echo -n "Linking files from mfs to CD-ROM ... "
-            mkdir /mfs/usr && cd /mfs/usr && lndir -s /cdrom/usr
+	 if [ X"$setup_rw_mode" = X0 ]; then
+	     #-------------------------------------------
+	     # lndir from /mfs/usr to /cdrom/usr
+	     #
+	     echo -n "Linking files from mfs to CD-ROM ... "
+	     mkdir /mfs/usr && cd /mfs/usr && lndir -s /cdrom/usr
 
-            #-------------------------------------------
-            # Then, copy again for trivial dirs
-            #
-            for d in \
-                usr/libexec/auth \
-                usr/local/lib/wnn
-              do
-              if [ -d /mfs/$d ]; then
-                  rm -rf /mfs/$d && cd `dirname /cdrom/$d` && pax -rwpe `basename $d` `dirname /mfs/$d`
-              fi
-            done
+	     #-------------------------------------------
+	     # KLUDGE: Re-lndir under /usr/local/lib/X11/fonts
+	     #
+	     if [ -h /mfs/usr/local/lib/X11/fonts ]; then
+		 rm /mfs/usr/local/lib/X11/fonts
+		 mkdir -p /mfs/usr/local/lib/X11/fonts
+		 (cd /mfs/usr/local/lib/X11/fonts && lndir -s /cdrom/usr/local/lib/X11/fonts)
+	     fi
 
-            cd / && ln -sf mfs/usr .
-        elif [ X"$setup_rw_mode" = X1 ]; then
-            (cd /mfs/etc/X11        && lndir -s /cdrom/etc/X11)
-            (cd /mfs/var/dict       && lndir -s /cdrom/var/dict)
-            (cd /mfs/var/www/htdocs && lndir -s /cdrom/var/www/htdocs)
-        fi
+	     #-------------------------------------------
+	     # set time stamp of dirs containing font files
+	     # (to avoid re-build font caches)
+	     #
+	     (cd /mfs && for d in usr/*/lib/X11/fonts/*; do touch -cm -r /cdrom/$d $d; done)
 
-        echo "done"
+	     #-------------------------------------------
+	     # Then, copy again for trivial dirs
+	     #
+	     for d in \
+		 usr/libexec/auth \
+		 usr/local/lib/wnn
+	       do
+	       if [ -d /mfs/$d ]; then
+		   rm -rf /mfs/$d && cd `dirname /cdrom/$d` && pax -rwpe `basename $d` `dirname /mfs/$d`
+	       fi
+	     done
 
-        #========================================
-        # setup in /etc (network etc...)
-        #
-        echo ""
+	     cd / && ln -sf mfs/usr .
+	 elif [ X"$setup_rw_mode" = X1 ]; then
+	     (cd /mfs/etc/X11        && lndir -s /cdrom/etc/X11)
+	     (cd /mfs/var/dict       && lndir -s /cdrom/var/dict)
+	     (cd /mfs/var/www/htdocs && lndir -s /cdrom/var/www/htdocs)
+	 fi
 
-        echo "Set your keyboard type;"
-        while :; do
-            echo -n `kbd -l`
-            echo -n ' -> '; read kbtype
-            if kbd $kbtype; then
-                echo $kbtype > /etc/kbdtype
-                break
-            fi
-        done
+	 echo "done"
 
-        echo -n "Please wait ... "
-        until passwd root
-          do
-          echo "passwd failed, Try again."
-        done
+	 #========================================
+	 # setup in /etc (network etc...)
+	 #
+	 echo ""
 
-        echo -n 'Setting up network configurations? -> '; read ans
-        case X"$ans" in
-            X[Yy])
-            echo "========================================"
-            ifconfig -a
-            echo "========================================"
-            echo -n 'your network interface? -> '; read mynic
-            echo -n 'your IPv4 addr or "dhcp"? -> '; read myv4addr
-            if [ X"$myv4addr" = Xdhcp ]; then
-                echo "dhcp" > /etc/hostname.$mynic
-            else
-                echo -n 'your netmask? -> '; read mynetmask
-                echo -n 'your FQDN? -> '; read myfqdn
-                echo -n 'your DNS server? -> '; read mydns
-                echo -n 'your default gateway? -> '; read mygw
+	 echo "Set your keyboard type;"
+	 while :; do
+	     echo -n `kbd -l`
+	     echo -n ' -> '; read kbtype
+	     if kbd $kbtype; then
+		 echo $kbtype > /etc/kbdtype
+		 break
+	     fi
+	 done
 
-                echo "inet $myv4addr $mynetmask NONE" > /etc/hostname.$mynic
-                echo "lookup file bind"  >  /etc/resolv.conf
-                echo "nameserver $mydns" >> /etc/resolv.conf
-                echo "$myfqdn" > /etc/myname
-                echo "$mygw" > /etc/mygate
-                echo "::1 localhost.localnet localhost"       >  /etc/hosts
-                echo "127.0.0.1 localhost.localnet localhost" >> /etc/hosts
-                echo "$myv4addr $myfqdn ${myfqdn%%.*}"        >> /etc/hosts
-            fi
-            ;;
-        esac
+	 echo "Please wait ... "
+	 until passwd root
+	   do
+	   echo "passwd failed, Try again."
+	 done
 
-        echo -n 'Generate cryptographic keys? -> '; read ans
-        case X"$ans" in
-            X[Yy])
-            rm -f /etc/ssh/*_key* /etc/isakmpd/private/local.key
-            ;;
-        esac
+	 echo -n 'your host name (without domain)? -> '; read myhost
+	 if [ X"$myhost" = X ]; then
+	     myhost=livecd
+	 fi
+	 echo $myhost >/etc/myname
 
-        break
-        ;;
+	 #-----------------------
+	 # Network configuration
+	 #
+	 echo -n 'Setting up IP network configurations? [n, 4, 6 or 46]-> '; read ipv
+	 case X"$ipv" in
+	     #-----------------------
+	     # IP-generic configs
+	     #
+	     X*[46]*)
+	     echo "========================================"
+	     ifconfig -a
+	     echo "========================================"
+	     echo -n 'your network interface? -> '; read mynic
+	     : > /etc/hostname.$mynic
 
-        #-----------------------
-        #-----------------------
-        # Restore from USB flash mode
-        #-----------------------
-        #-----------------------
-        #
-        X2)
-        echo "usbflash" > /boottmp/boot_mode
+	     echo "lookup file bind" > /etc/resolv.conf
+	     echo -n "your FQDN? -> ${myhost}."; read mydomain
+	     if [ ! X"$mydomain" = X ]; then
+		 myfqdn=${myhost}.${mydomain}
+		 echo "search $mydomain" >> /etc/resolv.conf
+		 echo $myfqdn > /etc/myname
+	     fi
 
-        #-----------------------
-        # search USB mass storage
-        # (works on a subshell not to destroy positional parameters...)
-        #
-        ( set X `dmesg | while read ln; do case Y"$ln" in Yscsibus[0-9]" at "umass[0-9]*) echo $ln;; esac; done`
-        if [ $# -gt 2 ]; then
-                usb_scsi_umass=${2%:}
-                usb_umass=$4
+	     echo '127.0.0.1 localhost'  > /etc/hosts
+	     echo '::1       localhost' >> /etc/hosts
 
-                set X `dmesg | while read ln; do case Y"$ln" in Ysd[0-9]" at "scsibus[0-9]*) echo $ln;; esac; done`
-                if [ $# -gt 2 ]; then
-                        usb_sd=$2
-                        usb_sd_scsi=$4
-                        if [ "$usb_scsi_umass" = "$usb_sd_scsi" ]; then
-                            echo "USB flash memory found as $usb_sd"
-                        else
-                            echo "SCSI bus between sd($usb_sd at $usb_sd_scsi) and umass($usb_scsi_umass at $usb_umass) not match"
-                            exit 1
-                        fi
-                else
-                    echo 'SCSI-simulated USB disk storage not found'
-                    exit 1
-                fi
-        else
-            echo 'USB mass storage device not found'
-            exit 1
-        fi
+	     echo    'your DNS servers?'
+	     echo    '(up to three IPv4/6 addresses, separated by spaces)'
+	     echo -n '-> '; read mydns
+	     mydns=`echo -n $mydns | tr -cs '0-9A-Za-z:.%' ' '`
+	     if [ ! X"$mydns" = X ]; then
+		 set $mydns >/dev/null
+		 [ ! X"$1" = X ] && echo "nameserver $1"          >> /etc/resolv.conf
+		 [ ! X"$2" = X ] && shift && echo "nameserver $1" >> /etc/resolv.conf
+		 [ ! X"$2" = X ] && shift && echo "nameserver $1" >> /etc/resolv.conf
+	     fi
 
-        usb_devname=/dev/${usb_sd}a
-        echo "$usb_devname" > /boottmp/boot_restore_devname )
+	     #-----------------------
+	     # IPv4 configs
+	     #
+	     case X"$ipv" in
+		 X*4*)
+		     echo -n 'your IPv4 addr or "dhcp"? -> '; read myv4addr
+		     if [ X"$myv4addr" = Xdhcp ]; then
+			 echo "dhcp" >> /etc/hostname.$mynic
+		     else
+			 echo -n 'your netmask? -> '; read mynetmask
+			 echo -n 'your default gateway? -> '; read mygw
 
-        #-----------------------
-        # mount user's storage
-        #
-        if mount -r `cat /boottmp/boot_restore_devname` /mnt; then
-            #-----------------------
-            # select config files
-            #
-            if [ ! -d /mnt/livecd-config ]; then
-                echo 'cannot find config dir'
-                exit 1
-            fi
+			 echo "inet $myv4addr $mynetmask NONE" >> /etc/hostname.$mynic
+			 echo "$mygw" > /etc/mygate
+			 echo "$myv4addr $myfqdn ${myfqdn%%.*}"        >> /etc/hosts
+		     fi
+		     ;;
+	     esac
 
-            while :; do
-                echo 'avairable configs;'
-                (cd /mnt/livecd-config && echo ""; ls -C; echo "")
-                echo -n 'your config name? -> '; read confdir
-                if [ -d "/mnt/livecd-config/$confdir" ]; then
-                    echo "$confdir" > /boottmp/boot_user_config
-                    break
-                else
-                    echo 'cannot find config dir'
-                fi
-            done
+	     #-----------------------
+	     # IPv6 configs
+	     #
+	     case X"$ipv" in
+		 X*6*)
+		     echo 'rtsol' >> /etc/hostname.$mynic
+		     echo "rtsold_flags=$mynic" >> /etc/rc.conf.local
+		     echo 'net.inet6.ip6.forwarding=0'   >> /etc/sysctl.conf
+		     echo 'net.inet6.ip6.accept_rtadv=1' >> /etc/sysctl.conf
+		     ;;
+	     esac
+	     ;;
+	 esac
 
-            #-----------------------
-            # copying to mfs
-            #
-            echo -n "Copying files from flash to mfs ... "
-            cd /mfs
-            (cd /mnt/livecd-config/$confdir && tar cf - .) | tar xpf -
-            echo "done"
+	 echo -n 'Generate cryptographic keys? -> '; read ans
+	 case X"$ans" in
+	     X[Yy])
+	     rm -f /etc/ssh/*_key* /etc/isakmpd/private/local.key
+	     ;;
+	 esac
 
-            #-----------------------
-            # symlink from / to mfs
-            #
-            cd /
-            rm -rf /tmp
-            mv /etc /bootetc
-            ln -sf mfs/* .
-            cp /boottmp/fstab /etc
+	 break
+	 ;;
 
-            #-------------------------------------------
-            # symlink rest of contents from / to CD-ROM
-            #
-            ln -s cdrom/* .     2>/dev/null
-            #ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
+	 #-----------------------
+	 #-----------------------
+	 # Restore from USB flash mode
+	 #-----------------------
+	 #-----------------------
+	 #
+	 X2)
+	 echo "usbflash" > /boottmp/boot_mode
 
-            umount /mnt
-        else
-            echo "Failed to mount user's storage"
-            exit 1
-        fi
+	 #-----------------------
+	 # search USB mass storage
+	 # (works on a subshell not to destroy positional parameters...)
+	 #
+	 ( set X `dmesg | while read ln; do case Y"$ln" in Yscsibus[0-9]" at "umass[0-9]*) echo $ln;; esac; done`
+	 if [ $# -gt 2 ]; then
+		 usb_scsi_umass=${2%:}
+		 usb_umass=$4
 
-        break
-        ;;
+		 set X `dmesg | while read ln; do case Y"$ln" in Ysd[0-9]" at "scsibus[0-9]*) echo $ln;; esac; done`
+		 if [ $# -gt 2 ]; then
+			 usb_sd=$2
+			 usb_sd_scsi=$4
+			 if [ "$usb_scsi_umass" = "$usb_sd_scsi" ]; then
+			     echo "USB flash memory found as $usb_sd"
+			 else
+			     echo "SCSI bus between sd($usb_sd at $usb_sd_scsi) and umass($usb_scsi_umass at $usb_umass) not match"
+			     exit 1
+			 fi
+		 else
+		     echo 'SCSI-simulated USB disk storage not found'
+		     exit 1
+		 fi
+	 else
+	     echo 'USB mass storage device not found'
+	     exit 1
+	 fi
 
-        #-----------------------
-        #-----------------------
-        # Restore from floppy mode
-        #-----------------------
-        #-----------------------
-        #
-        X3)
-        echo "floppy" > /boottmp/boot_mode
+	 usb_devname=/dev/${usb_sd}a
+	 echo "$usb_devname" > /boottmp/boot_restore_devname )
 
-        #-----------------------
-        # copying to mfs
-        #
-        if mount -r /dev/fd0a /mnt; then
-            if [ -r /mnt/livecd-retr.sh.inc ]; then
-                cp  /mnt/livecd-retr.sh.inc /tmp
-                .  /tmp/livecd-retr.sh.inc
-                rm -f /tmp/livecd-retr.sh.inc
-            else
-                echo "Retrieving script not found on fd0a."
-                exit 1
-            fi
-            umount /mnt
-        else
-            echo "Failed to read /mnt/livecd-config.tar.gz on /dev/fd0a"
-            exit 1
-        fi
+	 #-----------------------
+	 # mount user's storage
+	 #
+	 if mount -r `cat /boottmp/boot_restore_devname` /mnt; then
+	     #-----------------------
+	     # select config files
+	     #
+	     if [ ! -d /mnt/livecd-config ]; then
+		 echo 'cannot find config dir'
+		 exit 1
+	     fi
 
-        break
-        ;;
+	     while :; do
+		 echo 'avairable configs;'
+		 (cd /mnt/livecd-config && echo ""; ls -C; echo "")
+		 echo -n 'your config name? -> '; read confdir
+		 if [ -d "/mnt/livecd-config/$confdir" ]; then
+		     echo "$confdir" > /boottmp/boot_user_config
+		     break
+		 else
+		     echo 'cannot find config dir'
+		 fi
+	     done
 
-        #-----------------------
-        #-----------------------
-        # Interactive shell mode
-        #-----------------------
-        #-----------------------
-        #
-        X4)
-        echo "intr-shell" > /boottmp/boot_mode
-        echo "==INTERACTIVE SHELL MODE================
-=
-= An interactive shell invoked for manual operation.
-= Now, just CD-ROM mounted on /cdrom.
-=
-= After exit this shell, rest of boot sequence will follow.
-=
-========================================"
-        PATH="/cdrom/sbin:/cdrom/bin" /cdrom/bin/sh
+	     #-----------------------
+	     # copying to mfs
+	     #
+	     echo -n "Copying files from flash to mfs ... "
+	     cd /mfs
+	     (cd /mnt/livecd-config/$confdir && tar cf - .) | tar xpf -
+	     echo "done"
 
-        break
-        ;;
+	     #-----------------------
+	     # symlink from / to mfs
+	     #
+	     cd /
+	     rm -rf /tmp
+	     mv /etc /bootetc
+	     ln -sf mfs/* .
+	     cp /boottmp/fstab /etc
 
-        *) echo "What?" ;;
-    esac
-done
+	     #-------------------------------------------
+	     # symlink rest of contents from / to CD-ROM
+	     #
+	     ln -s cdrom/* .     2>/dev/null
+	     #ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
 
-echo "========================================"
-date > /boottmp/boot_livecd_rc_ends
+	     umount /mnt
+	 else
+	     echo "Failed to mount user's storage"
+	     exit 1
+	 fi
 
-#========================================
-# chain original /etc/rc
-#
+	 break
+	 ;;
+
+	 #-----------------------
+	 #-----------------------
+	 # Restore from floppy mode
+	 #-----------------------
+	 #-----------------------
+	 #
+	 X3)
+	 echo "floppy" > /boottmp/boot_mode
+
+	 #-----------------------
+	 # copying to mfs
+	 #
+	 if mount -r /dev/fd0a /mnt; then
+	     if [ -r /mnt/livecd-retr.sh.inc ]; then
+		 cp -p /boottmp/livecd-retr.sh.inc /boottmp/livecd-retr.sh.inc.orig
+		 cat /mnt/livecd-retr.sh.inc > /boottmp/livecd-retr.sh.inc
+		 .  /boottmp/livecd-retr.sh.inc
+	     else
+		 echo "Retrieving script not found on fd0a."
+		 exit 1
+	     fi
+	     umount /mnt
+	 else
+	     echo "Failed to read /mnt/livecd-config.tar.gz on /dev/fd0a"
+	     exit 1
+	 fi
+
+	 break
+	 ;;
+
+	 #-----------------------
+	 #-----------------------
+	 # Interactive shell mode
+	 #-----------------------
+	 #-----------------------
+	 #
+	 X4)
+	 echo "intr-shell" > /boottmp/boot_mode
+	 echo "==INTERACTIVE SHELL MODE================
+ =
+ = An interactive shell invoked for manual operation.
+ = Now, just CD-ROM mounted on /cdrom.
+ =
+ = After exit this shell, rest of boot sequence will follow.
+ =
+ ========================================"
+	 PATH="/cdrom/sbin:/cdrom/bin" /cdrom/bin/sh
+
+	 break
+	 ;;
+
+	 *) echo "What?" ;;
+     esac
+ done
+
+ echo "========================================"
+ date > /boottmp/boot_livecd_rc_ends
+
+ #========================================
+ # chain original /etc/rc
+ #
+ ) # close the first line
+
 . /etc/rc

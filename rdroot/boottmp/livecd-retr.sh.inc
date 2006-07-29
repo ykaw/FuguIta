@@ -29,6 +29,15 @@ mkdir /mfs/usr && cd /mfs/usr && lndir -s /cdrom/usr
 echo "done"
 
 #-------------------------------------------
+# KLUDGE: Re-lndir under /usr/local/lib/X11/fonts
+#
+if [ -h /mfs/usr/local/lib/X11/fonts ]; then
+    rm /mfs/usr/local/lib/X11/fonts
+    mkdir -p /mfs/usr/local/lib/X11/fonts
+    (cd /mfs/usr/local/lib/X11/fonts && lndir -s /cdrom/usr/local/lib/X11/fonts)
+fi
+
+#-------------------------------------------
 # Then, copy again for trivial dirs
 #
 for d in \
@@ -61,3 +70,9 @@ cp /boottmp/fstab /etc
 #
 ln -s cdrom/* .     2>/dev/null
 #ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
+
+#-------------------------------------------
+# set time stamp of dirs containing font files
+# (to avoid re-build font caches)
+#
+(cd /mfs && for d in usr/*/lib/X11/fonts/*; do touch -cm -r /cdrom/$d $d; done)

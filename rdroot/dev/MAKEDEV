@@ -4,8 +4,8 @@
 # generated from:
 #
 #	OpenBSD: etc.i386/MAKEDEV.md,v 1.33 2005/08/01 22:22:13 deraadt Exp 
-#	OpenBSD: MAKEDEV.common,v 1.20 2005/08/01 22:22:12 deraadt Exp 
-#	OpenBSD: MAKEDEV.mi,v 1.73 2005/02/07 06:14:18 david Exp 
+#	OpenBSD: MAKEDEV.common,v 1.23 2005/12/27 19:02:42 miod Exp 
+#	OpenBSD: MAKEDEV.mi,v 1.77 2005/10/06 06:43:19 otto Exp 
 #	OpenBSD: MAKEDEV.sub,v 1.14 2005/02/07 06:14:18 david Exp 
 #
 #
@@ -51,7 +51,7 @@
 #	pty*	Set of 62 master pseudo terminals
 #	tty*	Set of 62 slave pseudo terminals
 # Console ports:
-#	ttyC0	Minimal wscons devices
+#	wscons	Minimal wscons devices
 #	ttyC-F*	wscons display devices
 #	wskbd*	wscons keyboards
 #	wsmux	wscons keyboard/mouse mux devices
@@ -77,7 +77,7 @@
 #	bktr*	Video frame grabbers
 #	bpf*	Berkeley Packet Filter
 #	crypto	Hardware crypto access driver
-#	fd	fd/* nodes for fdescfs
+#	fd	fd/* nodes
 #	gpio*	General Purpose Input/Output
 #	gpr*	GPR400 smartcard reader
 #	hotplug	devices hot plugging
@@ -168,15 +168,13 @@ dodisk()
 {
 	[ "$DEBUG" ] && set -x
 	n=$(($((${5}*${7:-16}))+${6})) count=0
-	RMlist="$RMlist $1$2? r$1$2?"
 	[ 0$7 -ne 8 ] && l="i j k l m n o p"
 	for d in a b c d e f g h $l
 	do
-		M $1$2$d	b $3 $(($n+$count)) 640
-		M r$1$2$d	c $4 $(($n+$count)) 640
+		M $1$2$d	b $3 $(($n+$count)) 640 operator
+		M r$1$2$d	c $4 $(($n+$count)) 640 operator
 		let count=count+1
 	done
-	MKlist="$MKlist;chown root:operator $1$2? r$1$2?"
 }
 
 dodisk2()
@@ -190,35 +188,31 @@ dodisk2()
 }
 
 # M name b/c major minor [mode] [group]
-RMlist="rm -f"
-MKlist=":"
+RMlist[0]="rm -f"
 
 mkl() {
-	[ "${mklist[$1]}" ] && {
-		mklist[$1]="${mklist[$1]};mknod -m $1 $2 $3 $4 $5"
-	} || {
-		mklist[$1]="mknod -m $1 $2 $3 $4 $5"
-		modes="$modes $1"
-	}
+	mklist[${#mklist[*]}]=";mknod -m $1 $2 $3 $4 $5"
 }
 
 M() {
-	RMlist="$RMlist $1"
+	RMlist[${#RMlist[*]}]=$1
 	mkl ${5-666} $1 $2 $3 $4
-	mklist="$mklist $1"
 	G=${6:-wheel}
 	[ "$7" ] && {
-		MKlist="$MKlist;chown $7:$G $1"
+		MKlist[${#MKlist[*]}]=";chown $7:$G $1"
 	} || {
 		case $G in
-		wheel)g=0;;kmem)g=2;;operator)g=5;;tty)g=4;;dialer)g=117;;_lkm)g=61;;
+		wheel)
+			[ ${#whlist[*]} = 0 ] && whlist[0]=";chgrp wheel"
+			whlist[${#whlist[*]}]="$1"
+		;;
+		operator)
+			[ ${#oplist[*]} = 0 ] && oplist[0]=";chgrp operator"
+			oplist[${#oplist[*]}]="$1"
+		;;
+		*)
+			MKlist[${#MKlist[*]}]=";chgrp $G $1";
 		esac
-		[ "${grplist[$g]}" ] && {
-			grplist[$g]="${grplist[$g]} $1"
-		} || {
-			groups="$groups $g"
-			grplist[$g]="chgrp $G $1"
-		}
 	}
 	return 0
 }
@@ -285,8 +279,8 @@ ss*)
 	M ss$U c 19 $(($U*16)) 640 operator
 	M nss$U c 19 $(($(($U*16))+1)) 640 operator
 	M enss$U c 19 $(($(($U*16))+3)) 640 operator
-	RMlist="$RMlist scan$U"
-	MKlist="$MKlist;umask 77;ln -s ss$U scan$U"
+	RMlist[${#RMlist[*]}]="scan$U"
+	MKlist[${#MKlist[*]}]=";umask 77;ln -s ss$U scan$U"
 	;;
 
 speaker)
@@ -308,7 +302,7 @@ rmidi*)
 
 radio*)
 	M radio$U     c 76 $U
-	MKlist="$MKlist;[ -e radio ] || ln -s radio$U radio"
+	MKlist[${#MKlist[*]}]=";[ -e radio ] || ln -s radio$U radio"
 	;;
 
 pf*)
@@ -330,8 +324,8 @@ nvram)
 music*)
 	M music$U     c 53 $U
 	M sequencer$U c 53 $(($U+128))
-	MKlist="$MKlist;[ -e music ] || ln -s music$U music"
-	MKlist="$MKlist;[ -e sequencer ] || ln -s sequencer$U sequencer"
+	MKlist[${#MKlist[*]}]=";[ -e music ] || ln -s music$U music"
+	MKlist[${#MKlist[*]}]=";[ -e sequencer ] || ln -s sequencer$U sequencer"
 	;;
 
 lkm)
@@ -359,9 +353,9 @@ gpio*)
 	;;
 
 fd)
-	RMlist="mkdir -p fd;$RMlist" n=0
+	RMlist[${#RMlist[*]}]=";mkdir -p fd;rm -f" n=0
 	while [ $n -lt 64 ];do M fd/$n c 22 $n;n=$(($n+1));done
-	MKlist="$MKlist;chmod 555 fd"
+	MKlist[${#MKlist[*]}]=";chmod 555 fd"
 	;;
 
 crypto)
@@ -385,10 +379,10 @@ audio*)
 	M mixer$U	c 42 $(($U+16))
 	M audio$U	c 42 $(($U+128))
 	M audioctl$U	c 42 $(($U+192))
-	MKlist="$MKlist;[ -e audio ] || ln -s audio$U audio"
-	MKlist="$MKlist;[ -e mixer ] || ln -s mixer$U mixer"
-	MKlist="$MKlist;[ -e sound ] || ln -s sound$U sound"
-	MKlist="$MKlist;[ -e audioctl ] || ln -s audioctl$U audioctl"
+	MKlist[${#MKlist[*]}]=";[ -e audio ] || ln -s audio$U audio"
+	MKlist[${#MKlist[*]}]=";[ -e mixer ] || ln -s mixer$U mixer"
+	MKlist[${#MKlist[*]}]=";[ -e sound ] || ln -s sound$U sound"
+	MKlist[${#MKlist[*]}]=";[ -e audioctl ] || ln -s audioctl$U audioctl"
 	;;
 
 acpi*)
@@ -619,16 +613,14 @@ esac
 done
 }
 R "$@"
-list="$RMlist"
-for mode in $modes; do
-	list="$list;${mklist[$mode]}"
-done
-for group in $groups; do
-	list="$list;${grplist[$group]}"
-done
-list="$list;$MKlist"
-if [ "$eo" = "echo" ]; then
-	$eo "$list"
+{
+echo -n ${RMlist[*]}
+echo -n ${mklist[*]}
+echo -n ${MKlist[*]}
+echo -n ${whlist[*]}
+echo ${oplist[*]}
+} | if [ "$eo" = "echo" ]; then
+        cat
 else
-	echo "$list" | sh
+	sh
 fi

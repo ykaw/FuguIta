@@ -29,11 +29,16 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-FI_FILENAME=FuguIta-4.0-200611011
+PROJNAME=FuguIta
+VERSION =4.1
+DATE   !=date +%Y%m%d
+REVISION=1
+
+FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)
 CDR_DEV=cd1
 
 all:
-	@echo lets go
+	@echo /$(FI_FILENAME)/ - lets go
 
 cdrclean:
 	cdrecord -v dev=/dev/r$(CDR_DEV)c blank=fast
@@ -48,7 +53,8 @@ bgz: livecd.iso
 	gzip -cv9 livecd.iso > $(FI_FILENAME).iso.gz
 
 livecd.iso: tree
-	cd cdroot.dist && mkhybrid -a -R -L -l -d -v -o ../livecd.iso -b cdbr -c boot.catalog .
+	: 'cd cdroot.dist && /usr/local/bin/mkisofs -a -R -L -l -d -v -o ../livecd.iso -b cdbr -c boot.catalog .'
+	cd cdroot.dist && /usr/local/bin/mkisofs -R -L -l -d -v -o ../livecd.iso -b cdbr -no-emul-boot -c boot.catalog .
 
 tree: bsd.rdcd lib/cdbr lib/cdboot
 	cp lib/cdbr lib/cdboot cdroot.dist
@@ -70,6 +76,4 @@ emu:
 	qemu -m 256 -localtime -monitor stdio -cdrom livecd.iso -boot d
 
 clean:
-	rm -f livecd.iso
-	>$(FI_FILENAME).iso.gz
-	>$(FI_FILENAME).iso.bz2
+	rm -f livecd.iso $(FI_FILENAME).iso.gz $(FI_FILENAME).iso.bz2

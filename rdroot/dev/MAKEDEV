@@ -3,8 +3,8 @@
 # THIS FILE AUTOMATICALLY GENERATED.  DO NOT EDIT.
 # generated from:
 #
-#	OpenBSD: etc.i386/MAKEDEV.md,v 1.33 2005/08/01 22:22:13 deraadt Exp 
-#	OpenBSD: MAKEDEV.common,v 1.23 2005/12/27 19:02:42 miod Exp 
+#	OpenBSD: etc.i386/MAKEDEV.md,v 1.36 2006/06/11 10:58:57 mk Exp 
+#	OpenBSD: MAKEDEV.common,v 1.33 2007/03/07 02:51:17 krw Exp 
 #	OpenBSD: MAKEDEV.mi,v 1.77 2005/10/06 06:43:19 otto Exp 
 #	OpenBSD: MAKEDEV.sub,v 1.14 2005/02/07 06:14:18 david Exp 
 #
@@ -52,7 +52,7 @@
 #	tty*	Set of 62 slave pseudo terminals
 # Console ports:
 #	wscons	Minimal wscons devices
-#	ttyC-F*	wscons display devices
+#	ttyC-J*	wscons display devices
 #	wskbd*	wscons keyboards
 #	wsmux	wscons keyboard/mouse mux devices
 # Pointing devices:
@@ -86,7 +86,7 @@
 #	lkm	Loadable kernel modules interface
 #	music*	MIDI devices
 #	nvram	NVRAM access
-#	pci	PCI bus device
+#	pci*	PCI bus devices
 #	pctr*	PC Performance Tuning Register access device
 #	pf*	Packet Filter
 #	radio*	FM tuner devices
@@ -98,7 +98,6 @@
 #	tun*	Network tunnel driver
 #	tuner*	Tuner devices
 #	uk*	Unknown SCSI devices
-#	wdt0	Watchdog timer
 #	xfs*	XFS filesystem node
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 T=$0
@@ -255,10 +254,6 @@ xfs*)
 	M xfs$U c 51 $U 600
 	;;
 
-wdt0)
-	M wdt$U c 55 $U 440 operator
-	;;
-
 uk*)
 	M uk$U c 20 $U 640 operator
 	;;
@@ -313,8 +308,9 @@ pctr)
 	M pctr c 46 0 644
 	;;
 
-pci)
-	M pci c 72 0 600
+pci*)
+	M pci$U	c 72 $U 600
+	MKlist[${#MKlist[*]}]=";[ -h pci ] || ln -sf pci0 pci"
 	;;
 
 nvram)
@@ -431,8 +427,8 @@ ttyU[0-9a-zA-Z])
 	;;
 
 uall)
-	R ttyU0 ttyU1 ugen0 ugen1 ulpt0 ulpt1 uhid0 uhid1 uhid2 uhid3
-	R uscanner0 urio0 usb0 usb1 usb2 usb3 usb4 usb5
+	R ttyU0 ttyU1 ttyU2 ttyU3 ugen0 ugen1 ulpt0 ulpt1 uhid0 uhid1
+	R uhid2 uhid3 uscanner0 urio0 usb0 usb1 usb2 usb3 usb4 usb5
 	;;
 
 lpt*|lpa*)
@@ -456,13 +452,17 @@ wskbd*)
 	M wskbd$U c 67 $U 600
 	;;
 
-tty[C-F]*)
-	U=${i##tty[C-F]}
+tty[C-J]*)
+	U=${i##tty[C-J]}
 	case $i in
 	ttyC*) n=C m=0;;
 	ttyD*) n=D m=256;;
 	ttyE*) n=E m=512;;
 	ttyF*) n=F m=768;;
+	ttyG*) n=G m=1024;;
+	ttyH*) n=H m=1280;;
+	ttyI*) n=I m=1536;;
+	ttyJ*) n=J m=1792;;
 	esac
 	case $U in
 	[0-9a-f]) M tty$n$U c 12 $((16#$U+$m)) 600;;
@@ -569,9 +569,11 @@ fd*)
 	M ${nam}a	b $blk $n 640 operator
 	M ${nam}b	b $blk $(($n+1)) 640 operator
 	M ${nam}c	b $blk $(($n+2)) 640 operator
+	M ${nam}i	b $blk $(($n+8)) 640 operator
 	M r${nam}a	c $chr $n 640 operator
 	M r${nam}b	c $chr $(($n+1)) 640 operator
 	M r${nam}c	c $chr $(($n+2)) 640 operator
+	M r${nam}i	c $chr $(($n+8)) 640 operator
 	;;
 
 cd*)
@@ -588,13 +590,13 @@ all)
 	R tun3 bio bpf0 bpf1 bpf2 bpf3 bpf4 bpf5 bpf6 bpf7 bpf8 bpf9
 	R pty0 fd1 fd1B fd1C fd1D fd1E fd1F fd1G fd1H fd0 fd0B fd0C
 	R fd0D fd0E fd0F fd0G fd0H xfs0 ss0 ss1 ch0 hotplug ptm gpr0
-	R local wscons pci iop0 iop1 uall rmidi0 rmidi1 rmidi2 rmidi3
-	R rmidi4 rmidi5 rmidi6 rmidi7 tuner0 radio0 music0 speaker
-	R audio0 wdt0 wt0 uk0 random joy0 joy1 lpa0 lpa1 lpa2 lpt0
-	R lpt1 lpt2 lkm tty00 tty01 tty02 tty03 ttyc0 ttyc1 ttyc2
-	R ttyc3 ttyc4 ttyc5 ttyc6 ttyc7 acpi apm crypto pf pctr
-	R systrace wd0 wd1 wd2 wd3 raid0 raid1 raid2 raid3 std st0 st1
-	R fd mcd0
+	R local wscons pci0 pci1 pci2 pci3 iop0 iop1 uall rmidi0
+	R rmidi1 rmidi2 rmidi3 rmidi4 rmidi5 rmidi6 rmidi7 tuner0
+	R radio0 music0 speaker audio0 wt0 uk0 random joy0 joy1 lpa0
+	R lpa1 lpa2 lpt0 lpt1 lpt2 lkm tty00 tty01 tty02 tty03 ttyc0
+	R ttyc1 ttyc2 ttyc3 ttyc4 ttyc5 ttyc6 ttyc7 acpi apm crypto pf
+	R pctr systrace wd0 wd1 wd2 wd3 raid0 raid1 raid2 raid3 std
+	R st0 st1 fd mcd0
 	;;
 
 wd*|sd*|raid*|ccd*)

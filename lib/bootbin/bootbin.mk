@@ -1,6 +1,6 @@
 # bootbin.mk - generated from ../bootbin.conf by crunchgen 0.3
 
-STRIP=strip
+STRIP?=strip
 LINK=$(LD) -dc -r
 LIBS= -L/usr/lib -lutil -lotermcap -ll -lm -ldes
 CRUNCHED_OBJS= ksh.lo ln.lo mount.lo mount_ffs.lo mount_cd9660.lo newfs.lo sysctl.lo

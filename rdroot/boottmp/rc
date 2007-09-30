@@ -359,7 +359,7 @@ swap            /mfs    mfs     rw,async,-b=4096,-f=512,-i=1024,-s=$(($mfs_alloc
 	     fi
 
 	     while :; do
-		 echo 'avairable configs;'
+		 echo 'available configs;'
 		 (cd /mnt/livecd-config && echo ""; ls -C; echo "")
 		 echo -n 'your config name? -> '; read confdir
 		 if [ -d "/mnt/livecd-config/$confdir" ]; then
@@ -374,8 +374,7 @@ swap            /mfs    mfs     rw,async,-b=4096,-f=512,-i=1024,-s=$(($mfs_alloc
 	     # copying to mfs
 	     #
 	     echo -n "Copying files from flash to mfs ... "
-	     cd /mfs
-	     (cd /mnt/livecd-config/$confdir && tar cf - .) | tar xpf -
+	     cd /mnt/livecd-config/$confdir && pax -rwpe . /mfs
 	     echo "done"
 
 	     #-----------------------

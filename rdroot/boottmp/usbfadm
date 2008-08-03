@@ -97,7 +97,7 @@ while :; do
 	if [ 1 = `expr "$yn" : '[Yy]$'` ]; then
 	    if mount -o softdep $devname /mnt; then
 		echo ''
-		rsync -av --delete /mfs/. /mnt/livecd-config/$uconf
+		rsync -avx --delete /mfs/. /mnt/livecd-config/$uconf
 		# find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
 		rm -rf /mnt/livecd-config/$uconf/tmp/{.??*,*}
 		umount $devname

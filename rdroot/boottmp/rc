@@ -81,16 +81,12 @@
  fi
  echo "Allocating $mfs_alloc_mb MB for mfs."
 
+ /sbin/mount -r /dev/cd0c /cdrom
+ /cdrom/sbin/mount_mfs -o rw,async -b 4096 -f 512 -i 1024 -s $(($mfs_alloc_mb*1024*2)) swap /mfs
+
  echo "/dev/rd0a /       ffs     rw      0 0
 /dev/cd0c       /cdrom  cd9660  ro      0 0
 swap            /mfs    mfs     rw,async,-b=4096,-f=512,-i=1024,-s=$(($mfs_alloc_mb*1024*2)) 0 0" >/boottmp/fstab
-
- if /sbin/mount -a; then
-     :
- else
-     echo 'Mount failed.'
-     exit 1
- fi
 
  #----------------------------
  # re-link bin dirs to CD-ROM
@@ -101,7 +97,7 @@ swap            /mfs    mfs     rw,async,-b=4096,-f=512,-i=1024,-s=$(($mfs_alloc
  while :; do
      echo 'Select boot method;'
      echo '   0: CD-ROM only'
-     echo '   1: CD-ROM only (for low mem)'
+     echo '   1: CD-ROM only (for low mem and fast boot)'
      echo '   2: CD-ROM + USB flash'
      echo '   3: CD-ROM + tar.gz on floppy'
      echo '   4: CD-ROM + interactive shell'
@@ -254,6 +250,7 @@ swap            /mfs    mfs     rw,async,-b=4096,-f=512,-i=1024,-s=$(($mfs_alloc
 
 	     echo    'your DNS servers?'
 	     echo    '(up to three IPv4/6 addresses, separated by spaces)'
+	     echo    '(for DHCP, just press ENTER)'
 	     echo -n '-> '; read mydns
 	     mydns=`echo -n $mydns | tr -cs '0-9A-Za-z:.%' ' '`
 	     if [ ! X"$mydns" = X ]; then
@@ -448,6 +445,9 @@ swap            /mfs    mfs     rw,async,-b=4096,-f=512,-i=1024,-s=$(($mfs_alloc
  =
  ========================================"
 	 PATH="/cdrom/sbin:/cdrom/bin" /cdrom/bin/sh
+
+	 /cdrom/sbin/umount /cdrom
+	 /cdrom/sbin/umount /mfs
 
 	 break
 	 ;;

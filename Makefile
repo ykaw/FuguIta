@@ -1,4 +1,4 @@
-# Copyright (c) 2006, Yoshihiro Kawamata
+# Copyright (c) 2006, 2007, 2008, Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 PROJNAME=FuguIta
-VERSION =4.1
+VERSION =4.3
 DATE   !=date +%Y%m%d
 REVISION=1
 
@@ -53,7 +53,7 @@ bgz: livecd.iso
 	gzip -cv9 livecd.iso > $(FI_FILENAME).iso.gz
 
 livecd.iso: tree
-	: 'cd cdroot.dist && /usr/local/bin/mkisofs -a -R -L -l -d -v -o ../livecd.iso -b cdbr -c boot.catalog .'
+	: 'cd cdroot.dist && mkhybrid -R -L -l -d -v -o ../livecd.iso -b cdbr -c boot.catalog .'
 	cd cdroot.dist && /usr/local/bin/mkisofs -R -L -l -d -v -o ../livecd.iso -b cdbr -no-emul-boot -c boot.catalog .
 
 tree: bsd.rdcd lib/cdbr lib/cdboot
@@ -73,7 +73,7 @@ vnon:
 	vnconfig svnd0 rdroot.dist.img; mount /dev/svnd0a rdroot.dist
 
 emu:
-	qemu -m 256 -localtime -monitor stdio -cdrom livecd.iso -boot d
+	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -cdrom livecd.iso -boot d
 
 clean:
 	rm -f livecd.iso $(FI_FILENAME).iso.gz $(FI_FILENAME).iso.bz2

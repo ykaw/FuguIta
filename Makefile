@@ -30,41 +30,84 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 PROJNAME=FuguIta
-VERSION =4.3
+VERSION =4.4
 DATE   !=date +%Y%m%d
 REVISION=1
 
 FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)
+AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
 CDR_DEV=cd1
 
 all:
 	@echo /$(FI_FILENAME)/ - lets go
 
-cdrclean:
-	cdrecord -v dev=/dev/r$(CDR_DEV)c blank=fast
+usbbz:
+	dd if=/dev/rsd0c bs=65536k | bzip2 -cv9 > $(FI_FILENAME).usbimg.bz2
+
+usbkern: bsd.rdcd bsd.mp.rdcd
+	mount /dev/sd0a /mnt
+	cat bsd.rdcd > /mnt/bsd
+	cat bsd.mp.rdcd > /mnt/bsd.mp
+	umount /mnt
+
+usbfill:
+	mount /dev/sd0a /mnt
+	-dd if=/dev/zero of=/mnt/tmp/fill bs=65536k
+	rm -f /mnt/tmp/fill
+	umount /mnt
+	mount /dev/sd0d /mnt
+	-dd if=/dev/zero of=/mnt/livecd-config/fill bs=65536k
+	rm -f /mnt/livecd-config/fill
+	umount /mnt
 
 cdrburn: cdrclean cdburn
 
-cdburn: livecd.iso
-	cdrecord -v dev=/dev/r$(CDR_DEV)c livecd.iso
+cdrclean:
+	cdio -v -f /dev/r$(CDR_DEV)c blank
 
-bgz: livecd.iso
+cdburn:
+	cdio -v -f /dev/r$(CDR_DEV)c tao livecd.iso
+
+bgz: bz gz
+
+bz:
 	bzip2 -cv9 livecd.iso > $(FI_FILENAME).iso.bz2
+
+gz:
 	gzip -cv9 livecd.iso > $(FI_FILENAME).iso.gz
 
 livecd.iso: tree
 	: 'cd cdroot.dist && mkhybrid -R -L -l -d -v -o ../livecd.iso -b cdbr -c boot.catalog .'
-	cd cdroot.dist && /usr/local/bin/mkisofs -R -L -l -d -v -o ../livecd.iso -b cdbr -no-emul-boot -c boot.catalog .
+	: 'cd cdroot.dist && /usr/local/bin/mkisofs -R -L -l -d -v -o ../livecd.iso -b cdbr -no-emul-boot -c boot.catalog .'
+	/usr/local/bin/mkisofs \
+		-no-iso-translate \
+		-R \
+		-allow-leading-dots \
+		-l -d -D -N -v \
+		-V "$(FI_FILENAME)" \
+		-A "$(FI_FILENAME)" \
+		-p "$(AUTHOR)" \
+		-publisher "$(AUTHOR)" \
+		-b cdbr -no-emul-boot \
+		-c boot.catalog \
+		-o /opt/fuguita/4.4/livecd.iso \
+		/opt/fuguita/4.4/cdroot.dist/
 
-tree: bsd.rdcd lib/cdbr lib/cdboot
+tree: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot
 	cp lib/cdbr lib/cdboot cdroot.dist
 	cp bsd.rdcd cdroot.dist/bsd
+	cp bsd.mp.rdcd cdroot.dist/bsd.mp
 	echo 'set image /bsd' > cdroot.dist/etc/boot.conf
 
 bsd.rdcd: bsd.orig rdroot.dist.img
 	cp bsd.orig bsd
 	lib/rdsetroot bsd < rdroot.dist.img
 	gzip -c9 bsd > bsd.rdcd
+
+bsd.mp.rdcd: bsd.mp.orig rdroot.dist.img
+	cp bsd.mp.orig bsd.mp
+	lib/rdsetroot bsd.mp < rdroot.dist.img
+	gzip -c9 bsd.mp > bsd.mp.rdcd
 
 vnoff:
 	umount /dev/svnd0a; vnconfig -u svnd0
@@ -74,6 +117,9 @@ vnon:
 
 emu:
 	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -cdrom livecd.iso -boot d
+
+usbemu:
+	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -hda /dev/sd0c -boot c
 
 clean:
 	rm -f livecd.iso $(FI_FILENAME).iso.gz $(FI_FILENAME).iso.bz2

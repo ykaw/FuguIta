@@ -79,7 +79,7 @@ while :; do
         echo -n "Making list of modified files ..."
         (cd /mfs
          find * -type f -cnewer /boottmp/boot_starts -print   \
-         | awk '{print "cmp -s", $1, "/cdrom/" $1, "|| echo", $1}' \
+         | awk '{print "cmp -s", $1, "/fuguita/" $1, "|| echo", $1}' \
          | sh
          find * -type l -cnewer /boottmp/boot_livecd_rc_ends -print) | sort > /tmp/fdfiles
         echo " done."

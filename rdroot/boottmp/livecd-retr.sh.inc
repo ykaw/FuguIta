@@ -44,7 +44,7 @@
 #
 echo -n "Copying files from CD-ROM to mfs ... "
 cd /mfs
-(cd ../cdrom && tar cf - etc home tmp root var) | tar xpf -
+(cd ../fuguita && tar cf - etc home tmp root var) | tar xpf -
 echo "done"
 
 #-----------------------
@@ -59,14 +59,14 @@ cp /boottmp/fstab /etc
 #-------------------------------------------
 # symlink rest of contents from / to CD-ROM
 #
-ln -s cdrom/* .     2>/dev/null
-#ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
+ln -s fuguita/* .     2>/dev/null
+#ln -s fuguita/.??* . 2>/dev/null ; # Maybe not needed
 
 #-------------------------------------------
-# lndir from /mfs/usr to /cdrom/usr
+# lndir from /mfs/usr to /fuguita/usr
 #
 echo -n "Linking files from mfs to CD-ROM ... "
-mkdir /mfs/usr && cd /mfs/usr && lndir -s /cdrom/usr
+mkdir /mfs/usr && cd /mfs/usr && lndir -s /fuguita/usr
 echo "done"
 
 #-------------------------------------------
@@ -75,7 +75,7 @@ echo "done"
 if [ -h /mfs/usr/local/lib/X11/fonts ]; then
     rm /mfs/usr/local/lib/X11/fonts
     mkdir -p /mfs/usr/local/lib/X11/fonts
-    (cd /mfs/usr/local/lib/X11/fonts && lndir -s /cdrom/usr/local/lib/X11/fonts)
+    (cd /mfs/usr/local/lib/X11/fonts && lndir -s /fuguita/usr/local/lib/X11/fonts)
 fi
 
 #-------------------------------------------
@@ -86,7 +86,7 @@ for d in \
     usr/local/lib/wnn
   do
   if [ -d /mfs/$d ]; then
-      rm -rf /mfs/$d && cd `dirname /cdrom/$d` && pax -rwpe `basename $d` `dirname /mfs/$d`
+      rm -rf /mfs/$d && cd `dirname /fuguita/$d` && pax -rwpe `basename $d` `dirname /mfs/$d`
   fi
 done
 
@@ -109,11 +109,11 @@ cp /boottmp/fstab /etc
 #-------------------------------------------
 # symlink rest of contents from / to CD-ROM
 #
-ln -s cdrom/* .     2>/dev/null
-#ln -s cdrom/.??* . 2>/dev/null ; # Maybe not needed
+ln -s fuguita/* .     2>/dev/null
+#ln -s fuguita/.??* . 2>/dev/null ; # Maybe not needed
 
 #-------------------------------------------
 # set time stamp of dirs containing font files
 # (to avoid re-build font caches)
 #
-(cd /mfs && for d in usr/*/lib/X11/fonts/*; do touch -cm -r /cdrom/$d $d; done)
+(cd /mfs && for d in usr/*/lib/X11/fonts/*; do touch -cm -r /fuguita/$d $d; done)

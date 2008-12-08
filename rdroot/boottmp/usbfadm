@@ -155,7 +155,7 @@ while :; do
 			if [ "$usb_scsi_umass" = "$usb_sd_scsi" ]; then
 			    echo ''
 			    echo "USB flash memory found as $usb_sd"
-			    devname=/dev/${usb_sd}a
+			    devname=/dev/${usb_sd}d
 			else
 			    echo "SCSI bus between sd($usb_sd at $usb_sd_scsi) and umass($usb_scsi_umass at $usb_umass) not match"
 			fi

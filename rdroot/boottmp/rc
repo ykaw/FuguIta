@@ -41,7 +41,10 @@
  cd /
 
  #====================
- # setup file systems
+ # setup file systems;
+ #   1. /         ...  ram disk attached to kernel
+ #   2. /fuguita  ...  storage FuguIta is stored in
+ #   3. /fuguita  ...  user-modifiable file system
  #
 
  #-------------------------------
@@ -49,6 +52,23 @@
  #
  mount -w /dev/rd0a /
  : > /boottmp/boot_starts
+
+ #-------------------------------
+ # scan devices
+ # searching for where FuguIta is stored in
+ #
+ def_rdev=''
+ for rdev in {cd0,sd{0,1,2,3}}a; do
+     if mount -r /dev/$rdev /mnt 2>/dev/null ; then
+         if [ -d /mnt/usr/nora ]; then
+             def_rdev=$rdev
+             umount /mnt
+             break;
+         fi
+         umount /mnt
+     fi
+ done
+ rdev=''
 
  #-------------------------------
  # set mfs size
@@ -64,7 +84,7 @@
  greet_pc98=NO
 
  if [ X"$greet_pc98" = XYES ]; then
-     echo -n "[H[2JHow many megabytes(16-$usermem)? "; read ans
+     echo -n "[H[2JHow many megabytes(16-$usermem)? "; read umem
  else
      echo '==============================================
 =     ______                __   _
@@ -81,17 +101,12 @@
 ==============================================
 '
      echo "${usermem}MB of memory available for you."
-     echo -n "your mfs size [$memmin to $usermem, default: $defmem]MB? -> "; read ans
+     echo -n "your mfs size [$memmin to $usermem, default: $defmem]MB? -> "; read umem
  fi
 
  #-------------------------------
  # check mfs size
- # and get the name of device
- # which FuguIta is stored in
  #
- set -- $ans
- umem="$1"
- rdev="$2"
 
  if [ X"$umem" = X ]; then
      echo "set mfs size to default: ${defmem}MB"
@@ -106,8 +121,19 @@
      echo "set mfs size to ${umem}MB"
  fi
 
- if [ X"$rdev" = X ]; then
-     rdev="cd0c"
+ #-------------------------------
+ # ask which system-stored device is.
+ #
+ if [ X"$def_rdev" = X ]; then
+     echo -n "device where FuguIta stored in? -> "; read ans
+ else
+     echo -n "device where FuguIta stored in [${def_rdev}]? -> "; read ans
+ fi
+
+ if [ X"$ans" = X ]; then
+     rdev=$def_rdev
+ else
+     rdev=$ans
  fi
 
  #-------------------------------
@@ -513,8 +539,8 @@
  ========================================"
 	 PATH="/fuguita/sbin:/fuguita/bin" /fuguita/bin/sh
 
-	 /fuguita/sbin/umount /fuguita
 	 /fuguita/sbin/umount /mfs
+	 /fuguita/sbin/umount /fuguita
 
 	 break
 	 ;;

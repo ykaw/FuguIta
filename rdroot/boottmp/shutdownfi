@@ -7,7 +7,7 @@ mkdir /tmp
 chmod 1777 /tmp
 
 umount -f /mfs
-ln -sf cdrom/usr .
+ln -sf fuguita/usr .
 
 rm -f /var
 mkdir -p /var/run /var/log
@@ -17,4 +17,4 @@ rm -f /etc
 mkdir -p /etc
 > /etc/pwd.db
 
-exec /cdrom/sbin/shutdown "$@"
+exec /fuguita/sbin/shutdown "$@"

@@ -32,33 +32,43 @@
 PROJNAME=FuguIta
 VERSION =4.4
 DATE   !=date +%Y%m%d
-REVISION=1
+REVISION=2
 
 FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
+
 CDR_DEV=cd1
+
+.if defined(REAL_FLASH)
+    USB_DEV=sd0
+    USB_MNT=/mnt
+.else
+    USB_DEV=svnd1
+    USB_MNT=usbroot.dist
+.endif
+USB_IMG=liveusb.img
 
 all:
 	@echo /$(FI_FILENAME)/ - lets go
 
 usbbz:
-	dd if=/dev/rsd0c bs=65536k | bzip2 -cv9 > $(FI_FILENAME).usbimg.bz2
+	dd if=/dev/r$(USB_DEV)c bs=65536k | bzip2 -cv9 > $(FI_FILENAME).usbimg.bz2
 
 usbkern: bsd.rdcd bsd.mp.rdcd
-	mount /dev/sd0a /mnt
-	cat bsd.rdcd > /mnt/bsd
-	cat bsd.mp.rdcd > /mnt/bsd.mp
-	umount /mnt
+	mount /dev/$(USB_DEV)a $(USB_MNT)
+	cat bsd.rdcd > $(USB_MNT)/bsd
+	cat bsd.mp.rdcd > $(USB_MNT)/bsd.mp
+	umount $(USB_MNT)
 
 usbfill:
-	mount /dev/sd0a /mnt
-	-dd if=/dev/zero of=/mnt/tmp/fill bs=65536k
-	rm -f /mnt/tmp/fill
-	umount /mnt
-	mount /dev/sd0d /mnt
-	-dd if=/dev/zero of=/mnt/livecd-config/fill bs=65536k
-	rm -f /mnt/livecd-config/fill
-	umount /mnt
+	mount /dev/$(USB_DEV)a $(USB_MNT)
+	-dd if=/dev/zero of=$(USB_MNT)/tmp/fill bs=65536k
+	rm -f $(USB_MNT)/tmp/fill
+	umount $(USB_MNT)
+	mount /dev/$(USB_DEV)d $(USB_MNT)
+	-dd if=/dev/zero of=$(USB_MNT)/livecd-config/fill bs=65536k
+	rm -f $(USB_MNT)/livecd-config/fill
+	umount $(USB_MNT)
 
 cdrburn: cdrclean cdburn
 
@@ -119,7 +129,7 @@ emu:
 	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -cdrom livecd.iso -boot d
 
 usbemu:
-	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -hda /dev/sd0c -boot c
+	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -hda /dev/$(USB_DEV)c -boot c
 
 clean:
-	rm -f livecd.iso $(FI_FILENAME).iso.gz $(FI_FILENAME).iso.bz2
+	rm -f livecd.iso $(FI_FILENAME).iso.bz2 $(FI_FILENAME).usbimg.bz2

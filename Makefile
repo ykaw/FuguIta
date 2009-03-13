@@ -32,7 +32,7 @@
 PROJNAME=FuguIta
 VERSION =4.4
 DATE   !=date +%Y%m%d
-REVISION=2
+REVISION=1
 
 FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
@@ -107,7 +107,7 @@ tree: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot
 	cp lib/cdbr lib/cdboot cdroot.dist
 	cp bsd.rdcd cdroot.dist/bsd
 	cp bsd.mp.rdcd cdroot.dist/bsd.mp
-	echo 'set image /bsd' > cdroot.dist/etc/boot.conf
+	echo 'set image /bsd.mp' > cdroot.dist/etc/boot.conf
 
 bsd.rdcd: bsd.orig rdroot.dist.img
 	cp bsd.orig bsd

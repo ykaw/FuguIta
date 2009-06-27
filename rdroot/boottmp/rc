@@ -1,4 +1,4 @@
-# Copyright (c) 2006, 2007, 2008 Yoshihiro Kawamata
+# Copyright (c) 2006, 2007, 2008, 2009 Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -38,14 +38,62 @@
  # kaw@on.rim.or.jp
  #
 
- cd /
+ #====================
+ # isgreater ... compare two strings as big non-zero integers
+ #
+ # ksh can handle integer as 32bit signed :  -2147483648 ... 2147483647
+ # This function compares two "string form" integers over 32bit int.
+ #
+ # usage: isgreater X Y
+ # return value: -2 ... string is not form of non-zero integer
+ #               -1 ... missing argument(s)
+ #                0 ... X is greater than Y.
+ #                1 ... X is NOT greater than Y.
+ #
+ function isgreater {
+     # check presence of arguments
+     #
+     [ $# -lt 2 ] && return -- -1
 
+     x=$1
+     y=$2
+
+     # Are arguments both form of positive integer?
+     #
+     case "$x" in
+         0|[1-9]*([0-9])) :            ;; # ok, do nothing
+                       *) return -- -2 ;; # ng, string is not positive integer 
+     esac
+     case "$y" in
+         0|[1-9]*([0-9])) :            ;; # ok, do nothing
+                       *) return -- -2 ;; # ng, string is not positive integer 
+     esac
+
+     # Compare it
+     #
+     if [ ${#x} -gt ${#y} ]; then
+         return 0
+     elif [ ${#x} -eq ${#y} ]; then
+         if /fuguita/bin/test $x \> $y; then # string compare
+             return 0
+         else
+             return 1
+         fi
+     else
+         return 1
+     fi
+ }
+
+ #====================
+ # Active code from here
  #====================
  # setup file systems;
  #   1. /         ...  ram disk attached to kernel
  #   2. /fuguita  ...  storage FuguIta is stored in
  #   3. /mfs      ...  user-modifiable file system
  #
+
+ cd /
 
  #-------------------------------
  # create fstab then mount by it
@@ -58,10 +106,15 @@
  # searching for where FuguIta is stored in
  #
  def_rdev=''
+ def_udev=''
+ disks=''
+
  saveIFS="$IFS"; IFS=','
  set -- `sysctl -n hw.disknames`
  IFS="$saveIFS"
- for rdev in $@; do
+
+ for rdev in "$@"; do
+     disk=''
      case X"$rdev"X in
          # ignoring fd,
          # because accessing some floppy drives cause
@@ -69,35 +122,47 @@
          # absent.
          X[csw]d[0-9]X)
              if mount -r /dev/${rdev}a /mnt 2>/dev/null ; then
-                 if [ -d /mnt/usr/nora ]; then
-                     def_rdev=${rdev}a
-                     umount /mnt
-                     break;
+                 if [ -r /mnt/usr/local/share/doc/FuguIta ]; then
+                     disk=" *${rdev}a"
+                     if [ X${def_rdev} = X ]; then
+                         def_rdev=${rdev}a
+                     fi
                  fi
                  umount /mnt
              fi
              ;;
      esac
+     case X"$rdev"X in
+         X[sw]d[0-9]X)
+             if mount -r /dev/${rdev}d /mnt 2>/dev/null ; then
+                 if [ -d /mnt/livecd-config ]; then
+                     disk="$disk +${rdev}d"
+                     def_udev=${rdev}d
+                 fi
+                 umount /mnt
+             fi
+             ;;
+     esac
+     if [ X"$disk" = X ]; then
+         disks="$disks $rdev"
+     else
+         disks="$disks$disk"
+     fi
  done
  rdev=''
 
- #-------------------------------
- # set mfs size
- #
- memmax=1024
- memmin=32
- usermem=$((`sysctl -n hw.usermem`/1024/1024))
- if [ $memmax -lt $usermem ]; then
-     usermem=$memmax
+ if mount -r /dev/${def_udev} /mnt; then
+     if [ -r /mnt/noasks ]; then
+         . /mnt/noasks
+     fi
+     umount /mnt
  fi
- defmem=$(($usermem/2))
 
- greet_pc98=NO
-
- if [ X"$greet_pc98" = XYES ]; then
-     echo -n "[H[2JHow many megabytes(16-$usermem)? "; read umem
- else
-     echo '==============================================
+ #-------------------------------
+ # ask which system-stored device is.
+ #
+ echo '
+==============================================
 =     ______                __   _
 =    / ____/               |  |_| |__
 =   / /____  ______  __  __|  /_   _/_____
@@ -111,8 +176,66 @@
 =         http://kaw.ath.cx/openbsd/?en/LiveCD
 ==============================================
 '
-     echo "${usermem}MB of memory available."
-     echo -n "mfs size [$memmin to $usermem, default: $defmem]MB -> "; read umem
+echo "disks:$disks"
+ if [ X"$def_rdev" = X ]; then
+     echo    "Cannot find disk to boot FuguIta...";
+     echo -n "Anyway, disk to try booting? -> "; read ans
+ else
+     echo -n "Disk to boot FuguIta? [${def_rdev}] -> "
+     if [ X = X"$noask_rdev" ]; then
+         read ans
+     else
+         echo $noask_rdev
+         ans="$noask_rdev"
+         noask_rdev=''
+     fi
+ fi
+
+ if [ X"$ans" = X ]; then
+     rdev=$def_rdev
+ else
+     rdev=$ans
+ fi
+
+ #-------------------------------
+ # mount system-stored device
+ #
+ /sbin/mount -r /dev/${rdev} /fuguita || exit
+
+ #-------------------------------
+ # set mfs size
+ #
+ memmax=1023
+ memmin=32
+ usermem=`sysctl -n hw.usermem`
+ echo
+ echo "  user memory: $usermem bytes"
+
+ # 2147483647 is 2^31-1 ... ksh int max
+ #
+ isgreater $usermem 2147483647
+ if [ $? -eq 0 ]; then
+     usermem=2147483647
+ fi
+
+ usermem=$((usermem/1024/1024))
+  defmem=$(($usermem/2))
+
+ if [ $memmax -lt $usermem ]; then
+     usermem=$memmax
+ fi
+ if [ $memmax -lt $defmem ]; then
+     defmem=$memmax
+ fi
+
+ echo "mfs available: ${memmin}MB to ${usermem}MB"
+ echo -n "[default: ${defmem}MB] -> "
+ if [ X = X"$noask_umem" ]; then
+     read umem
+ else
+     echo $noask_umem
+     umem="$noask_umem"
+     noask_umem=''
  fi
 
  #-------------------------------
@@ -133,28 +256,9 @@
  fi
 
  #-------------------------------
- # ask which system-stored device is.
- #
- echo
- if [ X"$def_rdev" = X ]; then
-     echo -n "device where FuguIta stored in -> "; read ans
- else
-     echo -n "device where FuguIta stored in [${def_rdev}] -> "; read ans
- fi
-
- if [ X"$ans" = X ]; then
-     rdev=$def_rdev
- else
-     rdev=$ans
- fi
-
- #-------------------------------
- # mount system-stored device
- # and user-writable file system
+ # mount user-writable file system
  #
  mfs_alloc_blk=$((1024*2*$umem))
-
- /sbin/mount -r /dev/${rdev} /fuguita || exit
  /fuguita/sbin/mount_mfs -o rw,async -b 4096 -f 512 -i 1024 -s $mfs_alloc_blk swap /mfs || exit
 
  #-------------------------------
@@ -185,12 +289,19 @@
  while :; do
      echo
      echo 'Select boot mode;'
-     echo '   0: clean boot'
-     echo '   1: clean boot (lower memory, faster boot)'
-     echo '   2: retrieve user data from USB flash memory'
-     echo '   3: retrieve user data from floppy disk'
-     echo '   4: interactive shell for debugging'
-     echo -n '-->'; read setup_rw_mode
+     echo '  0: fresh boot'
+     echo '  1: fresh boot (lower memory, faster boot than mode 0)'
+     echo '  2: retrieve user data from USB flash memory'
+     echo '  3: retrieve user data from floppy disk'
+     echo '  4: interactive shell for debugging'
+     echo -n '->'
+     if [ X = X"$noask_setup_rw_mode" ]; then
+         read setup_rw_mode
+     else
+         echo $noask_setup_rw_mode
+         setup_rw_mode="$noask_setup_rw_mode"
+         noask_setup_rw_mode=''
+     fi
 
      case X"$setup_rw_mode" in
 
@@ -291,12 +402,13 @@
          echo
          echo "Keyboard type;"
          while :; do
-             echo -n `kbd -l`
-             echo -n ' -> '; read kbtype
+             kbd -l | sed -e '1,3d; /^$/d' | sort | paste - - - -
+             echo -n '-> '; read kbtype
              if kbd $kbtype; then
                  echo $kbtype > /etc/kbdtype
                  break
              fi
+             echo
          done
 
          echo
@@ -346,13 +458,11 @@
                  : > /etc/hostname.$mynic
                  chmod 0640 /etc/hostname.$mynic
 
-                 echo "lookup file bind" > /etc/resolv.conf
-
                  echo
                  echo -n "FQDN of this host -> ${myhost}."; read mydomain
                  if [ ! X"$mydomain" = X ]; then
                      myfqdn=${myhost}.${mydomain}
-                     echo "search $mydomain" >> /etc/resolv.conf
+                     echo "search $mydomain" > /etc/resolv.conf
                      echo $myfqdn > /etc/myname
                  fi
 
@@ -360,12 +470,15 @@
                  echo '::1       localhost' >> /etc/hosts
 
                  echo
-                 echo 'DNS servers'
-                 echo '(up to three IPv4/6 addresses, separated by spaces)'
-                 echo '(for DHCP, just press ENTER)'
+                 echo 'for DNS servers;'
+                 echo ' * up to three IPv4/IPv6 addresses, separated by spaces'
+                 echo ' * just press ENTER for DHCP'
+                 echo ' * "none" for not using DNS'
                  echo -n '-> '; read mydns
                  mydns=`echo -n $mydns | tr -cs '0-9A-Za-z:.%' ' '`
-                 if [ X"$mydns" = X ]; then
+                 if [ X"$mydns" = X -o X"$mydns" = Xdhcp ]; then
+                     echo "lookup file bind" >> /etc/resolv.conf
+
                      #-----------------------
                      # IPv4 configs
                      #
@@ -375,10 +488,15 @@
                              ;;
                      esac
                  else
-                     set $mydns >/dev/null
-                     [ ! X"$1" = X ] && echo "nameserver $1"          >> /etc/resolv.conf
-                     [ ! X"$2" = X ] && shift && echo "nameserver $1" >> /etc/resolv.conf
-                     [ ! X"$2" = X ] && shift && echo "nameserver $1" >> /etc/resolv.conf
+                     if [ X"$mydns" == Xnone ]; then
+                         echo "lookup file"      >> /etc/resolv.conf
+                     else
+                         echo "lookup file bind" >> /etc/resolv.conf
+                         set -- $mydns
+                         [ ! X"$1" = X ] && echo "nameserver $1"          >> /etc/resolv.conf
+                         [ ! X"$2" = X ] && shift && echo "nameserver $1" >> /etc/resolv.conf
+                         [ ! X"$2" = X ] && shift && echo "nameserver $1" >> /etc/resolv.conf
+                     fi
 
                      #-----------------------
                      # IPv4 configs
@@ -453,7 +571,7 @@
          if [ X"$usb_sd" = X ]; then
              echo
              echo 'cannot find directory with saved data'
-             exit 1
+             continue
          fi
 
          usb_devname=/dev/${usb_sd}
@@ -474,19 +592,30 @@
              if [ ! -d /mnt/livecd-config ]; then
                  echo
                  echo "cannot find config dir on $usb_devname"
-                 exit 1
+                 umount "$usb_devname"
+                 continue
              fi
 
              while :; do
                  echo
                  echo "$usb_devname : available configs;"
                  (cd /mnt/livecd-config && echo ; ls -C; echo )
-                 echo -n 'config name -> '; read confdir
+                 echo -n 'config name -> '
+                 if [ X = X"$noask_confdir" ]; then
+                     read confdir
+                 else
+                     echo $noask_confdir
+                     confdir="$noask_confdir"
+                     noask_confdir=''
+                 fi
+
                  if [ -d "/mnt/livecd-config/$confdir" ]; then
                      echo "$confdir" > /boottmp/boot_user_config
                      break
                  else
                      echo 'cannot find such data'
+                     umount "$usb_devname"
+                     continue 2
                  fi
              done
 
@@ -516,7 +645,7 @@
              umount /mnt
          else
              echo "Failed to mount user's storage"
-             exit 1
+             continue
          fi
 
          break
@@ -539,16 +668,17 @@
                  cp -p /boottmp/livecd-retr.sh.inc /boottmp/livecd-retr.sh.inc.orig
                  cat /mnt/livecd-retr.sh.inc > /boottmp/livecd-retr.sh.inc
                  .  /boottmp/livecd-retr.sh.inc
+                 umount /mnt
              else
                  echo
-                 echo "Retrieving script not found on fd0a."
-                 exit 1
+                 echo "Retrieval script not found on fd0a."
+                 umount /mnt
+                 continue
              fi
-             umount /mnt
          else
              echo
              echo "Failed to read /mnt/livecd-config.tar.gz on /dev/fd0a"
-             exit 1
+             continue
          fi
 
          break

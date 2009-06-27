@@ -7,7 +7,7 @@
 #====================
 
 
-# Copyright (c) 2006, Yoshihiro Kawamata
+# Copyright (c) 2006, 2007, 2008, 2009 Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -42,7 +42,7 @@
 #-------------------------------------
 # copy CD-ROM contents to rw-able mfs
 #
-echo -n "Copying files from CD-ROM to mfs ... "
+echo -n "Copying system files to /mfs ... "
 cd /mfs
 (cd ../fuguita && tar cf - etc home tmp root var) | tar xpf -
 echo "done"
@@ -65,7 +65,7 @@ ln -s fuguita/* .     2>/dev/null
 #-------------------------------------------
 # lndir from /mfs/usr to /fuguita/usr
 #
-echo -n "Linking files from mfs to CD-ROM ... "
+echo -n "Linking files from /mfs to /fuguita ... "
 mkdir /mfs/usr && cd /mfs/usr && lndir -s /fuguita/usr
 echo "done"
 

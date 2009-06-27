@@ -95,7 +95,7 @@ while :; do
         # to USB flash disk
         #
         Xsync)
-        echo -n "Sync current mfs as $uconf, OK? -> "; read yn
+        echo -n "Sync current mfs as $uconf, OK? [y/n] -> "; read yn
         if [ 1 = `expr "$yn" : '[Yy]$'` ]; then
             if mount -o async,noatime $devname /mnt; then
                 echo ''

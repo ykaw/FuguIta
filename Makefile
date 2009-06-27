@@ -29,10 +29,10 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-PROJNAME=FuguIta
-VERSION =4.4
-DATE   !=date +%Y%m%d
-REVISION=1
+PROJNAME =FuguIta
+VERSION  =4.5
+DATE    !=date +%Y%m%d
+REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
 
 FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
@@ -51,6 +51,9 @@ USB_IMG=liveusb.img
 all:
 	@echo /$(FI_FILENAME)/ - lets go
 
+usbgz:
+	dd if=/dev/r$(USB_DEV)c bs=65536k | gzip -cv9 > $(FI_FILENAME).usbimg.gz
+
 usbbz:
 	dd if=/dev/r$(USB_DEV)c bs=65536k | bzip2 -cv9 > $(FI_FILENAME).usbimg.bz2
 
@@ -58,6 +61,7 @@ usbkern: bsd.rdcd bsd.mp.rdcd
 	mount /dev/$(USB_DEV)a $(USB_MNT)
 	cat bsd.rdcd > $(USB_MNT)/bsd
 	cat bsd.mp.rdcd > $(USB_MNT)/bsd.mp
+	cp lib/boot.conf cdroot.dist/etc
 	umount $(USB_MNT)
 
 usbfill:
@@ -86,28 +90,30 @@ bz:
 gz:
 	gzip -cv9 livecd.iso > $(FI_FILENAME).iso.gz
 
+#: 'cd cdroot.dist && mkhybrid -R -L -l -d -v -o ../livecd.iso -b cdbr -c boot.catalog .'
+#: 'cd cdroot.dist && /usr/local/bin/mkisofs -R -L -l -d -v -o ../livecd.iso -b cdbr -no-emul-boot -c boot.catalog .'
+
 livecd.iso: tree
-	: 'cd cdroot.dist && mkhybrid -R -L -l -d -v -o ../livecd.iso -b cdbr -c boot.catalog .'
-	: 'cd cdroot.dist && /usr/local/bin/mkisofs -R -L -l -d -v -o ../livecd.iso -b cdbr -no-emul-boot -c boot.catalog .'
+	echo $$(($(REVISION)+1)) > revcount_cdmaster
 	/usr/local/bin/mkisofs \
 		-no-iso-translate \
 		-R \
 		-allow-leading-dots \
 		-l -d -D -N -v \
-		-V "$(FI_FILENAME)" \
-		-A "$(FI_FILENAME)" \
+		-V "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
+		-A "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
 		-p "$(AUTHOR)" \
 		-publisher "$(AUTHOR)" \
 		-b cdbr -no-emul-boot \
 		-c boot.catalog \
-		-o /opt/fuguita/4.4/livecd.iso \
-		/opt/fuguita/4.4/cdroot.dist/
+		-o /opt/fi/4.5/livecd.iso \
+		/opt/fi/4.5/cdroot.dist/
 
 tree: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot
 	cp lib/cdbr lib/cdboot cdroot.dist
 	cp bsd.rdcd cdroot.dist/bsd
 	cp bsd.mp.rdcd cdroot.dist/bsd.mp
-	echo 'set image /bsd.mp' > cdroot.dist/etc/boot.conf
+	cp lib/boot.conf cdroot.dist/etc
 
 bsd.rdcd: bsd.orig rdroot.dist.img
 	cp bsd.orig bsd

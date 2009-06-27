@@ -65,7 +65,9 @@ while :; do
         # on floppy disk, /dev/fd0c
         #
         Xmkfs)
-        echo -n "Format /dev/rfd0c, OK? -> "; read yn
+        fdformat /dev/rfd0c
+
+        echo -n "newfs /dev/rfd0c, OK? [y/n] -> "; read yn
         if [ 1 = `expr "$yn" : '[Yy]$'` ]; then
             disklabel -w fd0 floppy
             newfs /dev/rfd0c
@@ -78,10 +80,10 @@ while :; do
         Xmklist)
         echo -n "Making list of modified files ..."
         (cd /mfs
-         find * -type f -cnewer /boottmp/boot_starts -print   \
+         find -x * -type f -cnewer /boottmp/boot_starts -print   \
          | awk '{print "cmp -s", $1, "/fuguita/" $1, "|| echo", $1}' \
          | sh
-         find * -type l -cnewer /boottmp/boot_livecd_rc_ends -print) | sort > /tmp/fdfiles
+         find -x * -type l -cnewer /boottmp/boot_livecd_rc_ends -print) | sort > /tmp/fdfiles
         echo " done."
         ;;
 
@@ -97,7 +99,7 @@ while :; do
         # to floppy disk
         #
         Xwrite)
-        echo -n "Write list of files into /mnt/livecd-config.tar.gz , OK? -> "; read yn
+        echo -n "Write list of files into /mnt/livecd-config.tar.gz , OK? [y/n] -> "; read yn
         if [ 1 = `expr "$yn" : '[Yy]$'` ]; then
             if mount /dev/fd0c /mnt; then
                 (cd /mfs && tar -cvzp -f /mnt/livecd-config.tar.gz -I /tmp/fdfiles)

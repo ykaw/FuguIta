@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.633 2008/08/02 16:09:29 oga Exp $
+#	$OpenBSD: GENERIC,v 1.651 2009/02/25 03:08:25 kevlo Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -12,6 +12,8 @@
 machine		i386
 
 #option		INSECURE	# default to secure
+
+option		TIMEZONE="-540"	# set to JST
 
 option		DDB		# in-kernel debugger
 #option		DDB_SAFE_CONSOLE # allow break into ddb during boot
@@ -59,7 +61,7 @@ option		CD9660		# ISO 9660 + Rock Ridge file system
 option		UDF		# UDF (DVD) file system
 option		MSDOSFS		# MS-DOS file system
 option		FIFO		# FIFOs; RECOMMENDED
-#U option		PORTAL		# dynamically created filesystem objects
+#option		PORTAL		# dynamically created filesystem objects
 
 option		INET		# IP + ICMP + TCP + UDP
 option		ALTQ		# ALTQ base
@@ -78,6 +80,7 @@ option		MROUTING	# Multicast router
 pseudo-device	pf		# packet filter
 pseudo-device	pflog		# pf log if
 pseudo-device	pfsync		# pf sync if
+pseudo-device	pflow		# pflow export if
 pseudo-device	sppp	1	# Sync PPP/HDLC
 pseudo-device	enc	1	# option IPSEC needs the encapsulation interface
 #pseudo-device	strip	1	# Starmode Radio IP interface
@@ -111,9 +114,7 @@ pseudo-device	bio	1	# ioctl multiplexing device
 
 option		BOOT_CONFIG	# add support for boot -c
 
-option		TIMEZONE="-540"
-
-maxusers	32			# estimated number of users
+maxusers	80			# estimated number of users
 
 option		USER_PCICONF	# user-space PCI configuration
 
@@ -135,7 +136,7 @@ option		COMPAT_AOUT	# a.out binaries are emulated
 option		PROCFS		# /proc
 #option		NTFS		# Experimental NTFS support
 
-## or use		root on nfs swap on nfs
+# or use		root on nfs swap on nfs
 #config		bsd	swap generic
 
 option		RAMDISK_HOOKS
@@ -146,8 +147,10 @@ mainbus0 at root
 
 cpu0	at mainbus?
 bios0	at mainbus0
+ioapic*	at mainbus?
 apm0	at bios0 flags 0x0000	# flags 0x0101 to force protocol version 1.1
 acpi0	at bios?
+mpbios0	at bios0
 pcibios0 at bios0 flags 0x0000	# use 0x30 for a total verbose
 ipmi0	at mainbus? disable	# IPMI
 #vmt0	at mainbus?		# VMware Tools
@@ -162,6 +165,7 @@ acpibtn*	at acpi?
 acpicpu*	at acpi?
 #acpidock*	at acpi?
 acpiec*		at acpi?
+acpimadt0	at acpi?
 acpiprt*	at acpi?
 acpitz*		at acpi?
 acpiasus*	at acpi?
@@ -234,6 +238,11 @@ it*	at isa? port 0x2e		# ITE IT8705F, IT8712F, IT8716F,
 it*	at isa? port 0x4e		# IT8718F, IT8726F and SiS SiS950
 					# monitors and watchdog timer
 
+schsio*	at isa? port 0x2e		# SMSC SCH311x Super I/O
+schsio*	at isa? port 0x4e
+#schsio*	at isa? port 0x162e
+#schsio*	at isa? port 0x164e
+
 viaenv*	at pci?				# VIA VT82C686A hardware monitor
 viasio*	at isa? port 0x2e flags 0x0000	# VIA VT1211 LPC Super I/O
 viasio*	at isa? port 0x4e flags 0x0000
@@ -299,6 +308,7 @@ cardslot*	at cbb?
 ehci*	at pci?				# Enhanced Host Controller
 ehci*	at cardbus?			# Enhanced Host Controller
 uhci*	at pci?				# Universal Host Controller (Intel)
+uhci*	at cardbus?			# Universal Host Controller (Intel)
 ohci*	at pci?				# Open Host Controller
 ohci*	at cardbus?			# Open Host Controller
 
@@ -364,6 +374,7 @@ kue*	at uhub?		# Kawasaki KL5KUSB101B based Ethernet
 cdce*	at uhub?		# CDC Ethernet
 upl*	at uhub?		# Prolific PL2301/PL2302 host-to-host `network'
 udav*	at uhub?		# Davicom DM9601 based Ethernet
+mos*	at uhub?		# MOSCHIP MCS7730/7830 10/100 Ethernet
 url*	at uhub?		# Realtek RTL8150L based adapters
 wi*	at uhub?		# WaveLAN IEEE 802.11DS
 urio*	at uhub?		# Diamond Multimedia Rio 500
@@ -378,6 +389,7 @@ ugen*	at uhub?		# USB Generic driver
 uath*	at uhub?		# Atheros AR5005UG/AR5005UX
 ural*	at uhub?		# Ralink RT2500USB
 rum*	at uhub?		# Ralink RT2501USB/RT2601USB
+run*	at uhub?		# Ralink RT2700U/RT2800U/RT3000U
 zyd*	at uhub?		# Zydas ZD1211
 upgt*	at uhub?		# Conexant/Intersil PrismGT SoftMAC USB
 #option	NATM
@@ -398,19 +410,18 @@ sdmmc*	at sdhc?		# SD/MMC bus
 scsibus* at sdmmc?		# SCSI emulation
 
 # Bluetooth controllers
-#sbt*	at sdmmc?		# SDIO Bluetooth
-#ubt*	at uhub?		# USB Bluetooth
+sbt*	at sdmmc?		# SDIO Bluetooth
+bthub*	at sbt?
+ubt*	at uhub?		# USB Bluetooth
+bthub*	at ubt?
 
-# Bluetooth bus support
-#bthub*	at sbt?
-#bthub*	at ubt?
-
-# Bluetooth HID support
-#bthidev* at bthub?
-#btkbd*	at bthidev?
-#btms*	at bthidev?
-#wskbd*	at btkbd? mux 1
-#wsmouse* at btms? mux 0
+bthidev* at bthub?		# Bluetooth HID support
+btkbd*	at bthidev?
+btms*	at bthidev?
+wskbd*	at btkbd? mux 1
+wsmouse* at btms? mux 0
+btsco*	at bthub?		# Bluetooth audio support
+audio*	at btsco?
 
 npx0	at isa? port 0xf0 irq 13	# math coprocessor
 isadma0	at isa?
@@ -434,16 +445,37 @@ wskbd*		at pckbd? mux 1
 wsmouse*	at pms? mux 0
 wsmouse*	at pmsi? mux 0
 
-agp*		at vga?		# AGP bridges
+intagp*		at vga?		# intel integrated graphics agp
+aliagp*		at pchb?
+amdagp*		at pchb?
+intelagp*	at pchb?
+sisagp*		at pchb?
+viaagp*		at pchb?
+
+agp*		at intagp?	# AGP bridges
+agp*		at aliagp?	# AGP bridges
+agp*		at amdagp?	# AGP bridges
+agp*		at intelagp?	# AGP bridges
+agp*		at sisagp?	# AGP bridges
+agp*		at viaagp?	# AGP bridges
+
 #option		DRM_DEBUG
-inteldrm*	at vga? disable	# Intel i915, i945 DRM driver
+inteldrm*	at vga? 	# Intel i915, i945 DRM driver
+drm*		at inteldrm?
 #machdrm*	at vga?		# mach64 (3D Rage Pro, Rage) DRM driver
+#drm*		at machdrm?
 #mgadrm*	at vga?		# Matrox G[24]00, G[45]50 DRM driver
+#drm*		at mgadrm?
 #ragedrm*	at vga?		# ATI Rage 128 DRM driver
-radeondrm*	at vga? disable	# ATI Radeon DRM driver
+#drm*		at ragedrm?
+radeondrm*	at vga? 	# ATI Radeon DRM driver
+drm*		at radeondrm?
 #savagedrm*	at vga?		# S3 Savage DRM driver
+#drm*		at savagedrm?
 #sisdrm*	at vga?		# SiS DRM driver
+#drm*		at sisdrm?
 #tdfxdrm*	at vga?		# 3dfx (voodoo) DRM driver
+#drm*		at tdfxdrm?
 
 #option		VESABIOSVERBOSE
 #option		VESAFB		# VESA bios framebuffer support for X11
@@ -690,7 +722,10 @@ tht*	at thtc?
 gem*	at pci?				# Sun 'gem' ethernet
 vic*	at pci?				# VMware VMXnet virtual interface
 et*	at pci?				# Agere/LSI ET1310
+age*	at pci?				# Attansic L1 Ethernet
+ale*	at pci?				# Attansic L1E Ethernet
 lii*	at pci?				# Attansic L2 Ethernet
+jme*	at pci?				# JMicron JMC250/JMC260 Ethernet
 
 # Wireless network cards
 acx*	at pci?				# TI ACX100/ACX111 (802.11b/g)
@@ -750,6 +785,9 @@ rgephy*	at mii?				# Realtek 8169S/8110S PHY
 ciphy*	at mii?				# Cicada CS8201 10/100/1000 copper PHY
 gentbi*	at mii?				# Generic 1000BASE-X ten-bit PHY
 etphy*	at mii?				# Agere/LSI ET1011 TruePHY
+jmphy*	at mii?				# JMicron JMP202/JMP211 PHYs
+atphy*	at mii?				# Attansic F1 PHYs
+ipgphy*	at mii?				# IC Plus IP1000A PHYs
 ukphy*	at mii?				# "unknown" PHYs
 
 pss0	at isa? port 0x220 irq 7 drq 6	# Personal Sound System
@@ -760,6 +798,7 @@ eso*	at pci?				# ESS Solo-1 PCI AudioDrive
 sv*	at pci?				# S3 SonicVibes (S3 617)
 neo*	at pci?				# NeoMagic 256AV/ZX
 cmpci*	at pci?				# C-Media CMI8338/8738
+auacer*	at pci?				# Acer Labs M5455
 auglx*	at pci?				# AMD Geode CS5536 Audio
 auich*	at pci? flags 0x0000		# i82801 ICH AC'97 audio
 auixp*	at pci?				# ATI IXP AC'97 Audio
@@ -821,6 +860,8 @@ audio*	at neo?
 audio*	at cmpci?
 audio*	at clcs?
 audio*	at clct?
+audio*	at auacer?
+audio*	at auglx?
 audio*	at auich?
 audio*	at auixp?
 audio*	at autri?
@@ -831,7 +872,6 @@ audio*	at maestro?
 audio*	at esa?
 audio*	at yds?
 audio*	at emu?
-audio*	at auglx?
 
 bktr0	at pci?
 
@@ -875,9 +915,11 @@ scsibus* at iopsp?
 
 # GPIO ``pin bus'' drivers
 #gpioiic* at gpio? offset 0 mask 0x3	# I2C bus bit-banging
-#iic*	at gpioiic?
+gpioiic* at gpio?
+iic*	at gpioiic?
 #gpioow* at gpio? offset 0 mask 0x1	# 1-Wire bus bit-banging
-#onewire* at gpioow?
+gpioow*	at gpio?
+onewire* at gpioow?
 
 # 1-Wire devices
 option ONEWIREVERBOSE

@@ -32,7 +32,7 @@
 PROJNAME =FuguIta
 VERSION  =4.5
 DATE    !=date +%Y%m%d
-REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
+REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 1; fi
 
 FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
@@ -138,4 +138,4 @@ usbemu:
 	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -hda /dev/$(USB_DEV)c -boot c
 
 clean:
-	rm -f livecd.iso $(FI_FILENAME).iso.bz2 $(FI_FILENAME).usbimg.bz2
+	rm -f bsd bsd.mp bsd.rdcd bsd.mp.rdcd livecd.iso $(FI_FILENAME).iso.gz $(FI_FILENAME).usbimg.gz

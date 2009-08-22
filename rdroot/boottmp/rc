@@ -151,7 +151,8 @@
  done
  rdev=''
 
- if mount -r /dev/${def_udev} /mnt; then
+ if [ ! X"$def_udev" = X ] &&
+    mount -r /dev/${def_udev} /mnt; then
      if [ -r /mnt/noasks ]; then
          . /mnt/noasks
      fi
@@ -206,7 +207,7 @@ echo "disks:$disks"
  # set mfs size
  #
  memmax=1023
- memmin=32
+ memmin=12
  usermem=`sysctl -n hw.usermem`
  echo
  echo "  user memory: $usermem bytes"
@@ -333,7 +334,6 @@ echo "disks:$disks"
                    -p \
                    -f - \
                    -s '|^etc/X11/.*||' \
-                   -s '|^var/dict/.*||' \
                    -s '|^var/www/htdocs/.*||'
          fi
          echo "done"
@@ -387,10 +387,21 @@ echo "disks:$disks"
                fi
              done
 
+             #-------------------------------------------
+             # Next, copy some files
+             #
+             for f in \
+                 usr/local/info/dir \
+                 usr/local/share/info/dir
+               do
+               if [ -f /fuguita/$f ]; then
+                   rm /mfs/$f && cp -p /fuguita/$f /mfs/$f
+               fi
+             done
+
              cd / && ln -sf mfs/usr .
          elif [ X"$setup_rw_mode" = X1 ]; then
              (cd /mfs/etc/X11        && lndir -s /fuguita/etc/X11)
-             (cd /mfs/var/dict       && lndir -s /fuguita/var/dict)
              (cd /mfs/var/www/htdocs && lndir -s /fuguita/var/www/htdocs)
          fi
 
@@ -698,15 +709,10 @@ echo "disks:$disks"
  = An interactive shell invoked for manual operation.
  = Now, just System Storage mounted on /fuguita.
  =
- = After exit this shell, rest of boot sequence will follow.
+ = After exit this shell, select boot mode again.
  =
  ========================================"
          PATH="/fuguita/sbin:/fuguita/bin" /fuguita/bin/sh
-
-         /fuguita/sbin/umount /mfs
-         /fuguita/sbin/umount /fuguita
-
-         break
          ;;
 
          *) echo "What?" ;;

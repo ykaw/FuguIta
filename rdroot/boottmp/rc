@@ -152,7 +152,7 @@
  rdev=''
 
  if [ ! X"$def_udev" = X ] &&
-    mount -r /dev/${def_udev} /mnt; then
+     mount -r /dev/${def_udev} /mnt; then
      if [ -r /mnt/noasks ]; then
          . /mnt/noasks
      fi
@@ -290,11 +290,12 @@ echo "disks:$disks"
  while :; do
      echo
      echo 'Select boot mode;'
-     echo '  0: fresh boot'
+     echo '  0: fresh boot (normal)'
      echo '  1: fresh boot (lower memory, faster boot than mode 0)'
-     echo '  2: retrieve user data from USB flash memory'
-     echo '  3: retrieve user data from floppy disk'
-     echo '  4: interactive shell for debugging'
+     echo '  2: fresh boot (everything on mfs)'
+     echo '  3: retrieve user data from USB flash memory'
+     echo '  4: retrieve user data from floppy disk'
+     echo '  5: interactive shell for debugging'
      echo -n '->'
      if [ X = X"$noask_setup_rw_mode" ]; then
          read setup_rw_mode
@@ -312,11 +313,13 @@ echo "disks:$disks"
          #-----------------------
          #-----------------------
          #
-         X[01])
+         X[012])
          if [ X"$setup_rw_mode" = X0 ]; then
              echo "manual"
          elif [ X"$setup_rw_mode" = X1 ]; then
              echo "manual_less_mfs"
+         elif [ X"$setup_rw_mode" = X2 ]; then
+             echo "manual_more_mfs"
          fi > /boottmp/boot_mode
 
          #-------------------------------------
@@ -335,6 +338,8 @@ echo "disks:$disks"
                    -f - \
                    -s '|^etc/X11/.*||' \
                    -s '|^var/www/htdocs/.*||'
+         elif [ X"$setup_rw_mode" = X2 ]; then
+             (cd ../fuguita && pax -rwpe . /mfs/. && cd /)
          fi
          echo "done"
 
@@ -344,7 +349,7 @@ echo "disks:$disks"
          cd /
          rm -rf /tmp
          mv /etc /bootetc
-         ln -sf mfs/* .
+         ln -sf mfs/* . 2>/dev/null
          cp /boottmp/fstab /etc
 
          #-------------------------------------------
@@ -403,6 +408,10 @@ echo "disks:$disks"
          elif [ X"$setup_rw_mode" = X1 ]; then
              (cd /mfs/etc/X11        && lndir -s /fuguita/etc/X11)
              (cd /mfs/var/www/htdocs && lndir -s /fuguita/var/www/htdocs)
+         elif [ X"$setup_rw_mode" = X2 ]; then
+             umount -f /fuguita
+             grep -v '/fuguita' /etc/fstab > /etc/fstab.tmp
+             mv /etc/fstab.tmp /etc/fstab
          fi
 
          echo "done"
@@ -547,7 +556,7 @@ echo "disks:$disks"
                  :
              ;;
              *)
-             echo 'Generation of SSH and isakmpd keys take some time while booting.'
+             echo 'Generation of SSH and isakmpd keys take some time while booting.'; sleep 3
              rm -f /etc/ssh/*_key* /etc/isakmpd/private/local.key
              ;;
          esac
@@ -561,7 +570,7 @@ echo "disks:$disks"
          #-----------------------
          #-----------------------
          #
-         X2)
+         X3)
          echo "usbflash" > /boottmp/boot_mode
 
          #-----------------------
@@ -668,7 +677,7 @@ echo "disks:$disks"
          #-----------------------
          #-----------------------
          #
-         X3)
+         X4)
          echo "floppy" > /boottmp/boot_mode
 
          #-----------------------
@@ -701,7 +710,7 @@ echo "disks:$disks"
          #-----------------------
          #-----------------------
          #
-         X4)
+         X5)
          echo "intr-shell" > /boottmp/boot_mode
          echo
          echo "==INTERACTIVE SHELL MODE================

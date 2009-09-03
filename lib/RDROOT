@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.651 2009/02/25 03:08:25 kevlo Exp $
+#	$OpenBSD: GENERIC,v 1.666 2009/06/25 14:22:58 deraadt Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -32,7 +32,7 @@ option		SYSVMSG		# System V-like message queues
 option		SYSVSEM		# System V-like semaphores
 option		SYSVSHM		# System V-like memory sharing
 
-#U option		UVM_SWAP_ENCRYPT# support encryption of pages going to swap
+option		UVM_SWAP_ENCRYPT# support encryption of pages going to swap
 
 option		COMPAT_43	# Kernel compatibility with 4.3BSD
 option		COMPAT_O43	# and OpenBSD 4.3
@@ -46,7 +46,7 @@ option		UFS_DIRHASH	# hash large directories
 option		QUOTA		# UFS quotas
 #U option		EXT2FS		# Second Extended Filesystem
 option		MFS		# memory file system
-#U option		XFS		# xfs filesystem
+option		NNPFS		# NNPFS filesystem
 
 option		TCP_SACK	# Selective Acknowledgements for TCP
 option		TCP_ECN		# Explicit Congestion Notification for TCP
@@ -86,8 +86,9 @@ pseudo-device	enc	1	# option IPSEC needs the encapsulation interface
 #pseudo-device	strip	1	# Starmode Radio IP interface
 
 pseudo-device	pty	16	# initial number of pseudo-terminals
-#U pseudo-device	nmea	1	# NMEA 0183 line discipline
-#U pseudo-device	msts	1	# MSTS line discipline
+pseudo-device	nmea	1	# NMEA 0183 line discipline
+pseudo-device	msts	1	# MSTS line discipline
+pseudo-device	endrun	1	# EndRun line discipline
 pseudo-device	vnd	4	# paging to files
 pseudo-device	ccd	4	# concatenated disk devices
 pseudo-device	ksyms	1	# kernel symbols device
@@ -114,6 +115,7 @@ pseudo-device	bio	1	# ioctl multiplexing device
 
 option		BOOT_CONFIG	# add support for boot -c
 
+
 maxusers	80			# estimated number of users
 
 option		USER_PCICONF	# user-space PCI configuration
@@ -136,7 +138,7 @@ option		COMPAT_AOUT	# a.out binaries are emulated
 option		PROCFS		# /proc
 #option		NTFS		# Experimental NTFS support
 
-# or use		root on nfs swap on nfs
+## or use		root on nfs swap on nfs
 #config		bsd	swap generic
 
 option		RAMDISK_HOOKS
@@ -163,13 +165,16 @@ acpiac*		at acpi?
 acpibat*	at acpi?
 acpibtn*	at acpi?
 acpicpu*	at acpi?
-#acpidock*	at acpi?
+acpidock*	at acpi?
 acpiec*		at acpi?
 acpimadt0	at acpi?
 acpiprt*	at acpi?
 acpitz*		at acpi?
 acpiasus*	at acpi?
 acpithinkpad*	at acpi?
+acpivideo*	at acpi?
+acpivout*	at acpivideo?
+acpipwrres*	at acpi?
 
 option		PCIVERBOSE
 option		EISAVERBOSE
@@ -199,6 +204,7 @@ glxpcib* at pci?		# AMD CS5536 PCI-ISA bridge
 gpio*	at glxpcib?
 kate*	at pci?			# AMD K8 temperature sensor
 km*	at pci?			# AMD K10 temperature sensor
+amas*	at pci? disable		# AMD memory configuration
 
 # power management and other environmental stuff
 elansc*	at pci?			# AMD Elan SC520 System Controller
@@ -207,6 +213,7 @@ geodesc* at pci?		# Geode SC1100/SCx200 IAOC
 #gscpm*	at pci?			# NS Geode SC1100 SMI/ACPI module
 #ichwdt* at pci?		# Intel 6300ESB ICH watchdog timer
 wdt0	at pci?			# Ind Computer Source PCI-WDT50x driver
+berkwdt0 at pci?		# Berkshire PCI-PC Watchdog driver
 pwdog0	at pci?			# Quancom PWDOG1 watchdog timer
 
 # National Semiconductor LM7[89] and compatible hardware monitors
@@ -240,8 +247,8 @@ it*	at isa? port 0x4e		# IT8718F, IT8726F and SiS SiS950
 
 schsio*	at isa? port 0x2e		# SMSC SCH311x Super I/O
 schsio*	at isa? port 0x4e
-#schsio*	at isa? port 0x162e
-#schsio*	at isa? port 0x164e
+schsio*	at isa? port 0x162e
+schsio*	at isa? port 0x164e
 
 viaenv*	at pci?				# VIA VT82C686A hardware monitor
 viasio*	at isa? port 0x2e flags 0x0000	# VIA VT1211 LPC Super I/O
@@ -390,8 +397,10 @@ uath*	at uhub?		# Atheros AR5005UG/AR5005UX
 ural*	at uhub?		# Ralink RT2500USB
 rum*	at uhub?		# Ralink RT2501USB/RT2601USB
 run*	at uhub?		# Ralink RT2700U/RT2800U/RT3000U
+otus*	at uhub?		# Atheros AR9001U
 zyd*	at uhub?		# Zydas ZD1211
 upgt*	at uhub?		# Conexant/Intersil PrismGT SoftMAC USB
+urtw*	at uhub?		# RealTek 8187
 #option	NATM
 #ueagle* at uhub?		# Analog Devices Eagle ADSL
 udcf*	at uhub?		# Gude Expert mouseCLOCK
@@ -404,6 +413,9 @@ puc*	at pci?			# PCI "universal" communication device
 # USB Video
 uvideo* at uhub?
 video*  at uvideo?
+
+udl*		at uhub?
+wsdisplay*	at udl?
 
 sdhc*	at pci?			# SD Host Controller
 sdmmc*	at sdhc?		# SD/MMC bus
@@ -437,6 +449,7 @@ pckbd*		at pckbc?	# PC keyboard
 pms*		at pckbc?	# PS/2 mouse for wsmouse
 pmsi*		at pckbc?	# PS/2 "Intelli"mouse for wsmouse
 vga0		at isa?
+option		X86EMU		# to POST video cards
 vga*		at pci?
 pcdisplay0	at isa?		# CGA, MDA, EGA, HGA
 wsdisplay*	at vga?
@@ -460,7 +473,7 @@ agp*		at sisagp?	# AGP bridges
 agp*		at viaagp?	# AGP bridges
 
 #option		DRM_DEBUG
-inteldrm*	at vga? 	# Intel i915, i945 DRM driver
+inteldrm*	at vga?		# Intel i915, i945 DRM driver
 drm*		at inteldrm?
 #machdrm*	at vga?		# mach64 (3D Rage Pro, Rage) DRM driver
 #drm*		at machdrm?

@@ -30,11 +30,11 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 PROJNAME =FuguIta
-VERSION  =4.5
+VERSION  =4.6
 DATE    !=date +%Y%m%d
 REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 1; fi
 
-FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)
+FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)alpha
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
 
 CDR_DEV=cd1
@@ -66,6 +66,7 @@ usbkern: bsd.rdcd bsd.mp.rdcd
 
 usbfill:
 	mount /dev/$(USB_DEV)a $(USB_MNT)
+	-[ -d $(USB_MNT)/tmp ] || mkdir $(USB_MNT)/tmp && chmod $(USB_MNT)/tmp 1777
 	-dd if=/dev/zero of=$(USB_MNT)/tmp/fill bs=65536k
 	rm -f $(USB_MNT)/tmp/fill
 	umount $(USB_MNT)
@@ -106,8 +107,8 @@ livecd.iso: tree
 		-publisher "$(AUTHOR)" \
 		-b cdbr -no-emul-boot \
 		-c boot.catalog \
-		-o /opt/fi/4.5/livecd.iso \
-		/opt/fi/4.5/cdroot.dist/
+		-o /opt/fi/4.6/livecd.iso \
+		/opt/fi/4.6/cdroot.dist/
 
 tree: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot
 	cp lib/cdbr lib/cdboot cdroot.dist

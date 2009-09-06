@@ -207,7 +207,7 @@ echo "disks:$disks"
  # set mfs size
  #
  memmax=1023
- memmin=12
+ memmin=10
  usermem=`sysctl -n hw.usermem`
  echo
  echo "  user memory: $usermem bytes"
@@ -260,7 +260,13 @@ echo "disks:$disks"
  # mount user-writable file system
  #
  mfs_alloc_blk=$((1024*2*$umem))
- /fuguita/sbin/mount_mfs -o rw,async -b 4096 -f 512 -i 1024 -s $mfs_alloc_blk swap /mfs || exit
+ mfs_inode_dens=$(($umem*1024*1024/50000))
+ if [ $mfs_inode_dens -gt 16384 ]; then
+     mfs_inode_dens=16384
+ elif [ $mfs_inode_dens -lt 512 ]; then
+     mfs_inode_dens=512
+ fi
+ /fuguita/sbin/mount_mfs -o rw,async -b 4096 -f 512 -i $mfs_inode_dens -s $mfs_alloc_blk swap /mfs || exit
 
  #-------------------------------
  # generate fstab from current
@@ -275,7 +281,7 @@ echo "disks:$disks"
          X/fuguitaX)
              echo $1 $3 $5 ro 0 0 ;;
          X/mfsX)
-             echo swap $3 $5 rw,async,-b=4096,-f=512,-i=1024,-s=$mfs_alloc_blk 0 0 ;;
+             echo swap $3 $5 rw,async,-b=4096,-f=512,-i=$mfs_inode_dens,-s=$mfs_alloc_blk 0 0 ;;
          *)
              echo $1 $3 $5 defaults 0 0 ;;
      esac

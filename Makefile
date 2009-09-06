@@ -66,7 +66,7 @@ usbkern: bsd.rdcd bsd.mp.rdcd
 
 usbfill:
 	mount /dev/$(USB_DEV)a $(USB_MNT)
-	-[ -d $(USB_MNT)/tmp ] || mkdir $(USB_MNT)/tmp && chmod $(USB_MNT)/tmp 1777
+	-[ -d $(USB_MNT)/tmp ] || mkdir $(USB_MNT)/tmp && chmod 1777 $(USB_MNT)/tmp
 	-dd if=/dev/zero of=$(USB_MNT)/tmp/fill bs=65536k
 	rm -f $(USB_MNT)/tmp/fill
 	umount $(USB_MNT)

@@ -260,7 +260,7 @@ echo "disks:$disks"
  # mount user-writable file system
  #
  mfs_alloc_blk=$((1024*2*$umem))
- mfs_inode_dens=$(($umem*1024*1024/50000))
+ mfs_inode_dens=$(($umem*1024*1024/100000))
  if [ $mfs_inode_dens -gt 16384 ]; then
      mfs_inode_dens=16384
  elif [ $mfs_inode_dens -lt 512 ]; then

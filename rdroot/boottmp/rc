@@ -122,7 +122,8 @@
          # absent.
          X[csw]d[0-9]X)
              if mount -r /dev/${rdev}a /mnt 2>/dev/null ; then
-                 if [ -r /mnt/usr/local/share/doc/FuguIta ]; then
+                 if [ -r /mnt/usr/local/share/doc/FuguIta -o \
+                      -f /mnt/fuguita.img ]; then
                      disk=" *${rdev}a"
                      if [ X${def_rdev} = X ]; then
                          def_rdev=${rdev}a
@@ -202,6 +203,12 @@ echo "disks:$disks"
  # mount system-stored device
  #
  /sbin/mount -r /dev/${rdev} /fuguita || exit
+ if [ -f /fuguita/fuguita.img ]; then
+     /sbin/umount /fuguita
+     /sbin/mount -r /dev/${rdev} /cdrom
+     /cdrom/sbin/vnconfig svnd3 /cdrom/fuguita.img
+     /sbin/mount -r /dev/svnd3a /fuguita
+ fi
 
  #-------------------------------
  # set mfs size
@@ -278,7 +285,7 @@ echo "disks:$disks"
      case X"$3"X in
          X/X)
              echo /dev/rd0a / ffs rw 0 0 ;;
-         X/fuguitaX)
+         X/fuguitaX|X/cdromX)
              echo $1 $3 $5 ro 0 0 ;;
          X/mfsX)
              echo swap $3 $5 rw,async,-b=4096,-f=512,-i=$mfs_inode_dens,-s=$mfs_alloc_blk 0 0 ;;
@@ -418,6 +425,13 @@ echo "disks:$disks"
              umount -f /fuguita
              grep -v '/fuguita' /etc/fstab > /etc/fstab.tmp
              mv /etc/fstab.tmp /etc/fstab
+
+             if [ -f /cdrom/fuguita.img ]; then
+                 vnconfig -u svnd3
+                 umount -f /cdrom
+                 grep -v '/cdrom' /etc/fstab > /etc/fstab.tmp
+                 mv /etc/fstab.tmp /etc/fstab
+             fi
          fi
 
          echo "done"

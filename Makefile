@@ -1,4 +1,4 @@
-# Copyright (c) 2006, 2007, 2008, Yoshihiro Kawamata
+# Copyright (c) 2006, 2007, 2008, 2009, Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -44,12 +44,80 @@ CDR_DEV=cd1
     USB_MNT=/mnt
 .else
     USB_DEV=svnd1
-    USB_MNT=usbroot.dist
+    USB_MNT=/mnt
 .endif
-USB_IMG=liveusb.img
+USB_IMG=media.img
 
 all:
 	@echo /$(FI_FILENAME)/ - lets go
+
+open-all: open-rdroot open-media open-fuguita
+
+close-all: close-fuguita close-media close-rdroot
+
+open-rdroot:
+	-vnconfig svnd0 rdroot.img
+	-mount /dev/svnd0a rdroot
+
+close-rdroot:
+	-umount rdroot
+	-vnconfig -u svnd0
+
+open-media:
+	-vnconfig svnd1 media.img
+	-mount /dev/svnd1a media
+
+close-media:
+	-umount media
+	-vnconfig -u svnd1
+
+open-fuguita:
+	-vnconfig svnd2 media/fuguita.ffsimg
+	-mount /dev/svnd2a fuguita
+
+close-fuguita:
+	-umount fuguita
+	-vnconfig -u svnd2
+
+iso: boot
+	: 'echo $$(($(REVISION)+1)) > revcount_cdmaster'
+	/usr/local/bin/mkisofs \
+		-no-iso-translate \
+		-R \
+		-allow-leading-dots \
+		-l -d -D -N -v \
+		-V "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
+		-A "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
+		-p "$(AUTHOR)" \
+		-publisher "$(AUTHOR)" \
+		-b cdbr -no-emul-boot \
+		-c boot.catalog \
+		-o /opt/fi/4.6/livecd.iso \
+		/opt/fi/4.6/media/
+
+boot: bsd.rdcd bsd.mp.rdcd lib/boot lib/cdbr lib/cdboot
+	cp lib/boot media/.
+	/usr/mdec/installboot -v media/boot /usr/mdec/biosboot svnd1
+	cp lib/cdbr lib/cdboot media/.
+	cp lib/boot.conf media/etc/.
+
+bsd.rdcd: bsd.orig rdroot.img
+	cp bsd.orig bsd
+	lib/rdsetroot bsd < rdroot.img
+	gzip -c9 bsd > media/bsd
+
+bsd.mp.rdcd: bsd.mp.orig rdroot.img
+	cp bsd.mp.orig bsd.mp
+	lib/rdsetroot bsd.mp < rdroot.img
+	gzip -c9 bsd.mp > media/bsd.mp
+
+cdemu:
+	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -cdrom livecd.iso -boot d
+
+usbemu:
+	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -hda /dev/$(USB_DEV)c -boot c
+
+#======================================================================
 
 usbgz:
 	dd if=/dev/r$(USB_DEV)c bs=65536k | gzip -cv9 > $(FI_FILENAME).usbimg.gz
@@ -57,23 +125,16 @@ usbgz:
 usbbz:
 	dd if=/dev/r$(USB_DEV)c bs=65536k | bzip2 -cv9 > $(FI_FILENAME).usbimg.bz2
 
-usbkern: bsd.rdcd bsd.mp.rdcd
-	mount /dev/$(USB_DEV)a $(USB_MNT)
-	cat bsd.rdcd > $(USB_MNT)/bsd
-	cat bsd.mp.rdcd > $(USB_MNT)/bsd.mp
-	cp lib/boot.conf cdroot.dist/etc
-	umount $(USB_MNT)
-
-usbfill:
-	mount /dev/$(USB_DEV)a $(USB_MNT)
-	-[ -d $(USB_MNT)/tmp ] || mkdir $(USB_MNT)/tmp && chmod 1777 $(USB_MNT)/tmp
-	-dd if=/dev/zero of=$(USB_MNT)/tmp/fill bs=65536k
-	rm -f $(USB_MNT)/tmp/fill
-	umount $(USB_MNT)
-	mount /dev/$(USB_DEV)d $(USB_MNT)
-	-dd if=/dev/zero of=$(USB_MNT)/livecd-config/fill bs=65536k
-	rm -f $(USB_MNT)/livecd-config/fill
-	umount $(USB_MNT)
+#usbfill:
+#	mount /dev/$(USB_DEV)a $(USB_MNT)
+#	-[ -d $(USB_MNT)/tmp ] || mkdir $(USB_MNT)/tmp && chmod 1777 $(USB_MNT)/tmp
+#	-dd if=/dev/zero of=$(USB_MNT)/tmp/fill bs=65536k
+#	rm -f $(USB_MNT)/tmp/fill
+#	umount $(USB_MNT)
+#	mount /dev/$(USB_DEV)d $(USB_MNT)
+#	-dd if=/dev/zero of=$(USB_MNT)/livecd-config/fill bs=65536k
+#	rm -f $(USB_MNT)/livecd-config/fill
+#	umount $(USB_MNT)
 
 cdrburn: cdrclean cdburn
 
@@ -94,49 +155,5 @@ gz:
 #: 'cd cdroot.dist && mkhybrid -R -L -l -d -v -o ../livecd.iso -b cdbr -c boot.catalog .'
 #: 'cd cdroot.dist && /usr/local/bin/mkisofs -R -L -l -d -v -o ../livecd.iso -b cdbr -no-emul-boot -c boot.catalog .'
 
-livecd.iso: tree
-	echo $$(($(REVISION)+1)) > revcount_cdmaster
-	/usr/local/bin/mkisofs \
-		-no-iso-translate \
-		-R \
-		-allow-leading-dots \
-		-l -d -D -N -v \
-		-V "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
-		-A "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
-		-p "$(AUTHOR)" \
-		-publisher "$(AUTHOR)" \
-		-b cdbr -no-emul-boot \
-		-c boot.catalog \
-		-o /opt/fi/4.6/livecd.iso \
-		/opt/fi/4.6/cdroot.dist/
-
-tree: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot
-	cp lib/cdbr lib/cdboot cdroot.dist
-	cp bsd.rdcd cdroot.dist/bsd
-	cp bsd.mp.rdcd cdroot.dist/bsd.mp
-	cp lib/boot.conf cdroot.dist/etc
-
-bsd.rdcd: bsd.orig rdroot.dist.img
-	cp bsd.orig bsd
-	lib/rdsetroot bsd < rdroot.dist.img
-	gzip -c9 bsd > bsd.rdcd
-
-bsd.mp.rdcd: bsd.mp.orig rdroot.dist.img
-	cp bsd.mp.orig bsd.mp
-	lib/rdsetroot bsd.mp < rdroot.dist.img
-	gzip -c9 bsd.mp > bsd.mp.rdcd
-
-vnoff:
-	umount /dev/svnd0a; vnconfig -u svnd0
-
-vnon:
-	vnconfig svnd0 rdroot.dist.img; mount /dev/svnd0a rdroot.dist
-
-emu:
-	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -cdrom livecd.iso -boot d
-
-usbemu:
-	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -hda /dev/$(USB_DEV)c -boot c
-
 clean:
-	rm -f bsd bsd.mp bsd.rdcd bsd.mp.rdcd livecd.iso $(FI_FILENAME).iso.gz $(FI_FILENAME).usbimg.gz
+	rm -f bsd bsd.mp livecd.iso $(FI_FILENAME).iso.gz $(FI_FILENAME).usbimg.gz

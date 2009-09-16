@@ -39,13 +39,8 @@ AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
 
 CDR_DEV=cd1
 
-.if defined(REAL_FLASH)
-    USB_DEV=sd0
-    USB_MNT=/mnt
-.else
-    USB_DEV=svnd1
-    USB_MNT=/mnt
-.endif
+USB_DEV=svnd1
+USB_MNT=/mnt
 USB_IMG=media.img
 
 all:
@@ -79,7 +74,7 @@ close-fuguita:
 	-umount fuguita
 	-vnconfig -u svnd2
 
-iso: boot
+iso:
 	: 'echo $$(($(REVISION)+1)) > revcount_cdmaster'
 	/usr/local/bin/mkisofs \
 		-no-iso-translate \
@@ -97,9 +92,12 @@ iso: boot
 
 boot: bsd.rdcd bsd.mp.rdcd lib/boot lib/cdbr lib/cdboot
 	cp lib/boot media/.
-	/usr/mdec/installboot -v media/boot /usr/mdec/biosboot svnd1
 	cp lib/cdbr lib/cdboot media/.
+	[ -d media/etc ] || mkdir media/etc
 	cp lib/boot.conf media/etc/.
+	[ -d media/sbin ] || mkdir media/sbin
+	cp -p /sbin/vnconfig media/sbin; strip media/sbin/vnconfig
+	/usr/mdec/installboot -v media/boot /usr/mdec/biosboot svnd1
 
 bsd.rdcd: bsd.orig rdroot.img
 	cp bsd.orig bsd
@@ -115,15 +113,28 @@ cdemu:
 	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -cdrom livecd.iso -boot d
 
 usbemu:
-	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -hda /dev/$(USB_DEV)c -boot c
+	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -hda media.img c -boot c
 
-#======================================================================
+gz: cdgz usbgz
+
+cdgz:
+	gzip -cv9 livecd.iso > $(FI_FILENAME).iso.gz
 
 usbgz:
-	dd if=/dev/r$(USB_DEV)c bs=65536k | gzip -cv9 > $(FI_FILENAME).usbimg.gz
+	gzip -cv9 media.img > $(FI_FILENAME).usbimg.gz
 
-usbbz:
-	dd if=/dev/r$(USB_DEV)c bs=65536k | bzip2 -cv9 > $(FI_FILENAME).usbimg.bz2
+cdrburn: cdrclean cdburn
+
+cdrclean:
+	cdio -v -f /dev/r$(CDR_DEV)c blank
+
+cdburn:
+	cdio -v -f /dev/r$(CDR_DEV)c tao livecd.iso
+
+clean:
+	rm -f bsd bsd.mp livecd.iso $(FI_FILENAME).iso.gz $(FI_FILENAME).usbimg.gz
+
+#======================================================================
 
 #usbfill:
 #	mount /dev/$(USB_DEV)a $(USB_MNT)
@@ -135,25 +146,3 @@ usbbz:
 #	-dd if=/dev/zero of=$(USB_MNT)/livecd-config/fill bs=65536k
 #	rm -f $(USB_MNT)/livecd-config/fill
 #	umount $(USB_MNT)
-
-cdrburn: cdrclean cdburn
-
-cdrclean:
-	cdio -v -f /dev/r$(CDR_DEV)c blank
-
-cdburn:
-	cdio -v -f /dev/r$(CDR_DEV)c tao livecd.iso
-
-bgz: bz gz
-
-bz:
-	bzip2 -cv9 livecd.iso > $(FI_FILENAME).iso.bz2
-
-gz:
-	gzip -cv9 livecd.iso > $(FI_FILENAME).iso.gz
-
-#: 'cd cdroot.dist && mkhybrid -R -L -l -d -v -o ../livecd.iso -b cdbr -c boot.catalog .'
-#: 'cd cdroot.dist && /usr/local/bin/mkisofs -R -L -l -d -v -o ../livecd.iso -b cdbr -no-emul-boot -c boot.catalog .'
-
-clean:
-	rm -f bsd bsd.mp livecd.iso $(FI_FILENAME).iso.gz $(FI_FILENAME).usbimg.gz

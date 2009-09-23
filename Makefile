@@ -32,9 +32,9 @@
 PROJNAME =FuguIta
 VERSION  =4.6
 DATE    !=date +%Y%m%d
-REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 1; fi
+REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
 
-FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)alpha
+FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)beta
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
 
 CDR_DEV=cd1
@@ -75,7 +75,6 @@ close-fuguita:
 	-vnconfig -u svnd2
 
 iso:
-	: 'echo $$(($(REVISION)+1)) > revcount_cdmaster'
 	/usr/local/bin/mkisofs \
 		-no-iso-translate \
 		-R \
@@ -88,10 +87,10 @@ iso:
 		-b cdbr -no-emul-boot \
 		-c boot.catalog \
 		-o /opt/fi/4.6/livecd.iso \
-		/opt/fi/4.6/media/
+		/opt/fi/4.6/media/ \
+	&& echo $$(($(REVISION)+1)) > revcount_cdmaster
 
-boot: bsd.rdcd bsd.mp.rdcd lib/boot lib/cdbr lib/cdboot
-	cp lib/boot media/.
+boot: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot
 	cp lib/cdbr lib/cdboot media/.
 	[ -d media/etc ] || mkdir media/etc
 	cp lib/boot.conf media/etc/.

@@ -178,7 +178,17 @@
 =         http://kaw.ath.cx/openbsd/?en/LiveCD
 ==============================================
 '
-echo "disks:$disks"
+ #-------------------------------
+ # wait for cancelling non-interactive boot
+ #
+ if [ "X${noask_rdev}${noask_umem}${noask_setup_rw_mode}${noask_confdir}" != X ]; then
+     trap "unset noask_rdev noask_umem noask_setup_rw_mode noask_confdir; echo ' ... cancelled'" 2
+     echo "Press ^C to cancel non-interactive boot"
+     sleep 5
+     echo
+ fi
+
+ echo "disks:$disks"
  if [ X"$def_rdev" = X ]; then
      echo    "Cannot find disk to boot FuguIta...";
      echo -n "Anyway, disk to try booting? -> "; read ans

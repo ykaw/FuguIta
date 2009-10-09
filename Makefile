@@ -96,7 +96,7 @@ boot: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot
 	cp lib/boot.conf media/etc/.
 	[ -d media/sbin ] || mkdir media/sbin
 	cp -p /sbin/vnconfig media/sbin; strip media/sbin/vnconfig
-	/usr/mdec/installboot -v media/boot /usr/mdec/biosboot svnd1
+	: '/usr/mdec/installboot -v media/boot /usr/mdec/biosboot svnd1'
 
 bsd.rdcd: bsd.orig rdroot.img
 	cp bsd.orig bsd

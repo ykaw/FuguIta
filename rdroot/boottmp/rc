@@ -88,9 +88,10 @@
  # Active code from here
  #====================
  # setup file systems;
- #   1. /         ...  ram disk attached to kernel
- #   2. /fuguita  ...  storage FuguIta is stored in
- #   3. /mfs      ...  user-modifiable file system
+ #   1. /         ...  rd - ram disk attached to kernel
+ #   2. /sysmedia ...  CD or USB flashdrive - containing FFS system image
+ #   3. /fuguita  ...  vnode disk - mounted FFS system image
+ #   4. /mfs      ...  user-modifiable file system
  #
 
  cd /
@@ -100,6 +101,24 @@
  #
  mount -w /dev/rd0a /
  : > /boottmp/boot_starts
+
+ #----------------------------
+ # detect boot-failure loop
+ #
+ if [ -r /boottmp/boot_tries ]; then
+     read boot_tries < /boottmp/boot_tries
+     boot_tries=$((boot_tries+1))
+ else
+     boot_tries=1
+ fi
+
+ if [ $boot_tries -ge 10 ]; then
+     echo
+     echo 'Too many boot retries.'
+     echo -n 'emergency stop ->'; read dummy
+     boot_tries=0
+ fi
+ echo $boot_tries > /boottmp/boot_tries
 
  #-------------------------------
  # scan devices
@@ -313,6 +332,26 @@
  /fuguita/bin/ln -sf fuguita/bin fuguita/sbin .
 
  while :; do
+     
+     #----------------------------
+     # detect select-mode failure loop
+     #
+     if [ "X$select_mode_tries" = X ]; then
+         select_mode_tries=1
+     else
+         select_mode_tries=$(($select_mode_tries+1))
+     fi
+
+     if [ $select_mode_tries -ge 10 ]; then
+         echo
+         echo 'Too many boot retries.'
+         echo -n 'emergency stop ->'; read dummy
+         unset select_mode_tries
+     fi
+
+     #----------------------------
+     # boot modes
+     #
      echo
      echo 'Select boot mode;'
      echo '  0: fresh boot (normal)'

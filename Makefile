@@ -34,7 +34,7 @@ VERSION  =4.6
 DATE    !=date +%Y%m%d
 REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
 
-FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)beta
+FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
 
 CDR_DEV=cd1
@@ -75,6 +75,10 @@ close-fuguita:
 	-vnconfig -u svnd2
 
 iso:
+	make open-fuguita
+	echo "$(VERSION)-$(DATE)$$(($(REVISION)+1))" > fuguita/usr/local/fuguita/fuguita.version
+	make close-fuguita
+
 	/usr/local/bin/mkisofs \
 		-no-iso-translate \
 		-R \
@@ -87,6 +91,23 @@ iso:
 		-b cdbr -no-emul-boot \
 		-c boot.catalog \
 		-o /opt/fi/4.6/livecd.iso \
+		/opt/fi/4.6/media/ \
+	&& echo $$(($(REVISION)+1)) > revcount_cdmaster
+
+hyb:
+	make open-fuguita
+	echo "$(VERSION)-$(DATE)$$(($(REVISION)+1))" > fuguita/usr/local/fuguita/fuguita.version
+	make close-fuguita
+
+	mkhybrid -a -R -L -l -d -D -N \
+		-o /opt/fi/4.6/livecd.iso \
+		-v -v \
+		-A "FuguIta - OpenBSD LiveCD" \
+		-P "Copyright (c) `date +%Y` KAWAMATA Yoshihiro" \
+		-p "KAWAMATA Yoshihiro, http://kaw.ath.cx/openbsd/?en/LiveCD" \
+		-V "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
+		-b cdbr \
+		-c boot.catalog \
 		/opt/fi/4.6/media/ \
 	&& echo $$(($(REVISION)+1)) > revcount_cdmaster
 

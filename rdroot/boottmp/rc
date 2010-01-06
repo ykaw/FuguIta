@@ -426,18 +426,25 @@ while :; do
 
         if [ X"$setup_rw_mode" = X0 ]; then
             #-------------------------------------------
-            # lndir from /mfs/usr to /fuguita/usr
+            # extract pre-build symlinks archive
+            # or lndir from /mfs/usr to /fuguita/usr
             #
-            echo -n "Linking files from /mfs to /fuguita ... "
-            mkdir /mfs/usr && cd /mfs/usr && lndir -s /fuguita/usr
+            if [ -r /fuguita/usr/local/fuguita/fuguita_mode0symlinks.cpio.gz \
+                 -a ! -e /boottmp/force_lndir ]; then
+                echo -n "Extracting symlinks from /mfs to /fuguita ... "
+                (cd /mfs && pax -rzpe -f /fuguita/usr/local/fuguita/fuguita_mode0symlinks.cpio.gz)
+            else
+                echo -n "Linking files from /mfs to /fuguita ... "
+                mkdir /mfs/usr && cd /mfs/usr && lndir -s /fuguita/usr
 
-            #-------------------------------------------
-            # KLUDGE: Re-lndir under /usr/local/lib/X11/fonts
-            #
-            if [ -h /mfs/usr/local/lib/X11/fonts ]; then
-                rm /mfs/usr/local/lib/X11/fonts
-                mkdir -p /mfs/usr/local/lib/X11/fonts
-                (cd /mfs/usr/local/lib/X11/fonts && lndir -s /fuguita/usr/local/lib/X11/fonts)
+                #-------------------------------------------
+                # KLUDGE: Re-lndir under /usr/local/lib/X11/fonts
+                #
+                if [ -h /mfs/usr/local/lib/X11/fonts ]; then
+                    rm /mfs/usr/local/lib/X11/fonts
+                    mkdir -p /mfs/usr/local/lib/X11/fonts
+                    (cd /mfs/usr/local/lib/X11/fonts && lndir -s /fuguita/usr/local/lib/X11/fonts)
+                fi
             fi
 
             #-------------------------------------------
@@ -453,7 +460,7 @@ while :; do
                 usr/libexec/auth \
                 usr/local/lib/wnn
               do
-              if [ -d /mfs/$d ]; then
+              if [ -d /fuguita/$d ]; then
                   rm -rf /mfs/$d && cd `dirname /fuguita/$d` && pax -rwpe `basename $d` `dirname /mfs/$d`
               fi
             done
@@ -466,7 +473,7 @@ while :; do
                 usr/local/share/info/dir
               do
               if [ -f /fuguita/$f ]; then
-                  rm /mfs/$f && cp -p /fuguita/$f /mfs/$f
+                  rm -f /mfs/$f && cp -p /fuguita/$f /mfs/$f
               fi
             done
 

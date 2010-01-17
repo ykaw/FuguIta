@@ -1,5 +1,8 @@
 #!/bin/sh
 
+#set -x
+#set -e
+
 #========================================
 #
 # usbfadm - USB Flash ADMinistration tool
@@ -7,7 +10,7 @@
 #
 #========================================
 
-# Copyright (c) 2006, 2007, 2008, 2009
+# Copyright (c) 2006--2010
 # Yoshihiro Kawamata
 #
 # All rights reserved.
@@ -40,8 +43,157 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+trap 'rm -f /tmp/rl_words' EXIT
 
-echo 'Welcome to USB flash maintenance tool.'
+#-------------------
+# read user's input with readline functionality
+# outputs echoed to stdout
+#
+#     usage: rl_wread prompt-str default-str [completion words ....]
+#
+function rl_wread {
+    prompt="$1";  shift
+    default="$1"; shift
+    if [ -x /usr/local/bin/rlwrap ]; then
+        echo "$@" > /tmp/rl_words
+        rlwrap -b '' \
+               -f /tmp/rl_words \
+               -P "$default" \
+               sh -c 'echo -n "'"$prompt"' --> " >&2 ; read w || echo EOF; echo $w' || echo RL_ERR
+    else
+        #-------------------
+        # fallback to dumb input
+        #
+        if [ X"$default" = X ]; then
+            echo -n "$prompt --> " >&2
+            read w
+        else
+            echo -n "$prompt [$default] --> " >&2
+            read w
+            if [ X"$w" = X ]; then
+              w="$default"
+            fi
+        fi
+        echo $w
+    fi
+}
+
+function notice {
+    echo ''
+    echo ========================================
+    echo = "$@"
+    echo =
+}
+
+#-------------------
+# make specified usb devices for FuguIta
+#
+#     usage: setup_usb dev ["sys"]
+#
+# dev has the form like 'sd6' .
+#
+# With "sys", partition a is prepared and
+# FuguIta system will be copied.
+#
+function setup_usb {
+    [ X"$1" = X ] && return
+    rdev="$1"
+    [ 0 = `expr "$rdev" : '^sd[0-9]$'` ] && return
+
+    if [ X"$2" = Xsys ]; then
+        sys=YES
+    else
+        sys=NO
+    fi
+
+    notice Setting up partitions
+    fdisk -iy ${rdev}
+    echo ''
+    fdisk ${rdev}
+    echo ''
+    if [ X$sys = XYES ]; then
+        disklabel -E ${rdev} <<EOT
+z
+a a
+
+650M
+
+a d
+
+*
+
+w
+q
+EOT
+        newfs -m0 -i$((650*1024*1024/100)) /dev/r${rdev}a
+    else
+        disklabel -E ${rdev} <<EOT
+z
+a d
+
+*
+
+w
+q
+EOT
+fi
+    echo ''
+    disklabel -pm ${rdev}
+    echo ''
+    newfs -m0 -i1024 -b4096 -f512 /dev/r${rdev}d
+
+    if [ X$sys = XYES ]; then
+        notice Copying FuguIta system files
+        mount -o async /dev/${rdev}a /mnt
+        cd /sysmedia
+        pax -rwvpe !(fuguita.ffsimg) /mnt
+
+        if [ -r /sysmedia/fuguita.ffsimg ]; then
+            notice Transferring filesystem image...
+            dd if=fuguita.ffsimg of=/mnt/fuguita.ffsimg bs=16m
+        fi
+
+        notice Installing boot loader
+        /usr/mdec/installboot -v /mnt/boot /usr/mdec/biosboot ${rdev}
+        umount /mnt
+
+        fsck -fy /dev/r${rdev}a
+    fi
+
+    notice Preparing partitions for user data
+    mount -o async /dev/${rdev}d /mnt
+    mkdir /mnt/livecd-config
+    cat <<EOT >/mnt/noasks
+#
+# noasks - parameter settings for non-interactive boot
+#
+# Make statements uncommented
+# to activate settings
+#
+#
+# FuguIta system device
+#noask_rdev='${rdev}a'
+#
+# mfs size in MB
+#noask_umem='32'
+#
+# boot mode
+#noask_setup_rw_mode='3'
+#
+# data set name in USB flash drive
+#noask_confdir='`hostname`'
+EOT
+    umount /mnt
+    fsck -fy /dev/r${rdev}d
+}
+
+
+#-------------------
+# Active Code from HERE.
+#
+echo ''
+echo 'Welcome to usbfadm.'
+echo 'USB flash drive maintenance tool for FuguIta'
 echo ''
 
 #-------------------
@@ -59,7 +211,7 @@ fi
 
 if [ -r /boottmp/boot_user_config ]; then
     uconf=`cat /boottmp/boot_user_config`
-    echo " Data Set Name: $uconf"
+    echo " Data Saved as: $uconf"
 fi
 echo ''
 echo 'Type ? for help.'
@@ -71,11 +223,10 @@ while :; do
     #-------------------
     # setup prompt string
     #
-    d="$devname" ; [ -z "$devname" ] && d='?'
-    u="$uconf"   ; [ -z "$uconf" ]   && u='?'
+    d="${devname#/dev/}" ; [ -z "$devname" ] && d='?'
+    u="$uconf"           ; [ -z "$uconf" ]   && u='?'
     echo ''
-    echo -n "$d:$u -> "; read cmd
-    echo ''
+    cmd=`rl_wread "$d : $u" '' quit bye exit sync info saveas target newsys help ?`
 
     set X $cmd
 
@@ -86,15 +237,16 @@ while :; do
         #-------------------
         # finish all
         #
-        Xquit|Xbye|Xexit)
+        Xq|Xquit|Xbye|Xexit|XEOF|XRL_ERR)
         break;
         ;;
 
         #-------------------
         # write back memory file system
-        # to USB flash disk
+        # to USB flash drive
         #
         Xsync)
+        echo ''
         echo -n "Sync current mfs as $uconf, OK? [y/n] -> "; read yn
         if [ 1 = `expr "$yn" : '[Yy]$'` ]; then
             if mount -o async,noatime $devname /mnt; then
@@ -108,11 +260,11 @@ while :; do
         ;;
 
         #-------------------
-        # show status of USB memory
+        # show status of USB flash drive
         #
         Xinfo)
         if mount -r $devname /mnt; then
-            (cd /mnt/livecd-config && echo ''; df -h /mnt; echo "\nscanning...\n"; du -sh *)
+            (cd /mnt/livecd-config && echo ''; df -hi /mnt; echo "\nscanning...\n"; du -sh *)
             umount $devname
         fi
         ;;
@@ -123,50 +275,110 @@ while :; do
         #
         # strip invalid chars
         #
-        Xdsn)
-        if [ X"$3" = X ]; then
-            echo -n "Enter data set name [`hostname`] -> "; read uconf
-            [ -z "$uconf" ] && uconf=`hostname`
-        else
-            uconf="$3"
+        Xsaveas)
+        if [ X"devname" != X ] && mount -r $devname /mnt; then
+            confs=`cd /mnt/livecd-config && echo *`
+            umount $devname
         fi
+        [ X"$uconf" = X ] && uconf=`hostname`
+        uconf=`rl_wread "Name of saved data" $uconf $confs`
         uconf=`echo $uconf | tr -cd 0-9A-Za-z.,_-+=:%@`
         echo ''
-        echo "Now data set name is set to \`\`$uconf''."
-        echo "$uconf" > /boottmp/boot_user_config
+        if [ X"$uconf" = X ]; then
+            echo "Unset the name of saving data"
+        else
+            echo "Now data set name is set to \`\`$uconf''."
+            echo "$uconf" > /boottmp/boot_user_config
+        fi
         ;;
 
         #-------------------
-        # search and set USB flash
+        # search and set USB flash drive
         #
-        Xrescan)
-        echo 'Rescanning USB flash'
+        Xtarget)
+        echo ''
+        echo 'Searching USB flash drives'
         echo 'Please make sure the device inserted.'
-        echo -n 'Then press ENTER -->'; read dummy
+        echo -n 'Then press ENTER --> '; read dummy
 
         #-----------------------
-        # search for saved data
+        # search partitions for saved data
         #
         devname=''
-        for rdev in {sd,wd}{4,3,2,1,0}d; do
-            if mount -r /dev/${rdev} /mnt 2>/dev/null ; then
+        devnames=''
+        for rdev in `sysctl -n hw.disknames|tr , \\\012|grep ^[ws]d[0-9]`; do
+            if mount | grep -q "^/dev/${rdev}d" ; then
+                echo -n "($rdev) "
+                continue
+            fi
+
+            if mount -r /dev/${rdev}d /mnt 2>/dev/null ; then
                 if [ -d /mnt/livecd-config ]; then
-                    devname=/dev/${rdev}
-                    umount /mnt
-                    break;
+                    devname=${rdev}d
+                    devnames="$devnames ${rdev}d"
+                    echo -n "+$devname "
+                else
+                    echo -n "$rdev "
                 fi
                 umount /mnt
+            else
+                echo -n "$rdev "
             fi
         done
+        echo ''
 
-        if [ X"$devname" = X ]; then
-            echo 'cannot find directory with saved data'
+        if [ X"$devnames" = X ]; then
+            echo 'No device available for saving data'
+        else
+            devname=/dev/`rl_wread "target device" $devname $devnames`
         fi
+        ;;
+
+        #-------------------
+        # make new FuguIta USB flash drive
+        #
+        Xnewsys)
+        echo ''
+        echo 'Please make sure the device inserted.'
+        echo -n 'Then press ENTER --> '; read dummy
+        echo ''
+        echo ==== FYI: sd[0-9] on syslog ================================
+        dmesg | grep '^sd[0-9][0-9]*[ :]' | tail -n 20 | cat -n
+        echo ============================================================
+        echo ''
+        newdev=`rl_wread "Enter name of device which FuguIta will be installed" "" \`sysctl -n hw.disknames|tr , \\\\\012|grep ^[s]d[0-9]\``
+        [ 0 = `expr "$newdev" : '^sd[0-9]$'` ] && continue
+        if mount|grep -q "^/dev/$newdev"; then
+            echo ''
+            echo -n "Error: $newdev is busy now."
+            echo ''
+            continue
+        fi
+
+        echo ''
+        fdisk $newdev || continue
+
+        if [ `fdisk $newdev | grep -c ' unused      $'` != 4 ]; then
+            echo ''
+            echo 'This disk seems to have been partitioned already.'
+            echo -n "Continue anyway? [y/n] -> "; read yn
+            [ 1 != `expr "$yn" : '[Yy]$'` ] && continue
+        fi
+
+        echo ''
+        echo -n "Will you make this USB flash drive bootable? [y/n] -> "; read yn
+        case X"$yn"X in
+            X[Yy]X) inst=sys;;
+            X[Nn]X) inst='';;
+            *) continue;;
+        esac
+
+        setup_usb $newdev $inst
         ;;
 
         #-------------------
         # null command
-        # ... only RET or EOF
+        # ... only RET
         X)
         : # do nothing
         ;;
@@ -176,11 +388,13 @@ while :; do
         # then for help message
         #
         *)
+        echo ''
         echo "Commands are;
-    sync    -  sync current mfs to USB flash
-    info    -  Show info on USB flash
-    rescan  -  search USB flash device
-    dsn     -  set data set name
+    sync    -  sync current mfs to USB flash drive
+    info    -  Show info on USB flash drive
+    target  -  set USB device for sync and info
+    saveas  -  set name of saving data
+    newsys  -  make new FuguIta USB flash drive
     bye, exit, quit
             - end of this utility"
         ;;

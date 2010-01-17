@@ -7,7 +7,7 @@
 #====================
 
 
-# Copyright (c) 2006, 2007, 2008, 2009 Yoshihiro Kawamata
+# Copyright (c) 2006--2010 Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without

@@ -339,7 +339,7 @@ while :; do
             continue
         fi
 
-        if [ 1 = `ask_yn "Sync current mfs as $uconf, OK?" n` ]; then
+        if [ 1 = `ask_yn "Sync current mfs as \\\`\\\`$uconf'' , OK?" n` ]; then
             if mount -o async,noatime $devname /mnt; then
                 echo ''
                 echo "$devname" > /boottmp/boot_restore_devname
@@ -366,8 +366,6 @@ while :; do
         # set data set name
         # default is our FQDN.
         #
-        # strip invalid chars
-        #
         Xsaveas)
         if [ X"devname" != X ] && mount -r $devname /mnt; then
             confs=`cd /mnt/livecd-config && echo *`
@@ -375,7 +373,7 @@ while :; do
         fi
         [ X"$uconf" = X ] && uconf=`hostname`
         uconf=`rl_wread "Name of saved data" $uconf $confs`
-        uconf=`echo $uconf | tr -cd 0-9A-Za-z.,_-+=:%@`
+        uconf=`echo $uconf | tr -cd 0-9A-Za-z.,_-+=:%@`  # strip invalid chars
         echo ''
         if [ X"$uconf" = X ]; then
             echo "Unset the name of saving data"
@@ -432,8 +430,15 @@ while :; do
         #
         Xnewsys)
         echo ''
-        echo 'Please make sure the device inserted.'
-        [ `wait_enter 'Then press ENTER'` -lt 1 ] && continue
+        if mount | grep -q '^\/dev\/[0-9a-z][0-9a-z]* on \/sysmedia type '
+        then
+            echo 'Please make sure the device inserted.'
+            [ `wait_enter 'Then press ENTER'` -lt 1 ] && continue
+        else
+            echo 'Sorry, cannot find /sysmedia.  You cannot do newsys with this boot mode.'
+            continue
+        fi
+
         echo ''
         echo ==== FYI: sd[0-9] on syslog ================================
         dmesg | sed -e '/^sd[0-9][0-9]*[ :]/!d; s/> .*/>/' | tail -n 20 | cat -n

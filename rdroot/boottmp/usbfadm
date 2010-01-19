@@ -65,8 +65,9 @@ function ask_yn {
         return
     fi
 
-    prompt="$1"; shift
-    yn_default="$1"; shift
+    typeset prompt="$1"; shift
+    typeset yn_default="$1"; shift
+    typeset yn_ans
 
     case X"$yn_default"X in
         X[Yy]X) yn_default=Y; prompt="$prompt [Y/n] -> " ;;
@@ -101,8 +102,9 @@ function ask_yn {
 #     usage: rl_wread prompt-str default-str [completion words ....]
 #
 function rl_wread {
-    prompt="$1";  shift
-    default="$1"; shift
+    typeset prompt="$1";  shift
+    typeset default="$1"; shift
+
     if [ -x /usr/local/bin/rlwrap ]; then
         echo "$@" > /tmp/rl_words
         rlwrap -b '' \
@@ -146,9 +148,10 @@ function notice {
 #
 function setup_usb {
     [ X"$1" = X ] && return
-    rdev="$1"
+    typeset rdev="$1"
     [ 0 = `expr "$rdev" : '^sd[0-9]$'` ] && return
 
+    typeset sys
     if [ X"$2" = Xsys ]; then
         sys=YES
     else

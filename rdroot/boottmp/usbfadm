@@ -46,6 +46,55 @@
 trap 'rm -f /tmp/rl_words' EXIT
 
 #-------------------
+# ask user yes or no
+# outputs answer to stdout
+#
+#     usage: ask_yn prompt yn
+#
+#       yn ... y: defaults to yes
+#              n: defaults to no
+#              r: no default ... ask again
+#              else: no default ... return -1 if answered not yn
+#
+#       output ... 1: yes, 0: no, -1: else yn, -2: error occured
+#
+function ask_yn {
+
+    if [ -z "$2" ]; then
+        echo -2 >&2
+        return
+    fi
+
+    prompt="$1"; shift
+    yn_default="$1"; shift
+
+    case X"$yn_default"X in
+        X[Yy]X) yn_default=Y; prompt="$prompt [Y/n] -> " ;;
+        X[Nn]X) yn_default=N; prompt="$prompt [y/N] -> " ;;
+        X[Rr]X) yn_default=R; prompt="$prompt [y/n] -> " ;;
+        *)      yn_default=E; prompt="$prompt [y/n] -> " ;;
+    esac
+
+    while :; do
+        echo -n "$prompt" >&2; read yn_ans
+
+        case X"$yn_ans"X in
+            X[Yy]X) echo 1; return;;
+            X[Nn]X) echo 0; return;;
+            XX)
+                case X"$yn_default"X in
+                    XYX) echo 1;  return;;
+                    XNX) echo 0;  return;;
+                    XRX) continue;;
+                    *)   echo -1; return;;
+                esac;;
+            *)
+                continue;;
+        esac
+    done
+}
+
+#-------------------
 # read user's input with readline functionality
 # outputs echoed to stdout
 #
@@ -247,8 +296,7 @@ while :; do
         #
         Xsync)
         echo ''
-        echo -n "Sync current mfs as $uconf, OK? [y/n] -> "; read yn
-        if [ 1 = `expr "$yn" : '[Yy]$'` ]; then
+        if [ 1 = `ask_yn "Sync current mfs as $uconf, OK?" n` ]; then
             if mount -o async,noatime $devname /mnt; then
                 echo ''
                 rsync -avx --delete /mfs/. /mnt/livecd-config/$uconf
@@ -360,17 +408,11 @@ while :; do
         if [ `fdisk $newdev | grep -c ' unused      $'` != 4 ]; then
             echo ''
             echo 'This disk seems to have been partitioned already.'
-            echo -n "Continue anyway? [y/n] -> "; read yn
-            [ 1 != `expr "$yn" : '[Yy]$'` ] && continue
+            [ `ask_yn "Continue anyway?" n` -lt 1 ] && continue
         fi
 
         echo ''
-        echo -n "Will you make this USB flash drive bootable? [y/n] -> "; read yn
-        case X"$yn"X in
-            X[Yy]X) inst=sys;;
-            X[Nn]X) inst='';;
-            *) continue;;
-        esac
+        [ `ask_yn "Do you make this USB flash drive bootable?" r` -lt 1 ] && continue
 
         setup_usb $newdev $inst
         ;;

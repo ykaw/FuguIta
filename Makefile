@@ -122,12 +122,12 @@ boot: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot
 bsd.rdcd: bsd.orig rdroot.img
 	cp bsd.orig bsd
 	lib/rdsetroot bsd < rdroot.img
-	gzip -c9 bsd > media/bsd
+	gzip -c9 bsd > media/bsd-fi
 
 bsd.mp.rdcd: bsd.mp.orig rdroot.img
 	cp bsd.mp.orig bsd.mp
 	lib/rdsetroot bsd.mp < rdroot.img
-	gzip -c9 bsd.mp > media/bsd.mp
+	gzip -c9 bsd.mp > media/bsd-fi.mp
 
 cdemu:
 	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -cdrom livecd.iso -boot d

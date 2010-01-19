@@ -5,7 +5,7 @@
 
 #========================================
 #
-# usbfadm - USB Flash ADMinistration tool
+# usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
 #========================================
@@ -44,6 +44,34 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 trap 'rm -f /tmp/rl_words' EXIT
+
+if [ ! `id -un` = root ]; then
+    echo "$0 must be run as a root."
+    exit
+fi
+
+#-------------------
+# Wait for ENTER key pressed
+# outputs results to stdout
+#
+#     usage: wait_enter prompt
+#
+#       output ... 1: ENTER key pressed
+#                 -1: Key pressed but not ENTER
+#                 -2: Error occured
+#
+function wait_enter {
+    typeset prompt="$1"
+    typeset line
+
+    echo -n "$prompt -> " >&2; read line
+
+    if [ X"$line" = X ]; then
+        echo 1
+    else
+        echo -1
+    fi
+}
 
 #-------------------
 # ask user yes or no
@@ -208,8 +236,6 @@ fi
         notice Installing boot loader
         /usr/mdec/installboot -v /mnt/boot /usr/mdec/biosboot ${rdev}
         umount /mnt
-
-        fsck -fy /dev/r${rdev}a
     fi
 
     notice Preparing partitions for user data
@@ -236,6 +262,9 @@ fi
 #noask_confdir='`hostname`'
 EOT
     umount /mnt
+
+    notice Checking filesystem consistency
+    [ X$sys = XYES ] && fsck -fy /dev/r${rdev}a
     fsck -fy /dev/r${rdev}d
 }
 
@@ -290,6 +319,8 @@ while :; do
         # finish all
         #
         Xq|Xquit|Xbye|Xexit|XEOF|XRL_ERR)
+        echo ''
+        echo 'Bye bye...'
         break;
         ;;
 
@@ -299,9 +330,20 @@ while :; do
         #
         Xsync)
         echo ''
+        if [ X"$devname" = X ]; then
+            echo "Name of device not set. Use 'target' to perform it."
+            continue
+        fi
+        if [ X"$uconf" = X ]; then
+            echo "Name of saving data not set. Use 'saveas' to perform it."
+            continue
+        fi
+
         if [ 1 = `ask_yn "Sync current mfs as $uconf, OK?" n` ]; then
             if mount -o async,noatime $devname /mnt; then
                 echo ''
+                echo "$devname" > /boottmp/boot_restore_devname
+                echo "$uconf"   > /boottmp/boot_user_config
                 rsync -avx --delete /mfs/. /mnt/livecd-config/$uconf
                 # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
                 rm -rf /mnt/livecd-config/$uconf/tmp/{.??*,*}
@@ -338,8 +380,7 @@ while :; do
         if [ X"$uconf" = X ]; then
             echo "Unset the name of saving data"
         else
-            echo "Now data set name is set to \`\`$uconf''."
-            echo "$uconf" > /boottmp/boot_user_config
+            echo "Your data will be saved as \`\`$uconf''."
         fi
         ;;
 
@@ -350,13 +391,14 @@ while :; do
         echo ''
         echo 'Searching USB flash drives'
         echo 'Please make sure the device inserted.'
-        echo -n 'Then press ENTER --> '; read dummy
+        [ `wait_enter 'Then press ENTER'` -lt 1 ] && continue
 
         #-----------------------
         # search partitions for saved data
         #
         devname=''
         devnames=''
+        echo ''
         for rdev in `sysctl -n hw.disknames|tr , \\\012|grep ^[ws]d[0-9]`; do
             if mount | grep -q "^/dev/${rdev}d" ; then
                 echo -n "($rdev) "
@@ -391,7 +433,7 @@ while :; do
         Xnewsys)
         echo ''
         echo 'Please make sure the device inserted.'
-        echo -n 'Then press ENTER --> '; read dummy
+        [ `wait_enter 'Then press ENTER'` -lt 1 ] && continue
         echo ''
         echo ==== FYI: sd[0-9] on syslog ================================
         dmesg | sed -e '/^sd[0-9][0-9]*[ :]/!d; s/> .*/>/' | tail -n 20 | cat -n
@@ -415,7 +457,12 @@ while :; do
         fi
 
         echo ''
-        [ `ask_yn "Do you make this USB flash drive bootable?" r` -lt 1 ] && continue
+        [ 1 -le `ask_yn "Do you make this USB flash drive bootable?" r` ] && inst=sys
+
+        echo ''
+        echo 'This is the *LAST CHANCE*'
+        echo "If you type 'Y' now, all the data on $newdev will be lost."
+        [ `ask_yn "Are you sure to initialize $newdev?" n` -lt 1 ] && continue
 
         setup_usb $newdev $inst
         ;;

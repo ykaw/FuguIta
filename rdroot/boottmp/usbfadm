@@ -486,10 +486,10 @@ while :; do
         *)
         echo ''
         echo "Commands are;
-    sync    -  sync current mfs to USB flash drive
-    info    -  Show info on USB flash drive
     target  -  set USB device for sync and info
     saveas  -  set name of saving data
+    sync    -  sync current mfs to the target device
+    info    -  Show info on the target device
     newsys  -  make new FuguIta USB flash drive
     bye, exit, quit
             - end of this utility"

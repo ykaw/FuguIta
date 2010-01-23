@@ -165,6 +165,80 @@ function notice {
 }
 
 #-------------------
+# scan specified disk
+# then outputs its parameters with form of sh var assignment
+#
+# Usage: eval `disk_scan disk`
+#
+function disk_scan {
+    [ -z "$1" ] && return
+    disklabel -c "$1" | awk '
+BEGIN {
+    paramfound = 0
+    print "scandev='"$1"'"
+}
+$1 == "bytes/sector:"  { sectsize=$2;   print "sectsize=" sectsize; paramfound++; }
+$1 == "sectors/track:" { print "sectstrack=" $2; paramfound++ }
+/^total sectors: /     { sectstotal=$3; print "sectstotal=" $3; paramfound++; }
+END {
+    if (paramfound==3) {
+        print "megstotal=" int(sectstotal*sectsize/1024/1024)
+        print "diskscan=ok"
+    } else
+        print "diskscan=ng"
+}'
+}
+
+#-------------------
+# fill specified disk with null data
+#
+# results of previous execution of disk_scan affects this.
+#
+function init_head {
+    [ "$diskscan" = ok ]  || return
+    [ "$1" = "$scandev" ] || return
+    dd if=/dev/zero of=/dev/r"$1"c bs=1024k count=1
+}
+
+#-------------------
+# prepare fdisk partition by given parameters
+#
+#     Usage: fdisk_init devname obsd-size fat-rest
+#
+# results of previous execution of disk_scan affects this.
+#
+function fdisk_init {
+    [ "$diskscan" = ok ]  || return
+    [ "$1" = "$scandev" ] || return
+    shift; typeset obsdsize="$1"; [ X"$1" = X ] && return
+    shift; typeset  fatrest="$1"
+    fdisk -iy "$scandev"
+    [ X"$obsdsize" = 'X*' ] && return
+    fdisk -e "$scandev" <<EOT
+e 3
+A6
+n
+
+`echo $obsdsize \* 1024 \* 1024 / $sectsize | bc`
+w
+q
+EOT
+    eval `fdisk svnd0 | awk '/^\*3: A6.*OpenBSD     $/ { print "obsdstart=" 0+$11; print "obsdsize=" $12 }'`
+    [ $obsdstart -lt $sectstrack ] && return
+    [ $obsdsize  -lt 1 ]           && return
+    [ $fatrest = 'fatrest' ] || return
+    fdisk -e "$scandev" <<EOT
+e 0
+6
+n
+`echo $obsdstart + $obsdsize | bc`
+*
+w
+q
+EOT
+}
+
+#-------------------
 # make specified usb devices for FuguIta
 #
 #     usage: setup_usb dev ["sys"]
@@ -174,7 +248,7 @@ function notice {
 # With "sys", partition a is prepared and
 # FuguIta system will be copied.
 #
-function setup_usb {
+function setup_fs {
     [ X"$1" = X ] && return
     typeset rdev="$1"
     [ 0 = `expr "$rdev" : '^sd[0-9]$'` ] && return
@@ -469,7 +543,7 @@ while :; do
         echo "If you type 'Y' now, all the data on $newdev will be lost."
         [ `ask_yn "Are you sure to initialize $newdev?" n` -lt 1 ] && continue
 
-        setup_usb $newdev $inst
+        setup_fs $newdev $inst
         ;;
 
         #-------------------

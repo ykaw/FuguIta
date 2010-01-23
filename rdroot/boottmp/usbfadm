@@ -50,6 +50,8 @@ if [ ! `id -un` = root ]; then
     exit
 fi
 
+fuguita_sys_mb=650
+
 #-------------------
 # Wait for ENTER key pressed
 # outputs results to stdout
@@ -138,7 +140,7 @@ function rl_wread {
         rlwrap -b '' \
                -f /tmp/rl_words \
                -P "$default" \
-               sh -c 'echo -n "'"$prompt"' --> " >&2 ; read w || echo EOF; echo $w' || echo RL_ERR
+               sh -f -c 'echo -n "'"$prompt"' --> " >&2 ; read w || echo EOF; echo $w' || echo RL_ERR
     else
         #-------------------
         # fallback to dumb input
@@ -195,6 +197,7 @@ END {
 # results of previous execution of disk_scan affects this.
 #
 function init_head {
+    notice Clearing MBR BSD disklabel
     [ "$diskscan" = ok ]  || return
     [ "$1" = "$scandev" ] || return
     dd if=/dev/zero of=/dev/r"$1"c bs=1024k count=1
@@ -210,8 +213,10 @@ function init_head {
 function fdisk_init {
     [ "$diskscan" = ok ]  || return
     [ "$1" = "$scandev" ] || return
-    shift; typeset obsdsize="$1"; [ X"$1" = X ] && return
-    shift; typeset  fatrest="$1"
+    shift; obsdsize="$1"; [ X"$1" = X ] && return
+    shift;  fatrest="$1"
+
+    notice Setting up MBR
     fdisk -iy "$scandev"
     [ X"$obsdsize" = 'X*' ] && return
     fdisk -e "$scandev" <<EOT
@@ -221,12 +226,11 @@ n
 
 `echo $obsdsize \* 1024 \* 1024 / $sectsize | bc`
 w
+p
 q
 EOT
-    eval `fdisk svnd0 | awk '/^\*3: A6.*OpenBSD     $/ { print "obsdstart=" 0+$11; print "obsdsize=" $12 }'`
-    [ $obsdstart -lt $sectstrack ] && return
-    [ $obsdsize  -lt 1 ]           && return
-    [ $fatrest = 'fatrest' ] || return
+    eval `fdisk "$scandev" | awk '/^\*3: A6.*OpenBSD     $/ { print "obsdstart=" 0+$11; print "obsdsize=" $12 }'`
+    [ X"$fatrest" = Xfatrest ] || return
     fdisk -e "$scandev" <<EOT
 e 0
 6
@@ -234,14 +238,16 @@ n
 `echo $obsdstart + $obsdsize | bc`
 *
 w
+p
 q
 EOT
+    newfs_msdos /dev/r${scandev}i
 }
 
 #-------------------
 # make specified usb devices for FuguIta
 #
-#     usage: setup_usb dev ["sys"]
+#     usage: setup_fs dev ["sys"]
 #
 # dev has the form like 'sd6' .
 #
@@ -249,9 +255,10 @@ EOT
 # FuguIta system will be copied.
 #
 function setup_fs {
-    [ X"$1" = X ] && return
-    typeset rdev="$1"
-    [ 0 = `expr "$rdev" : '^sd[0-9]$'` ] && return
+    [ "$diskscan" = ok ]  || return
+    [ "$1" = "$scandev" ] || return
+
+    [ 0 = `expr "$scandev" : '^sd[0-9]$'` ] && return
 
     typeset sys
     if [ X"$2" = Xsys ]; then
@@ -260,17 +267,12 @@ function setup_fs {
         sys=NO
     fi
 
-    notice Setting up partitions
-    fdisk -iy ${rdev}
-    echo ''
-    fdisk ${rdev}
-    echo ''
+    notice Setting up disklabel and FFS partitions
     if [ X$sys = XYES ]; then
-        disklabel -E ${rdev} <<EOT
-z
+        disklabel -c -E ${scandev} <<EOT
 a a
 
-650M
+${fuguita_sys_mb}M
 
 a d
 
@@ -279,10 +281,9 @@ a d
 w
 q
 EOT
-        newfs -m0 -i$((650*1024*1024/100)) /dev/r${rdev}a
+        newfs -m0 -i$((${fuguita_sys_mb}*1024*1024/100)) /dev/r${scandev}a
     else
-        disklabel -E ${rdev} <<EOT
-z
+        disklabel -c -E ${scandev} <<EOT
 a d
 
 *
@@ -292,13 +293,13 @@ q
 EOT
 fi
     echo ''
-    disklabel -pm ${rdev}
+    disklabel -c -pm ${scandev}
     echo ''
-    newfs -m0 -i1024 -b4096 -f512 /dev/r${rdev}d
+    newfs -m0 -i1024 -b4096 -f512 /dev/r${scandev}d
 
     if [ X$sys = XYES ]; then
         notice Copying FuguIta system files
-        mount -o async /dev/${rdev}a /mnt
+        mount -o async /dev/${scandev}a /mnt
         cd /sysmedia
         pax -rwvpe !(fuguita.ffsimg) /mnt
 
@@ -308,12 +309,12 @@ fi
         fi
 
         notice Installing boot loader
-        /usr/mdec/installboot -v /mnt/boot /usr/mdec/biosboot ${rdev}
+        /usr/mdec/installboot -v /mnt/boot /usr/mdec/biosboot ${scandev}
         umount /mnt
     fi
 
     notice Preparing partitions for user data
-    mount -o async /dev/${rdev}d /mnt
+    mount -o async /dev/${scandev}d /mnt
     mkdir /mnt/livecd-config
     cat <<EOT >/mnt/noasks
 #
@@ -324,7 +325,7 @@ fi
 #
 #
 # FuguIta system device
-#noask_rdev='${rdev}a'
+#noask_rdev='${scandev}a'
 #
 # mfs size in MB
 #noask_umem='32'
@@ -336,10 +337,11 @@ fi
 #noask_confdir='`hostname`'
 EOT
     umount /mnt
+    echo done.
 
     notice Checking filesystem consistency
-    [ X$sys = XYES ] && fsck -fy /dev/r${rdev}a
-    fsck -fy /dev/r${rdev}d
+    [ X$sys = XYES ] && fsck -fy /dev/r${scandev}a
+    fsck -fy /dev/r${scandev}d
 }
 
 
@@ -381,7 +383,7 @@ while :; do
     d="${devname#/dev/}" ; [ -z "$devname" ] && d='?'
     u="$uconf"           ; [ -z "$uconf" ]   && u='?'
     echo ''
-    cmd=`rl_wread "$d : $u" '' quit bye exit sync info saveas target newsys help ?`
+    cmd=`rl_wread "$d : $u" '' quit bye exit sync info saveas target newdrive help ?`
 
     set X $cmd
 
@@ -502,14 +504,14 @@ while :; do
         #-------------------
         # make new FuguIta USB flash drive
         #
-        Xnewsys)
+        Xnewdrive)
         echo ''
         if mount | grep -q '^\/dev\/[0-9a-z][0-9a-z]* on \/sysmedia type '
         then
             echo 'Please make sure the device inserted.'
             [ `wait_enter 'Then press ENTER'` -lt 1 ] && continue
         else
-            echo 'Sorry, cannot find /sysmedia.  You cannot do newsys with this boot mode.'
+            echo 'Sorry, cannot find /sysmedia.  You cannot do newdrive with this boot mode.'
             continue
         fi
 
@@ -517,7 +519,7 @@ while :; do
         echo ==== FYI: sd[0-9] on syslog ================================
         dmesg | sed -e '/^sd[0-9][0-9]*[ :]/!d; s/> .*/>/' | tail -n 20 | cat -n
         echo ============================================================
-        newdev=`rl_wread "Enter name of device which FuguIta will be installed" "" \`sysctl -n hw.disknames|tr , \\\\\012|grep ^[s]d[0-9]\``
+        newdev=`rl_wread "Enter the name of device which FuguIta will be installed" "" \`sysctl -n hw.disknames|tr , \\\\\012|grep ^[s]d[0-9]\``
         [ 0 = `expr "$newdev" : '^sd[0-9]$'` ] && continue
         if mount|grep -q "^/dev/$newdev"; then
             echo ''
@@ -535,14 +537,51 @@ while :; do
             [ `ask_yn "Continue anyway?" n` -lt 1 ] && continue
         fi
 
+        #-------------------
+        # Y means that partition a will be setup
+        # and write FuguIta system in it
+        #
         echo ''
         [ 1 -le `ask_yn "Do you make this USB flash drive bootable?" r` ] && inst=sys
 
+        eval `disk_scan $newdev`
+
+        #-------------------
+        # ask and calculate User's data area
+        # which is prepared as partition d
+        #
+        freepart_d=$megstotal
+        [ X"$inst" = Xsys ] && freepart_d=$(($freepart_d-${fuguita_sys_mb}))
         echo ''
-        echo 'This is the *LAST CHANCE*'
+        echo "Enter size for saving User Data in MB (${freepart_d}MB free)."
+        sizepart_d=`rl_wread "'*' implies all" '*'`
+
+        if [ 1 -lt `expr "X$sizepart_d" : '^X[1-9][0-9]*$'` ]; then
+            if [ $freepart_d -lt $sizepart_d ]; then
+                echo ''
+                echo 'Size too much.'
+                continue
+            fi
+        elif [ X"$sizepart_d" != 'X*' ]; then
+            echo ''
+            echo "${sizepart_d} ... What?"
+            continue
+        fi
+
+        echo ''
+        echo '***THIS IS THE LAST CHANCE***'
         echo "If you type 'Y' now, all the data on $newdev will be lost."
         [ `ask_yn "Are you sure to initialize $newdev?" n` -lt 1 ] && continue
 
+        #-------------------
+        # performing disk modifications
+        #
+        init_head $newdev
+        if [ X"$sizepart_d" != 'X*' -a X"$inst" = Xsys ]; then
+            fdisk_init $newdev $((${fuguita_sys_mb}+$sizepart_d)) fatrest
+        else
+            fdisk_init $newdev $sizepart_d fatrest
+        fi
         setup_fs $newdev $inst
         ;;
 
@@ -560,13 +599,13 @@ while :; do
         *)
         echo ''
         echo "Commands are;
-    target  -  set USB device for sync and info
-    saveas  -  set name of saving data
-    sync    -  sync current mfs to the target device
-    info    -  Show info on the target device
-    newsys  -  make new FuguIta USB flash drive
+    target    -  set USB device for sync and info
+    saveas    -  set name of saving data
+    sync      -  sync current mfs to the target device
+    info      -  Show info on the target device
+    newdrive  -  make new FuguIta USB flash drive
     bye, exit, quit
-            - end of this utility"
+              - end of this utility"
         ;;
     esac
 done

@@ -43,12 +43,17 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-trap 'rm -f /tmp/rl_words' EXIT
-
-if [ ! `id -un` = root ]; then
-    echo "$0 must be run as a root."
+if mkdir /tmp/usbfadm.lock 2>/dev/null; then
+    if [ ! `id -un` = root ]; then
+        echo "$0 must be run as a root."
+        exit
+    fi
+else
+    echo "another $0 running"
     exit
 fi
+
+trap 'rm -rf /tmp/usbfadm.lock /tmp/rl_words' EXIT
 
 fuguita_sys_mb=650
 
@@ -420,7 +425,7 @@ while :; do
                 echo ''
                 echo "$devname" > /boottmp/boot_restore_devname
                 echo "$uconf"   > /boottmp/boot_user_config
-                rsync -avx --delete /mfs/. /mnt/livecd-config/$uconf
+                rsync -avHx --delete --include '*/tmp' --exclude 'tmp/*' /mfs/. /mnt/livecd-config/$uconf
                 # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
                 rm -rf /mnt/livecd-config/$uconf/tmp/{.??*,*}
                 umount $devname

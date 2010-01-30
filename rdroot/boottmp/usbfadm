@@ -43,6 +43,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+trap 'rm -rf /tmp/usbfadm.lock /tmp/rl_words' EXIT
+
 if mkdir /tmp/usbfadm.lock 2>/dev/null; then
     if [ ! `id -un` = root ]; then
         echo "$0 must be run as a root."
@@ -52,8 +54,6 @@ else
     echo "another $0 running"
     exit
 fi
-
-trap 'rm -rf /tmp/usbfadm.lock /tmp/rl_words' EXIT
 
 fuguita_sys_mb=650
 

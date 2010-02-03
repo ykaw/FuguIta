@@ -202,7 +202,7 @@ END {
 # results of previous execution of disk_scan affects this.
 #
 function init_head {
-    notice Clearing MBR BSD disklabel
+    notice Clearing MBR and BSD disklabel
     [ "$diskscan" = ok ]  || return
     [ "$1" = "$scandev" ] || return
     dd if=/dev/zero of=/dev/r"$1"c bs=1024k count=1

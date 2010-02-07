@@ -723,7 +723,7 @@ while :; do
             # copying to mfs
             #
             echo
-            echo -n "Copying files from flash to mfs ... "
+            echo "Copying files from flash to mfs ... "
             cd /mnt/livecd-config/$confdir && pax -rwpe . /mfs
             echo "done"
 

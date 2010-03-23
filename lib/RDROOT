@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.666 2009/06/25 14:22:58 deraadt Exp $
+#	$OpenBSD: GENERIC,v 1.680 2010/03/03 20:57:28 mk Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -11,9 +11,12 @@
 
 machine		i386
 
-#option		INSECURE	# default to secure
+#	$OpenBSD: GENERIC,v 1.152 2010/03/07 03:55:01 deraadt Exp $
+#
+#	Machine-independent option; used by all architectures for their
+#	GENERIC kernel
 
-option		TIMEZONE="-540"	# set to JST
+#option		INSECURE	# default to secure
 
 option		DDB		# in-kernel debugger
 #option		DDB_SAFE_CONSOLE # allow break into ddb during boot
@@ -25,6 +28,11 @@ option		KTRACE		# system call tracing, a la ktrace(1)
 option		ACCOUNTING	# acct(2) process accounting
 option		KMEMSTATS	# collect malloc(9) statistics
 option		PTRACE		# ptrace(2) system call
+
+#option		PAGEFASTRECYCLE	# fast physical page recycling 
+#option		KVA_GUARDPAGES	# slow virtual address recycling (+ guarding)
+#option		POOL_DEBUG	# pool corruption detection 
+#option		VFSDEBUG	# VFS locking checks
 
 option		CRYPTO		# Cryptographic framework
 
@@ -56,7 +64,6 @@ option		TCP_SIGNATURE	# TCP MD5 Signatures, for BGP routing sessions
 option		NFSCLIENT	# Network File System client
 option		NFSSERVER	# Network File System server
 
-#option		VFSDEBUG	# VFS debugging
 option		CD9660		# ISO 9660 + Rock Ridge file system
 option		UDF		# UDF (DVD) file system
 option		MSDOSFS		# MS-DOS file system
@@ -71,11 +78,18 @@ option		IPSEC		# IPsec
 #option		NETATALK	# AppleTalk
 option		PPP_BSDCOMP	# PPP BSD compression
 option		PPP_DEFLATE
+#option		PIPEX		# Pppac IP EXtension, for npppd
 option		MROUTING	# Multicast router
 #option		PIM		# Protocol Independent Multicast
 
+#mpath0		at root		# SCSI Multipathing
+#scsibus*	at mpath?
+
 #U softraid0	at root		# Software RAID
 #U scsibus*	at softraid?
+
+vscsi0		at root		# Userland backed Virtual SCSI
+scsibus*	at vscsi?
 
 pseudo-device	pf		# packet filter
 pseudo-device	pflog		# pf log if
@@ -83,7 +97,6 @@ pseudo-device	pfsync		# pf sync if
 pseudo-device	pflow		# pflow export if
 pseudo-device	sppp	1	# Sync PPP/HDLC
 pseudo-device	enc	1	# option IPSEC needs the encapsulation interface
-#pseudo-device	strip	1	# Starmode Radio IP interface
 
 pseudo-device	pty	16	# initial number of pseudo-terminals
 pseudo-device	nmea	1	# NMEA 0183 line discipline
@@ -106,6 +119,7 @@ pseudo-device	sl		# CSLIP
 pseudo-device	tun		# network tunneling over tty
 pseudo-device	vlan 		# IEEE 802.1Q VLAN 
 pseudo-device	trunk		# Trunking support
+pseudo-device	vether		# Virtual ethernet
 
 # for IPv6
 #pseudo-device	faith	1	# IPv[46] tcp relay translation i/f
@@ -115,8 +129,10 @@ pseudo-device	bio	1	# ioctl multiplexing device
 
 option		BOOT_CONFIG	# add support for boot -c
 
+option		TIMEZONE="-540"	# set to JST
 
-maxusers	80			# estimated number of users
+
+maxusers	80		# estimated number of users
 
 option		USER_PCICONF	# user-space PCI configuration
 
@@ -138,9 +154,9 @@ option		COMPAT_AOUT	# a.out binaries are emulated
 option		PROCFS		# /proc
 #option		NTFS		# Experimental NTFS support
 
-## or use		root on nfs swap on nfs
+# or use		root on nfs swap on nfs
 #config		bsd	swap generic
-
+ 
 option		RAMDISK_HOOKS
 option		MINIROOTSIZE=3800
 config		bsd	root on rd0a swap on rd0b and wd0b and sd0b
@@ -175,6 +191,7 @@ acpithinkpad*	at acpi?
 acpivideo*	at acpi?
 acpivout*	at acpivideo?
 acpipwrres*	at acpi?
+aibs*		at acpi?
 
 option		PCIVERBOSE
 option		EISAVERBOSE
@@ -270,6 +287,7 @@ admtm*	at iic?				# Analog Devices ADM1025
 admtmp*	at iic?				# Analog Devices ADM1030
 admtt*	at iic?				# Analog Devices ADM1031
 adt*	at iic?				# Analog Devices ADT7460
+lisa*	at iic?				# STMicroelectronics LIS331DL motion
 lm*	at iic?				# National Semiconductor LM78/79
 lmenv*	at iic?				# National Semiconductor LM87
 lmtemp*	at iic?				# National Semiconductor LM75/LM77
@@ -366,6 +384,8 @@ ums*	at uhidev?		# USB mouse
 wsmouse* at ums? mux 0
 uts*	at uhub?		# USB touchscreen
 wsmouse* at uts? mux 0
+uhts*	 at uhidev?		# USB HID touch screen
+wsmouse* at uhts? mux 0
 ukbd*	at uhidev?		# USB keyboard
 wskbd*	at ukbd? mux 1
 ucycom*	at uhidev?		# Cypress serial
@@ -379,6 +399,7 @@ axe*	at uhub?		# ASIX Electronics AX88172 USB Ethernet
 cue*	at uhub?		# CATC USB-EL1201A based Ethernet
 kue*	at uhub?		# Kawasaki KL5KUSB101B based Ethernet
 cdce*	at uhub?		# CDC Ethernet
+urndis*	at uhub?		# Remote NDIS Ethernet
 upl*	at uhub?		# Prolific PL2301/PL2302 host-to-host `network'
 udav*	at uhub?		# Davicom DM9601 based Ethernet
 mos*	at uhub?		# MOSCHIP MCS7730/7830 10/100 Ethernet
@@ -405,17 +426,17 @@ urtw*	at uhub?		# RealTek 8187
 #ueagle* at uhub?		# Analog Devices Eagle ADSL
 udcf*	at uhub?		# Gude Expert mouseCLOCK
 umbg*	at uhub?		# Meinberg Funkuhren USB5131
+uthum*	at uhidev?		# TEMPerHUM sensor
+utrh*	at uhidev?		# USBRH sensor
 uow*	at uhub?		# Maxim/Dallas DS2490 1-Wire adapter
 onewire* at uow?
+uvideo* at uhub?		# USB video
+video*  at uvideo?
+udl*	at uhub?		# DisplayLink USB displays
+wsdisplay* at udl?
+
 puc*	at pci?			# PCI "universal" communication device
 #puc*	at cardbus?
-
-# USB Video
-uvideo* at uhub?
-video*  at uvideo?
-
-udl*		at uhub?
-wsdisplay*	at udl?
 
 sdhc*	at pci?			# SD Host Controller
 sdmmc*	at sdhc?		# SD/MMC bus
@@ -426,7 +447,6 @@ sbt*	at sdmmc?		# SDIO Bluetooth
 bthub*	at sbt?
 ubt*	at uhub?		# USB Bluetooth
 bthub*	at ubt?
-
 bthidev* at bthub?		# Bluetooth HID support
 btkbd*	at bthidev?
 btms*	at bthidev?
@@ -472,7 +492,7 @@ agp*		at intelagp?	# AGP bridges
 agp*		at sisagp?	# AGP bridges
 agp*		at viaagp?	# AGP bridges
 
-#option		DRM_DEBUG
+#option		DRMDEBUG
 inteldrm*	at vga?		# Intel i915, i945 DRM driver
 drm*		at inteldrm?
 #machdrm*	at vga?		# mach64 (3D Rage Pro, Rage) DRM driver
@@ -568,6 +588,8 @@ scsibus* at ahd?
 #U scsibus* at arc?
 mpi*	at pci?			# LSI Logic Fusion MPT Message Passing Interface
 scsibus* at mpi?
+mpii*	at pci?			# LSI Fusion MPT Message Passing Interface II
+scsibus* at mpii?
 #U gdt*	at pci?			# ICP Vortex GDT RAID controllers
 #U scsibus* at gdt?
 #U twe*	at pci?			# 3ware Escalade RAID controllers
@@ -713,6 +735,7 @@ sk*	at skc?				#  each port of above
 mskc*	at pci?				# Marvell Yukon-2
 msk*	at mskc?			#  each port of above
 em*	at pci?				# Intel Pro/1000 ethernet
+gcu*	at pci?				# Intel Pro/1000 ethernet GCU
 ixgb*	at pci?				# Intel Pro/10Gb ethernet
 ix*	at pci?				# Intel 82598EB 10Gb ethernet
 txp*	at pci?				# 3com 3CR990
@@ -736,6 +759,7 @@ gem*	at pci?				# Sun 'gem' ethernet
 vic*	at pci?				# VMware VMXnet virtual interface
 et*	at pci?				# Agere/LSI ET1310
 age*	at pci?				# Attansic L1 Ethernet
+alc*	at pci?				# Attansic L1C/L2C Ethernet
 ale*	at pci?				# Attansic L1E Ethernet
 lii*	at pci?				# Attansic L2 Ethernet
 jme*	at pci?				# JMicron JMC250/JMC260 Ethernet
@@ -745,6 +769,8 @@ acx*	at pci?				# TI ACX100/ACX111 (802.11b/g)
 acx*	at cardbus?			# TI ACX100/ACX111 (802.11b/g)
 ath*	at pci?				# Atheros AR5k (802.11a/b/g)
 ath*	at cardbus?			# Atheros AR5k (802.11a/b/g)
+athn*	at pci?				# Atheros AR9k (802.11a/g/n)
+athn*	at cardbus?			# Atheros AR9k (802.11a/g/n)
 atw*	at pci?				# ADMtek ADM8211 (802.11)
 atw*	at cardbus?			# ADMtek ADM8211 (802.11)
 bwi*	at pci?				# Broadcom AirForce (802.11b/g)
@@ -759,7 +785,7 @@ ray*	at pcmcia?			# Raylink Aviator2.4/Pro 802.11FH
 ipw*	at pci?				# Intel PRO/Wireless 2100
 iwi*	at pci?				# Intel PRO/Wireless 2200BG/2915ABG
 wpi*	at pci?				# Intel PRO/Wireless 3945ABG
-iwn*	at pci?				# Intel Wireless WiFi Link 4965AGN
+iwn*	at pci?				# Intel WiFi Link 4965/5000/1000/6000
 ral*	at pci?				# Ralink RT2500/RT2501/RT2600
 ral*	at cardbus?			# Ralink RT2500/RT2501/RT2600
 rtw*	at pci?				# Realtek 8180
@@ -951,4 +977,4 @@ pseudo-device	hotplug		1	# devices hot plugging
 pseudo-device	wsmux		2
 pseudo-device	crypto		1
 
-pseudo-device	rd		1	# ramdisk
+pseudo-device	rd		4	# ramdisk

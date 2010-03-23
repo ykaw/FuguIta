@@ -30,11 +30,11 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 PROJNAME =FuguIta
-VERSION  =4.6
+VERSION  =4.7
 DATE    !=date +%Y%m%d
 REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
 
-FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)
+FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)alpha
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
 
 CDR_DEV=cd1
@@ -90,8 +90,8 @@ iso:
 		-publisher "$(AUTHOR)" \
 		-b cdbr -no-emul-boot \
 		-c boot.catalog \
-		-o /opt/fi/4.6/livecd.iso \
-		/opt/fi/4.6/media/ \
+		-o /opt/fi/4.7/livecd.iso \
+		/opt/fi/4.7/media/ \
 	&& echo $$(($(REVISION)+1)) > revcount_cdmaster
 
 hyb:
@@ -100,7 +100,7 @@ hyb:
 	make close-fuguita
 
 	mkhybrid -a -R -L -l -d -D -N \
-		-o /opt/fi/4.6/livecd.iso \
+		-o /opt/fi/4.7/livecd.iso \
 		-v -v \
 		-A "FuguIta - OpenBSD LiveCD" \
 		-P "Copyright (c) `date +%Y` KAWAMATA Yoshihiro" \
@@ -108,7 +108,7 @@ hyb:
 		-V "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
 		-b cdbr \
 		-c boot.catalog \
-		/opt/fi/4.6/media/ \
+		/opt/fi/4.7/media/ \
 	&& echo $$(($(REVISION)+1)) > revcount_cdmaster
 
 boot: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot

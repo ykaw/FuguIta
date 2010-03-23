@@ -629,8 +629,16 @@ while :; do
                 ;;
         esac
 
-        echo
-        echo -n 'Generate cryptographic keys [Y/n] -> '; read ans
+        # now disable to use prepared keys;
+        #
+        # To use this, uncomment following comment lines
+        # then remove or comment 'ans=y' line
+        #
+         echo
+        #echo -n 'Generate cryptographic keys [Y/n] -> '; read ans
+        #
+        ans=y; # now force to generate keys
+
         case X"$ans" in
             X[Nn]*)
                 :

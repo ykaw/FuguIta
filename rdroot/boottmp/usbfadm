@@ -140,7 +140,7 @@ function rl_wread {
     typeset prompt="$1";  shift
     typeset default="$1"; shift
 
-    if [ -x /usr/local/bin/rlwrap ]; then
+    if [ -x /usr/fuguita/bin/rlwrap ]; then
         echo "$@" > /tmp/rl_words
         rlwrap -b '' \
                -f /tmp/rl_words \

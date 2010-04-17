@@ -142,7 +142,7 @@ for rdev in "$@"; do
         # absent.
         X[csw]d[0-9]X)
             if mount -r /dev/${rdev}a /mnt 2>/dev/null ; then
-                if [ -r /mnt/usr/local/share/doc/FuguIta -o \
+                if [ -d /mnt/usr/fuguIta -o \
                      -f /mnt/fuguita.ffsimg ]; then
                     disk=" *${rdev}a"
                     if [ X${def_rdev} = X ]; then
@@ -429,10 +429,10 @@ while :; do
             # extract pre-build symlinks archive
             # or lndir from /mfs/usr to /fuguita/usr
             #
-            if [ -r /fuguita/usr/local/fuguita/fuguita_mode0symlinks.cpio.gz \
+            if [ -r /fuguita/usr/fuguita/etc/mode0symlinks.cpio.gz \
                  -a ! -e /boottmp/force_lndir ]; then
                 echo -n "Extracting symlinks from /mfs to /fuguita ... "
-                (cd /mfs && pax -rzpe -f /fuguita/usr/local/fuguita/fuguita_mode0symlinks.cpio.gz)
+                (cd /mfs && pax -rzpe -f /fuguita/usr/fuguita/etc/mode0symlinks.cpio.gz)
             else
                 echo -n "Linking files from /mfs to /fuguita ... "
                 mkdir /mfs/usr && cd /mfs/usr && lndir -s /fuguita/usr
@@ -645,7 +645,7 @@ while :; do
             ;;
             *)
             echo 'Generation of SSH and isakmpd keys take some time while booting.'; sleep 3
-            rm -f /etc/ssh/*_key* /etc/isakmpd/private/local.key
+            rm -f /etc/ssh/*_key* /etc/isakmpd/local.pub /etc/isakmpd/private/local.key
             ;;
         esac
 

@@ -34,7 +34,7 @@ VERSION  =4.7
 DATE    !=date +%Y%m%d
 REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
 
-FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)alpha
+FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)beta
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
 
 CDR_DEV=cd1
@@ -76,7 +76,7 @@ close-fuguita:
 
 iso:
 	make open-fuguita
-	echo "$(VERSION)-$(DATE)$$(($(REVISION)+1))" > fuguita/usr/local/fuguita/fuguita.version
+	echo "$(VERSION)-$(DATE)$$(($(REVISION)+1))" > fuguita/usr/fuguita/version
 	make close-fuguita
 
 	/usr/local/bin/mkisofs \
@@ -96,7 +96,7 @@ iso:
 
 hyb:
 	make open-fuguita
-	echo "$(VERSION)-$(DATE)$$(($(REVISION)+1))" > fuguita/usr/local/fuguita/fuguita.version
+	echo "$(VERSION)-$(DATE)$$(($(REVISION)+1))" > fuguita/usr/fuguita/version
 	make close-fuguita
 
 	mkhybrid -a -R -L -l -d -D -N \

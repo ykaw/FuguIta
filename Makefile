@@ -34,7 +34,7 @@ VERSION  =4.7
 DATE    !=date +%Y%m%d
 REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
 
-FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)beta
+FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)rc
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
 
 CDR_DEV=cd1

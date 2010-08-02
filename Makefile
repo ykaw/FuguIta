@@ -34,7 +34,7 @@ VERSION  =4.7
 DATE    !=date +%Y%m%d
 REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
 
-FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)rc
+FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
 
 CDR_DEV=cd1
@@ -115,8 +115,8 @@ boot: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot
 	cp lib/cdbr lib/cdboot media/.
 	[ -d media/etc ] || mkdir media/etc
 	cp lib/boot.conf media/etc/.
-	[ -d media/sbin ] || mkdir media/sbin
-	cp -p /sbin/vnconfig media/sbin; strip media/sbin/vnconfig
+	: '[ -d media/sbin ] || mkdir media/sbin'
+	: 'cp -p /sbin/vnconfig media/sbin; strip media/sbin/vnconfig'
 	: '/usr/mdec/installboot -v media/boot /usr/mdec/biosboot svnd1'
 
 bsd.rdcd: bsd.orig rdroot.img

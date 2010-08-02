@@ -142,11 +142,22 @@ for rdev in "$@"; do
         # absent.
         X[csw]d[0-9]X)
             if mount -r /dev/${rdev}a /mnt 2>/dev/null ; then
-                if [ -d /mnt/usr/fuguIta -o \
+                if [ -d /mnt/usr/fuguita -o \
                      -f /mnt/fuguita.ffsimg ]; then
                     disk=" *${rdev}a"
                     if [ X${def_rdev} = X ]; then
                         def_rdev=${rdev}a
+                    fi
+                fi
+                umount /mnt
+            fi
+            if mount -r /dev/${rdev}i /mnt 2>/dev/null ; then
+                set -- /mnt/ISO/FuguIta-?.?-?????????.iso
+                if [ ! X"$1" = X -a \
+                     ! X"$1" = 'X/mnt/ISO/FuguIta-?.?-?????????.iso' ] ;then
+                    disk=" *${rdev}i"
+                    if [ X${def_rdev} = X ]; then
+                        def_rdev=${rdev}i
                     fi
                 fi
                 umount /mnt
@@ -184,19 +195,19 @@ fi
 # ask which system-stored device is.
 #
 echo '
-==============================================
-=     ______                __   _
-=    / ____/               |  |_| |__
-=   / /____  ______  __  __|  /_   _/_____
-=  / ___/ / / / __ \/ / / /|  | | | /  _  |
-= / /  / /_/ / /_/ / /_/ / |  | | |_| (_) |__
-=/_/   \____/\__  /\____/  |__| \___/____/__/
+============================================
+=     ______               __   _
+=    / ____/              |  |_| |__
+=   / /____  ______  __  _|  /_   _/_____
+=  / ___/ / / / __ \/ / / |  | | | /  _  |
+= / /  / /_/ / /_/ / /_/ /|  | | |_| (_) |__
+=/_/   \____/\__  /\____/ |__| \___/____/__/
 =            __/ /
 =           /___/
 =
 = Welcome to FuguIta - OpenBSD LiveCD!
-=         http://kaw.ath.cx/openbsd/?en/LiveCD
-==============================================
+=          http://kaw.ath.cx/openbsd/?FuguIta
+=============================================
 '
 #-------------------------------
 # wait for cancelling non-interactive boot
@@ -233,14 +244,29 @@ fi
 #-------------------------------
 # mount system-stored device
 #
-vn_devname="svnd3"
+    vn_devname="svnd5"
+vn_devname_iso="svnd4"
 
 /sbin/mount -r /dev/${rdev} /fuguita || exit
 if [ -f /fuguita/fuguita.ffsimg ]; then
     /sbin/umount /fuguita
     /sbin/mount -r /dev/${rdev} /sysmedia
-    /sysmedia/sbin/vnconfig ${vn_devname} /sysmedia/fuguita.ffsimg
+    /sbin/vnconfig ${vn_devname} /sysmedia/fuguita.ffsimg
     /sbin/mount -r /dev/${vn_devname}a /fuguita
+elif [ -d /fuguita/ISO ]; then
+    /sbin/umount /fuguita
+    /sbin/mount -r /dev/${rdev} /sysmedia
+    set -- /sysmedia/ISO/FuguIta-?.?-?????????.iso
+    if [ $# -gt 1 ]; then
+        shift $(($#-1))
+    fi
+    if [ ! X"$1" = X -a \
+         ! X"$1" = 'X/sysmedia/ISO/FuguIta-?.?-?????????.iso' ] ;then
+        /sbin/vnconfig ${vn_devname_iso} $1
+        /sbin/mount -r /dev/${vn_devname_iso}a /sysmedia
+        /sbin/vnconfig ${vn_devname} /sysmedia/fuguita.ffsimg
+        /sbin/mount -r /dev/${vn_devname}a /fuguita
+    fi
 fi
 
 #-------------------------------

@@ -155,7 +155,7 @@ for rdev in "$@"; do
                 set -- /mnt/ISO/FuguIta-?.?-?????????.iso
                 if [ ! X"$1" = X -a \
                      ! X"$1" = 'X/mnt/ISO/FuguIta-?.?-?????????.iso' ] ;then
-                    disk=" *${rdev}i"
+                    disk="$disk *${rdev}i"
                     if [ X${def_rdev} = X ]; then
                         def_rdev=${rdev}i
                     fi
@@ -262,7 +262,9 @@ elif [ -d /fuguita/ISO ]; then
     fi
     if [ ! X"$1" = X -a \
          ! X"$1" = 'X/sysmedia/ISO/FuguIta-?.?-?????????.iso' ] ;then
-        /sbin/vnconfig ${vn_devname_iso} $1
+        umount /sysmedia
+        mount /dev/${rdev} /sysmedia-iso
+        /sbin/vnconfig ${vn_devname_iso} /sysmedia-iso/ISO/${1##*/}
         /sbin/mount -r /dev/${vn_devname_iso}a /sysmedia
         /sbin/vnconfig ${vn_devname} /sysmedia/fuguita.ffsimg
         /sbin/mount -r /dev/${vn_devname}a /fuguita
@@ -429,6 +431,8 @@ while :; do
                   -p \
                   -f - \
                   -s '|^etc/X11/.*||' \
+                  -s '|^etc/firmware/.*||' \
+                  -s '|^var/db/pkg/.*||' \
                   -s '|^var/www/htdocs/.*||'
         elif [ X"$setup_rw_mode" = X2 ]; then
             (cd ../fuguita && pax -rwpe . /mfs/. && cd /)
@@ -506,6 +510,8 @@ while :; do
             cd / && ln -sf mfs/usr .
         elif [ X"$setup_rw_mode" = X1 ]; then
             (cd /mfs/etc/X11        && lndir -s /fuguita/etc/X11)
+            (cd /mfs/etc/firmware   && lndir -s /fuguita/etc/firmware)
+            (cd /mfs/var/db/pkg     && lndir -s /fuguita/var/db/pkg)
             (cd /mfs/var/www/htdocs && lndir -s /fuguita/var/www/htdocs)
         elif [ X"$setup_rw_mode" = X2 ]; then
             umount -f /fuguita
@@ -843,9 +849,10 @@ while :; do
 done
 
 #====================
-# remove unused files
+# remove unused directories / files
 #
 rm -f /boot.catalog /cdboot /cdbr /rr_moved
+rmdir /sysmedia-iso 2> /dev/null
 
 echo "========================================"
 date > /boottmp/boot_livecd_rc_ends

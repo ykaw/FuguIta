@@ -138,7 +138,8 @@ usbemu:
 gz: cdgz usbgz
 
 cdgz:
-	gzip -cv9 livecd.iso > $(FI_FILENAME).iso.gz
+	cp livecd.iso $(FI_FILENAME).iso
+	gzip -v9 $(FI_FILENAME).iso
 
 usbgz:
 	gzip -cv9 media.img > $(FI_FILENAME).usbimg.gz

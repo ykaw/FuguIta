@@ -104,7 +104,7 @@ hyb:
 		-v -v \
 		-A "FuguIta - OpenBSD LiveCD" \
 		-P "Copyright (c) `date +%Y` KAWAMATA Yoshihiro" \
-		-p "KAWAMATA Yoshihiro, http://kaw.ath.cx/openbsd/?en/LiveCD" \
+		-p "KAWAMATA Yoshihiro, http://kaw.ath.cx/openbsd/?FuguIta" \
 		-V "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
 		-b cdbr \
 		-c boot.catalog \

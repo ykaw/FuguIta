@@ -431,7 +431,7 @@ while :; do
                   -p \
                   -f - \
                   -s '|^etc/X11/.*||' \
-                  -s '|^etc/firmware/.*||' \
+                  -s '|^etc/firmware.*||' \
                   -s '|^var/db/pkg/.*||' \
                   -s '|^var/www/htdocs/.*||'
         elif [ X"$setup_rw_mode" = X2 ]; then
@@ -510,7 +510,7 @@ while :; do
             cd / && ln -sf mfs/usr .
         elif [ X"$setup_rw_mode" = X1 ]; then
             (cd /mfs/etc/X11        && lndir -s /fuguita/etc/X11)
-            (cd /mfs/etc/firmware   && lndir -s /fuguita/etc/firmware)
+            (cd /mfs/etc            && ln -s /fuguita/etc/firmware .)
             (cd /mfs/var/db/pkg     && lndir -s /fuguita/var/db/pkg)
             (cd /mfs/var/www/htdocs && lndir -s /fuguita/var/www/htdocs)
         elif [ X"$setup_rw_mode" = X2 ]; then
@@ -680,6 +680,20 @@ while :; do
             rm -f /etc/ssh/*_key* /etc/isakmpd/local.pub /etc/isakmpd/private/local.key
             ;;
         esac
+
+        # insert a code fragment to unmount /mfs safely
+        #
+        UMOUNT_MFS_MSG='=== to unmount /mfs safely ==='
+        if fgrep -q -- "$UMOUNT_MFS_MSG" /etc/rc.shutdown; then
+            :
+        else
+            cat <<EOT >>/etc/rc.shutdown
+
+# $UMOUNT_MFS_MSG
+#
+umount -f /mfs
+EOT
+        fi
 
         break
         ;;

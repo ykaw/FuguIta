@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.680 2010/03/03 20:57:28 mk Exp $
+#	$OpenBSD: GENERIC,v 1.695 2010/08/08 14:27:42 kettenis Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -11,12 +11,14 @@
 
 machine		i386
 
-#	$OpenBSD: GENERIC,v 1.152 2010/03/07 03:55:01 deraadt Exp $
+#	$OpenBSD: GENERIC,v 1.162 2010/08/08 17:18:11 deraadt Exp $
 #
 #	Machine-independent option; used by all architectures for their
 #	GENERIC kernel
 
 #option		INSECURE	# default to secure
+
+option		TIMEZONE="-540"	# set to JST
 
 option		DDB		# in-kernel debugger
 #option		DDB_SAFE_CONSOLE # allow break into ddb during boot
@@ -29,7 +31,6 @@ option		ACCOUNTING	# acct(2) process accounting
 option		KMEMSTATS	# collect malloc(9) statistics
 option		PTRACE		# ptrace(2) system call
 
-#option		PAGEFASTRECYCLE	# fast physical page recycling 
 #option		KVA_GUARDPAGES	# slow virtual address recycling (+ guarding)
 #option		POOL_DEBUG	# pool corruption detection 
 #option		VFSDEBUG	# VFS locking checks
@@ -43,7 +44,6 @@ option		SYSVSHM		# System V-like memory sharing
 option		UVM_SWAP_ENCRYPT# support encryption of pages going to swap
 
 option		COMPAT_43	# Kernel compatibility with 4.3BSD
-option		COMPAT_O43	# and OpenBSD 4.3
 
 option		LKM		# loadable kernel modules
 
@@ -81,6 +81,7 @@ option		PPP_DEFLATE
 #option		PIPEX		# Pppac IP EXtension, for npppd
 option		MROUTING	# Multicast router
 #option		PIM		# Protocol Independent Multicast
+#option		MPLS		# Multi-Protocol Label Switching
 
 #mpath0		at root		# SCSI Multipathing
 #scsibus*	at mpath?
@@ -88,21 +89,20 @@ option		MROUTING	# Multicast router
 #U softraid0	at root		# Software RAID
 #U scsibus*	at softraid?
 
-vscsi0		at root		# Userland backed Virtual SCSI
-scsibus*	at vscsi?
+#vscsi0		at root		# Userland backed Virtual SCSI
+#scsibus*	at vscsi?
 
 pseudo-device	pf		# packet filter
 pseudo-device	pflog		# pf log if
 pseudo-device	pfsync		# pf sync if
 pseudo-device	pflow		# pflow export if
-pseudo-device	sppp	1	# Sync PPP/HDLC
-pseudo-device	enc	1	# option IPSEC needs the encapsulation interface
+pseudo-device	enc		# option IPSEC needs the encapsulation interface
 
 pseudo-device	pty	16	# initial number of pseudo-terminals
 pseudo-device	nmea	1	# NMEA 0183 line discipline
 pseudo-device	msts	1	# MSTS line discipline
 pseudo-device	endrun	1	# EndRun line discipline
-pseudo-device	vnd	4	# paging to files
+pseudo-device	vnd	6	# paging to files
 pseudo-device	ccd	4	# concatenated disk devices
 pseudo-device	ksyms	1	# kernel symbols device
 pseudo-device	systrace 1	# system call tracing device
@@ -114,25 +114,26 @@ pseudo-device	carp		# CARP protocol support
 pseudo-device	gif		# IPv[46] over IPv[46] tunnel (RFC1933)
 pseudo-device	gre		# GRE encapsulation interface
 pseudo-device	loop		# network loopback
+#pseudo-device	mpe		# MPLS PE interface
 pseudo-device	ppp		# PPP
+pseudo-device	pppoe		# PPP over Ethernet (RFC 2516)
 pseudo-device	sl		# CSLIP
-pseudo-device	tun		# network tunneling over tty
-pseudo-device	vlan 		# IEEE 802.1Q VLAN 
+pseudo-device	sppp	1	# Sync PPP/HDLC
 pseudo-device	trunk		# Trunking support
+pseudo-device	tun		# network tunneling over tty
 pseudo-device	vether		# Virtual ethernet
+pseudo-device	vlan 		# IEEE 802.1Q VLAN 
 
 # for IPv6
 #pseudo-device	faith	1	# IPv[46] tcp relay translation i/f
 
-pseudo-device	pppoe	1	# PPP over Ethernet (RFC 2516)
 pseudo-device	bio	1	# ioctl multiplexing device
 
 option		BOOT_CONFIG	# add support for boot -c
 
-option		TIMEZONE="-540"	# set to JST
 
 
-maxusers	80		# estimated number of users
+maxusers	80			# estimated number of users
 
 option		USER_PCICONF	# user-space PCI configuration
 
@@ -144,11 +145,9 @@ option		APERTURE	# in-kernel aperture driver for XFree86
 #option		KGDB		# Remote debugger support; exclusive of DDB
 #option		"KGDB_DEVNAME=\"com\"",KGDBADDR=0x2f8,KGDBRATE=9600
 
-option		COMPAT_SVR4	# binary compatibility with SVR4
-option		COMPAT_IBCS2	# binary compatibility with SCO and ISC
+#U option		COMPAT_SVR4	# binary compatibility with SVR4
 option		COMPAT_LINUX	# binary compatibility with Linux
 option		COMPAT_FREEBSD	# binary compatibility with FreeBSD
-option		COMPAT_BSDOS	# binary compatibility with BSD/OS
 option		COMPAT_AOUT	# a.out binaries are emulated
 
 option		PROCFS		# /proc
@@ -156,7 +155,7 @@ option		PROCFS		# /proc
 
 # or use		root on nfs swap on nfs
 #config		bsd	swap generic
- 
+
 option		RAMDISK_HOOKS
 option		MINIROOTSIZE=3800
 config		bsd	root on rd0a swap on rd0b and wd0b and sd0b
@@ -187,6 +186,7 @@ acpimadt0	at acpi?
 acpiprt*	at acpi?
 acpitz*		at acpi?
 acpiasus*	at acpi?
+acpisony*	at acpi?
 acpithinkpad*	at acpi?
 acpivideo*	at acpi?
 acpivout*	at acpivideo?
@@ -273,10 +273,12 @@ viasio*	at isa? port 0x4e flags 0x0000
 wbsio*	at isa? port 0x2e		# Winbond LPC Super I/O
 wbsio*	at isa? port 0x4e
 lm*	at wbsio?
+uguru0	at isa? disable port 0xe0	# ABIT uGuru
 fins0	at isa? port 0x4e		# Fintek F71805 Super I/O
 
 aps0	at isa? port 0x1600		# ThinkPad Active Protection System
 
+itherm*	at pci?				# Intel 3400 Thermal Sensor
 adc*	at iic?				# Analog Devices AD7416/AD7417/7418
 andl*	at iic?				# Andigilog aSC7611
 adl*	at iic?				# Andigilog aSC7621
@@ -407,8 +409,6 @@ url*	at uhub?		# Realtek RTL8150L based adapters
 wi*	at uhub?		# WaveLAN IEEE 802.11DS
 urio*	at uhub?		# Diamond Multimedia Rio 500
 uscanner* at uhub?		# USB Scanners
-usscanner* at uhub?		# USB SCSI scanners, e.g., HP5300
-scsibus* at usscanner?
 #uyap*	at uhub?		# Y@P firmware loader
 udsbr*	at uhub?		# D-Link DSB-R100 radio
 radio*	at udsbr?		# USB radio
@@ -464,7 +464,7 @@ option	WSDISPLAY_COMPAT_RAWKBD		# provide raw scancodes; needed for X11
 option	WSDISPLAY_DEFAULTSCREENS=6	# initial number of text consoles
 option	WSDISPLAY_COMPAT_PCVT		# emulate some ioctls; needed for X11
 
-pckbc0		at isa?		# PC keyboard controller
+pckbc0		at isa? flags 0x00	# PC keyboard controller
 pckbd*		at pckbc?	# PC keyboard
 pms*		at pckbc?	# PS/2 mouse for wsmouse
 pmsi*		at pckbc?	# PS/2 "Intelli"mouse for wsmouse
@@ -643,7 +643,6 @@ sd*	at scsibus?		# SCSI disk drives
 st*	at scsibus?		# SCSI tape drives
 cd*	at scsibus?		# SCSI CD-ROM drives
 ch*	at scsibus?		# SCSI autochangers
-ss*	at scsibus?		# SCSI scanners
 safte*	at scsibus?		# SCSI accessed fault-tolerant enclosures
 ses*	at scsibus?		# SCSI enclosure services
 uk*	at scsibus?		# unknown SCSI
@@ -726,6 +725,7 @@ vr*	at pci?				# VIA Rhine ethernet
 wb*	at pci?				# Winbond W89C840F ethernet
 sf*	at pci?				# Adaptec AIC-6915 ethernet
 sis*	at pci?				# SiS 900/7016 ethernet
+se*	at pci?				# SiS 190/191 ethernet
 ste*	at pci?				# Sundance ST201 ethernet
 dc*	at pci?				# 21143, "tulip" clone ethernet
 dc*	at cardbus?			# 21143, "tulip" clone ethernet
@@ -862,20 +862,9 @@ gus0	at isa? port 0x220 irq 7 drq 1 drq2 6	# Gravis (drq2 is record drq)
 ym*	at isapnp?
 mpu*	at isapnp?
 mpu*	at isa? port 0x300		# generic MPU, Yamaha SW60XG
-#aria0	at isa? port 0x280 irq 10 drq 0 flags 0x1 # Prometheus Aria 16
-
-# OPL[23] FM synthesizers
-#opl0	at isa? port 0x388	# use only if not attached to sound card
-opl*	at eso?
-opl*	at sb?
-opl*	at ess?
-opl*	at yds?
-opl*	at cmpci?
 
 # MIDI support
-midi*	at pcppi?		# MIDI interface to the PC speaker
 midi*	at sb?			# SB MPU401 port
-midi*	at opl?			# OPL FM synth
 midi*	at ym?
 midi*	at mpu?
 midi*	at autri?
@@ -965,6 +954,7 @@ option ONEWIREVERBOSE
 owid*	at onewire?		# ID
 owsbm*	at onewire?		# Smart Battery Monitor
 owtemp* at onewire?		# Temperature
+owctr*	at onewire?		# Counter device
 
 pseudo-device	pctr		1
 pseudo-device	mtrr		1	# Memory range attributes control
@@ -977,4 +967,4 @@ pseudo-device	hotplug		1	# devices hot plugging
 pseudo-device	wsmux		2
 pseudo-device	crypto		1
 
-pseudo-device	rd		4	# ramdisk
+pseudo-device	rd		1	# ramdisk

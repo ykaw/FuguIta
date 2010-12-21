@@ -1,4 +1,4 @@
-# Copyright (c) 2006, 2007, 2008, 2009, Yoshihiro Kawamata
+# Copyright (c) 2006--2010, Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 PROJNAME =FuguIta
-VERSION  =4.7
+VERSION  =4.8
 DATE    !=date +%Y%m%d
 REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
 
@@ -90,8 +90,8 @@ iso:
 		-publisher "$(AUTHOR)" \
 		-b cdbr -no-emul-boot \
 		-c boot.catalog \
-		-o /opt/fi/4.7/livecd.iso \
-		/opt/fi/4.7/media/ \
+		-o /opt/fi/4.8/livecd.iso \
+		/opt/fi/4.8/media/ \
 	&& echo $$(($(REVISION)+1)) > revcount_cdmaster
 
 hyb:
@@ -100,7 +100,7 @@ hyb:
 	make close-fuguita
 
 	mkhybrid -a -R -L -l -d -D -N \
-		-o /opt/fi/4.7/livecd.iso \
+		-o /opt/fi/4.8/livecd.iso \
 		-v -v \
 		-A "FuguIta - OpenBSD LiveCD" \
 		-P "Copyright (c) `date +%Y` KAWAMATA Yoshihiro" \
@@ -108,7 +108,7 @@ hyb:
 		-V "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
 		-b cdbr \
 		-c boot.catalog \
-		/opt/fi/4.7/media/ \
+		/opt/fi/4.8/media/ \
 	&& echo $$(($(REVISION)+1)) > revcount_cdmaster
 
 boot: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot

@@ -1,8 +1,8 @@
 #!/bin/sh
 
-find . -type f -name '*.[0-9]' -links 1 -print | xargs gzip -v9
+find . -type f \( -name '*.[0-9]' -o -name '*.[0-9][a-z]' \) -links 1 -print | xargs gzip -v9
 
-find . -type f -name '*.[0-9]' -links +1 -print |
+find . -type f \( -name '*.[0-9]' -o -name '*.[0-9][a-z]' \) -links +1 -print |
 while read f
 do
     if file $f | grep -q 'gzip compressed data'
@@ -16,7 +16,7 @@ do
     fi
 done
 
-find . -type l -name '*.[0-9]' -print |
+find . -type l \( -name '*.[0-9]' -o -name '*.[0-9][a-z]' \) -print |
 while read f
 do
     ln -s `stat -f '%Y' $f`.gz $f.gz

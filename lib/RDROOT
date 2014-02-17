@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.695 2010/08/08 14:27:42 kettenis Exp $
+#	$OpenBSD: GENERIC,v 1.747 2013/06/01 01:13:34 reyk Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -11,14 +11,7 @@
 
 machine		i386
 
-#	$OpenBSD: GENERIC,v 1.162 2010/08/08 17:18:11 deraadt Exp $
-#
-#	Machine-independent option; used by all architectures for their
-#	GENERIC kernel
-
 #option		INSECURE	# default to secure
-
-option		TIMEZONE="-540"	# set to JST
 
 option		DDB		# in-kernel debugger
 #option		DDB_SAFE_CONSOLE # allow break into ddb during boot
@@ -33,7 +26,7 @@ option		PTRACE		# ptrace(2) system call
 
 #option		KVA_GUARDPAGES	# slow virtual address recycling (+ guarding)
 #option		POOL_DEBUG	# pool corruption detection 
-#option		VFSDEBUG	# VFS locking checks
+#option		VFSLCKDEBUG	# VFS locking checks
 
 option		CRYPTO		# Cryptographic framework
 
@@ -44,6 +37,8 @@ option		SYSVSHM		# System V-like memory sharing
 option		UVM_SWAP_ENCRYPT# support encryption of pages going to swap
 
 option		COMPAT_43	# Kernel compatibility with 4.3BSD
+option		COMPAT_O51	# Kernel compatibility with OpenBSD 5.1
+option		COMPAT_O53	# Kernel compatibility with OpenBSD 5.3
 
 option		LKM		# loadable kernel modules
 
@@ -52,45 +47,41 @@ option		FFS2		# UFS2
 option		FFS_SOFTUPDATES	# Soft updates
 option		UFS_DIRHASH	# hash large directories
 option		QUOTA		# UFS quotas
-#U option		EXT2FS		# Second Extended Filesystem
+option		EXT2FS		# Second Extended Filesystem
 option		MFS		# memory file system
-option		NNPFS		# NNPFS filesystem
-
-option		TCP_SACK	# Selective Acknowledgements for TCP
-option		TCP_ECN		# Explicit Congestion Notification for TCP
-option		TCP_SIGNATURE	# TCP MD5 Signatures, for BGP routing sessions
-#option		TCP_FACK	# Forward Acknowledgements for TCP
-
 option		NFSCLIENT	# Network File System client
 option		NFSSERVER	# Network File System server
-
 option		CD9660		# ISO 9660 + Rock Ridge file system
 option		UDF		# UDF (DVD) file system
 option		MSDOSFS		# MS-DOS file system
 option		FIFO		# FIFOs; RECOMMENDED
-#option		PORTAL		# dynamically created filesystem objects
+
+option		SOCKET_SPLICE	# Socket Splicing for TCP
+option		TCP_SACK	# Selective Acknowledgements for TCP
+option		TCP_ECN		# Explicit Congestion Notification for TCP
+option		TCP_SIGNATURE	# TCP MD5 Signatures, for BGP routing sessions
+#option		TCP_FACK	# Forward Acknowledgements for TCP
 
 option		INET		# IP + ICMP + TCP + UDP
 option		ALTQ		# ALTQ base
 option		INET6		# IPv6 (needs INET)
 option		IPSEC		# IPsec
 #option		KEY		# PF_KEY (implied by IPSEC)
-#option		NETATALK	# AppleTalk
 option		PPP_BSDCOMP	# PPP BSD compression
 option		PPP_DEFLATE
-#option		PIPEX		# Pppac IP EXtension, for npppd
+option		PIPEX		# Ppp IP EXtension, for npppd
 option		MROUTING	# Multicast router
 #option		PIM		# Protocol Independent Multicast
-#option		MPLS		# Multi-Protocol Label Switching
+option		MPLS		# Multi-Protocol Label Switching
 
 #mpath0		at root		# SCSI Multipathing
 #scsibus*	at mpath?
 
-#U softraid0	at root		# Software RAID
-#U scsibus*	at softraid?
+softraid0	at root		# Software RAID
+scsibus*	at softraid?
 
-#vscsi0		at root		# Userland backed Virtual SCSI
-#scsibus*	at vscsi?
+vscsi0		at root		# Userland backed Virtual SCSI
+scsibus*	at vscsi?
 
 pseudo-device	pf		# packet filter
 pseudo-device	pflog		# pf log if
@@ -102,8 +93,7 @@ pseudo-device	pty	16	# initial number of pseudo-terminals
 pseudo-device	nmea	1	# NMEA 0183 line discipline
 pseudo-device	msts	1	# MSTS line discipline
 pseudo-device	endrun	1	# EndRun line discipline
-pseudo-device	vnd	6	# paging to files
-pseudo-device	ccd	4	# concatenated disk devices
+pseudo-device	vnd	6	# vnode disk devices
 pseudo-device	ksyms	1	# kernel symbols device
 pseudo-device	systrace 1	# system call tracing device
 
@@ -114,9 +104,10 @@ pseudo-device	carp		# CARP protocol support
 pseudo-device	gif		# IPv[46] over IPv[46] tunnel (RFC1933)
 pseudo-device	gre		# GRE encapsulation interface
 pseudo-device	loop		# network loopback
-#pseudo-device	mpe		# MPLS PE interface
+pseudo-device	mpe		# MPLS PE interface
 pseudo-device	ppp		# PPP
 pseudo-device	pppoe		# PPP over Ethernet (RFC 2516)
+pseudo-device	pppx 		# PPP multiplexer
 pseudo-device	sl		# CSLIP
 pseudo-device	sppp	1	# Sync PPP/HDLC
 pseudo-device	trunk		# Trunking support
@@ -124,14 +115,9 @@ pseudo-device	tun		# network tunneling over tty
 pseudo-device	vether		# Virtual ethernet
 pseudo-device	vlan 		# IEEE 802.1Q VLAN 
 
-# for IPv6
-#pseudo-device	faith	1	# IPv[46] tcp relay translation i/f
-
 pseudo-device	bio	1	# ioctl multiplexing device
 
 option		BOOT_CONFIG	# add support for boot -c
-
-
 
 maxusers	80			# estimated number of users
 
@@ -145,20 +131,18 @@ option		APERTURE	# in-kernel aperture driver for XFree86
 #option		KGDB		# Remote debugger support; exclusive of DDB
 #option		"KGDB_DEVNAME=\"com\"",KGDBADDR=0x2f8,KGDBRATE=9600
 
-#U option		COMPAT_SVR4	# binary compatibility with SVR4
 option		COMPAT_LINUX	# binary compatibility with Linux
-option		COMPAT_FREEBSD	# binary compatibility with FreeBSD
-option		COMPAT_AOUT	# a.out binaries are emulated
 
 option		PROCFS		# /proc
-#option		NTFS		# Experimental NTFS support
+option		NTFS		# NTFS support
+option		HIBERNATE	# Hibernate support
 
-# or use		root on nfs swap on nfs
 #config		bsd	swap generic
-
 option		RAMDISK_HOOKS
 option		MINIROOTSIZE=3800
-config		bsd	root on rd0a swap on rd0b and wd0b and sd0b
+config		bsd	root on rd0a
+
+pseudo-device   rd              1       # ramdisk
 
 mainbus0 at root
 
@@ -170,7 +154,7 @@ acpi0	at bios?
 mpbios0	at bios0
 pcibios0 at bios0 flags 0x0000	# use 0x30 for a total verbose
 ipmi0	at mainbus? disable	# IPMI
-#vmt0	at mainbus?		# VMware Tools
+vmt0	at mainbus?		# VMware Tools
 esm0	at mainbus? 		# Dell Embedded Server Management
 amdmsr0	at mainbus?		# MSR access for AMD Geode LX CPUs with GP
 
@@ -183,11 +167,13 @@ acpicpu*	at acpi?
 acpidock*	at acpi?
 acpiec*		at acpi?
 acpimadt0	at acpi?
+acpimcfg*	at acpi?
 acpiprt*	at acpi?
 acpitz*		at acpi?
 acpiasus*	at acpi?
 acpisony*	at acpi?
 acpithinkpad*	at acpi?
+acpitoshiba*	at acpi?
 acpivideo*	at acpi?
 acpivout*	at acpivideo?
 acpipwrres*	at acpi?
@@ -200,6 +186,7 @@ option		USBVERBOSE
 isa0	at mainbus0
 isa0	at pcib?
 isa0	at amdpcib?
+isa0	at tcpcib?
 isa0	at ichpcib?
 isa0	at piixpcib?
 isa0	at gscpcib?
@@ -213,12 +200,14 @@ pci*	at ppb?
 pci*	at pchb?
 pcib*	at pci?			# PCI-ISA bridge
 amdpcib* at pci?		# AMD 8111 LPC bridge 
+tcpcib*	at pci?			# Intel Atom E600 LPC bridge
 ichpcib* at pci?		# Intel ICHx/ICHx-M LPC bridges
 piixpcib* at pci?		# Intel PIIX4 PCI-ISA bridge
 gscpcib* at pci?		# NS Geode SC1100 PCI-ISA bridge
 gpio*	at gscpcib?
 glxpcib* at pci?		# AMD CS5536 PCI-ISA bridge
 gpio*	at glxpcib?
+iic*	at glxpcib?
 kate*	at pci?			# AMD K8 temperature sensor
 km*	at pci?			# AMD K10 temperature sensor
 amas*	at pci? disable		# AMD memory configuration
@@ -249,7 +238,7 @@ alipm*	at pci?				# Acer Labs M7101 power management
 iic*	at alipm?
 ichiic*	at pci?				# Intel ICH SMBus controller
 iic*	at ichiic?
-viapm*	at pci?				# VIA VT8237 power management
+viapm*	at pci?				# VIA SMBus controller
 iic*	at viapm?
 amdiic*	at pci?				# AMD-8111 SMBus controller
 iic*	at amdiic?
@@ -267,7 +256,6 @@ schsio*	at isa? port 0x4e
 schsio*	at isa? port 0x162e
 schsio*	at isa? port 0x164e
 
-viaenv*	at pci?				# VIA VT82C686A hardware monitor
 viasio*	at isa? port 0x2e flags 0x0000	# VIA VT1211 LPC Super I/O
 viasio*	at isa? port 0x4e flags 0x0000
 wbsio*	at isa? port 0x2e		# Winbond LPC Super I/O
@@ -303,6 +291,7 @@ thmc*	at iic?				# TI TMHC50 / Analog ADM1022
 spdmem*	at iic?				# SPD memory eeproms
 sdtemp*	at iic?				# SO-DIMM (JC-42.4) temperature
 wbng*	at iic?				# Winbond W83793G
+nvt*	at iic?				# Novoton W83795G
 
 #isagpio0 at isa? port 0x78		# ISA I/O mapped as GPIO
 #isagpio1 at isa? port 0x80
@@ -379,8 +368,6 @@ umidi*	at uhub?		# USB MIDI
 midi*	at umidi?
 ulpt*	at uhub?		# USB Printers
 umass*	at uhub?		# USB Mass Storage devices
-scsibus* at umass?
-atapiscsi* at umass?
 uhidev*	at uhub?		# Human Interface Devices
 ums*	at uhidev?		# USB mouse
 wsmouse* at ums? mux 0
@@ -392,14 +379,15 @@ ukbd*	at uhidev?		# USB keyboard
 wskbd*	at ukbd? mux 1
 ucycom*	at uhidev?		# Cypress serial
 ucom*	at ucycom?
-#uticom* at uhub?		# TI serial
-#ucom*	at uticom?
+uticom* at uhub?		# TI serial
+ucom*	at uticom?
 uhid*	at uhidev?		# USB generic HID support
 aue*	at uhub?		# ADMtek AN986 Pegasus Ethernet
 atu*	at uhub?		# Atmel AT76c50x based 802.11b
 axe*	at uhub?		# ASIX Electronics AX88172 USB Ethernet
 cue*	at uhub?		# CATC USB-EL1201A based Ethernet
 kue*	at uhub?		# Kawasaki KL5KUSB101B based Ethernet
+smsc*	at uhub?		# SMSC LAN95xx Ethernet
 cdce*	at uhub?		# CDC Ethernet
 urndis*	at uhub?		# Remote NDIS Ethernet
 upl*	at uhub?		# Prolific PL2301/PL2302 host-to-host `network'
@@ -408,7 +396,7 @@ mos*	at uhub?		# MOSCHIP MCS7730/7830 10/100 Ethernet
 url*	at uhub?		# Realtek RTL8150L based adapters
 wi*	at uhub?		# WaveLAN IEEE 802.11DS
 urio*	at uhub?		# Diamond Multimedia Rio 500
-uscanner* at uhub?		# USB Scanners
+uscanner* at uhub? disable	# USB Scanners
 #uyap*	at uhub?		# Y@P firmware loader
 udsbr*	at uhub?		# D-Link DSB-R100 radio
 radio*	at udsbr?		# USB radio
@@ -419,16 +407,23 @@ ural*	at uhub?		# Ralink RT2500USB
 rum*	at uhub?		# Ralink RT2501USB/RT2601USB
 run*	at uhub?		# Ralink RT2700U/RT2800U/RT3000U
 otus*	at uhub?		# Atheros AR9001U
+athn*	at uhub?		# Atheros AR9002U
 zyd*	at uhub?		# Zydas ZD1211
 upgt*	at uhub?		# Conexant/Intersil PrismGT SoftMAC USB
 urtw*	at uhub?		# RealTek 8187
+rsu*	at uhub?		# RealTek RTL8188SU/RTL8191SU/RTL8192SU
+urtwn*	at uhub?		# RealTek RTL8188CU/RTL8192CU
 #option	NATM
 #ueagle* at uhub?		# Analog Devices Eagle ADSL
 udcf*	at uhub?		# Gude Expert mouseCLOCK
 umbg*	at uhub?		# Meinberg Funkuhren USB5131
 uthum*	at uhidev?		# TEMPerHUM sensor
 utrh*	at uhidev?		# USBRH sensor
+utwitch* at uhidev?		# YUREX BBU sensor
 uow*	at uhub?		# Maxim/Dallas DS2490 1-Wire adapter
+uoakrh*	at uhidev?		# Toradex OAK temp and rel humidity
+uoaklux* at uhidev?		# Toradex OAK LUX
+uoakv*	at uhidev?		# Toradex OAK 10V sensor
 onewire* at uow?
 uvideo* at uhub?		# USB video
 video*  at uvideo?
@@ -436,24 +431,25 @@ udl*	at uhub?		# DisplayLink USB displays
 wsdisplay* at udl?
 
 puc*	at pci?			# PCI "universal" communication device
-#puc*	at cardbus?
+com*	at cardbus?
 
 sdhc*	at pci?			# SD Host Controller
 sdmmc*	at sdhc?		# SD/MMC bus
-scsibus* at sdmmc?		# SCSI emulation
+rtsx*	at pci?			# Realtek SD Card Reader
+sdmmc*	at rtsx?		# SD/MMC bus
 
 # Bluetooth controllers
-sbt*	at sdmmc?		# SDIO Bluetooth
-bthub*	at sbt?
-ubt*	at uhub?		# USB Bluetooth
-bthub*	at ubt?
-bthidev* at bthub?		# Bluetooth HID support
-btkbd*	at bthidev?
-btms*	at bthidev?
-wskbd*	at btkbd? mux 1
-wsmouse* at btms? mux 0
-btsco*	at bthub?		# Bluetooth audio support
-audio*	at btsco?
+#sbt*	at sdmmc? disable	# SDIO Bluetooth
+#bthub*	at sbt?
+#ubt*	at uhub? disable	# USB Bluetooth
+#bthub*	at ubt?
+#bthidev* at bthub?		# Bluetooth HID support
+#btkbd*	at bthidev?
+#btms*	at bthidev?
+#wskbd*	at btkbd? mux 1
+#wsmouse* at btms? mux 0
+#btsco*	at bthub?		# Bluetooth audio support
+#audio*	at btsco?
 
 npx0	at isa? port 0xf0 irq 13	# math coprocessor
 isadma0	at isa?
@@ -467,7 +463,6 @@ option	WSDISPLAY_COMPAT_PCVT		# emulate some ioctls; needed for X11
 pckbc0		at isa? flags 0x00	# PC keyboard controller
 pckbd*		at pckbc?	# PC keyboard
 pms*		at pckbc?	# PS/2 mouse for wsmouse
-pmsi*		at pckbc?	# PS/2 "Intelli"mouse for wsmouse
 vga0		at isa?
 option		X86EMU		# to POST video cards
 vga*		at pci?
@@ -476,7 +471,6 @@ wsdisplay*	at vga?
 wsdisplay*	at pcdisplay?
 wskbd*		at pckbd? mux 1
 wsmouse*	at pms? mux 0
-wsmouse*	at pmsi? mux 0
 
 intagp*		at vga?		# intel integrated graphics agp
 aliagp*		at pchb?
@@ -484,6 +478,7 @@ amdagp*		at pchb?
 intelagp*	at pchb?
 sisagp*		at pchb?
 viaagp*		at pchb?
+#mmuagp*	at pchb?
 
 agp*		at intagp?	# AGP bridges
 agp*		at aliagp?	# AGP bridges
@@ -491,24 +486,13 @@ agp*		at amdagp?	# AGP bridges
 agp*		at intelagp?	# AGP bridges
 agp*		at sisagp?	# AGP bridges
 agp*		at viaagp?	# AGP bridges
+#agp*		at mmuagp?	
 
 #option		DRMDEBUG
 inteldrm*	at vga?		# Intel i915, i945 DRM driver
 drm*		at inteldrm?
-#machdrm*	at vga?		# mach64 (3D Rage Pro, Rage) DRM driver
-#drm*		at machdrm?
-#mgadrm*	at vga?		# Matrox G[24]00, G[45]50 DRM driver
-#drm*		at mgadrm?
-#ragedrm*	at vga?		# ATI Rage 128 DRM driver
-#drm*		at ragedrm?
 radeondrm*	at vga? 	# ATI Radeon DRM driver
 drm*		at radeondrm?
-#savagedrm*	at vga?		# S3 Savage DRM driver
-#drm*		at savagedrm?
-#sisdrm*	at vga?		# SiS DRM driver
-#drm*		at sisdrm?
-#tdfxdrm*	at vga?		# 3dfx (voodoo) DRM driver
-#drm*		at tdfxdrm?
 
 #option		VESABIOSVERBOSE
 #option		VESAFB		# VESA bios framebuffer support for X11
@@ -520,7 +504,7 @@ pcppi0		at isa?
 com0	at isa? port 0x3f8 irq 4	# standard PC serial ports
 com1	at isa? port 0x2f8 irq 3
 com2	at isa? port 0x3e8 irq 5
-#com3	at isa? port 0x2e8 irq 9	# (conflicts with some video cards)
+com3	at isa? disable port 0x2e8 irq 9 # (conflicts with some video cards)
 #com4	at isa? port 0x220 irq 4	# Fujitsu Stylistic Touchscreen 
 ast0	at isa? port 0x1a0 irq 5	# AST 4-port serial card
 #ast1	at isa? port 0x2a0 irq 6	# 2nd AST 4-port serial card
@@ -550,95 +534,58 @@ lpt1	at isa? port 0x278
 lpt2	at isa? port 0x3bc
 lpt*	at puc?
 
-lms0	at isa? port 0x23c irq 5	# Logitech bus mouse
-lms1	at isa? port 0x238 irq 5
-mms0	at isa? port 0x23c irq 5	# Microsoft InPort mouse
-mms1	at isa? port 0x238 irq 5
-
-wsmouse*	at lms? mux 0
-wsmouse*	at mms? mux 0
-
 bha0	at isa? port 0x330		# BusLogic [57]4X SCSI controllers
 bha1	at isa? disable port 0x334	# BusLogic [57]4X SCSI controllers
 bha2	at isa? disable
 bha*	at pci?
 #bha*	at eisa?		# XXX eisa still runs in isa-compat
-scsibus* at bha?
 aha0	at isa? port 0x330	# Adaptec 154[02] SCSI controllers
 aha1	at isa? port 0x334	# Adaptec 154[02] SCSI controllers
 aha*	at isapnp?
-scsibus* at aha?
 ahb*	at eisa?		# Adaptec 174[024] SCSI controllers
-scsibus* at ahb?
 #ahc0	at isa?			# Adaptec 284x SCSI controllers
 ahc*	at eisa?		# Adaptec 274x, aic7770 SCSI controllers
 ahc*	at pci?			# Adaptec 2940/3940/78?? SCSI controllers
-scsibus* at ahc?
 jmb*	at pci?			# JMicron JMB36x controllers
 ahci*	at jmb? flags 0x0000	# flags 0x0001 to force SATA 1 (1.5Gb/s)
 pciide*	at jmb?
 ahci*	at pci?	flags 0x0000	# AHCI SATA controllers
 				# flags 0x0001 to force SATA 1 (1.5Gb/s)
-scsibus* at ahci?
 sili*	at pci?			# Silicon Image 3124/3132/3531 SATA controllers
-scsibus* at sili?
 ahd*	at pci?			# Adaptec 79?? SCSI controllers
-scsibus* at ahd?
-#U arc*	at pci?			# Areca RAID Controllers
-#U scsibus* at arc?
+arc*	at pci?			# Areca RAID Controllers
 mpi*	at pci?			# LSI Logic Fusion MPT Message Passing Interface
-scsibus* at mpi?
 mpii*	at pci?			# LSI Fusion MPT Message Passing Interface II
-scsibus* at mpii?
-#U gdt*	at pci?			# ICP Vortex GDT RAID controllers
-#U scsibus* at gdt?
-#U twe*	at pci?			# 3ware Escalade RAID controllers
-#U scsibus* at twe?
-#U #aac*	at pci?			# Adaptec FSA RAID controllers
-#U #scsibus* at aac?
-#U ami*	at pci?			# AMI MegaRAID controllers
-#U scsibus* at ami?
-#U mfi*	at pci?			# LSI MegaRAID SAS controllers
-#U scsibus* at mfi?
-#U cac*	at pci?			# Compaq Smart ARRAY [234]* RAID controllers
-#U cac*	at eisa?
-#U scsibus* at cac?
-#U ciss*	at pci?			# Compaq Smart ARRAY [56]* RAID controllers
-#U scsibus* at ciss?
+gdt*	at pci?			# ICP Vortex GDT RAID controllers
+twe*	at pci?			# 3ware Escalade RAID controllers
+#aac*	at pci?			# Adaptec FSA RAID controllers
+ami*	at pci?			# AMI MegaRAID controllers
+mfi*	at pci?			# LSI MegaRAID SAS controllers
+mfii*	at pci?			# LSI MegaRAID SAS Fusion controllers
+cac*	at pci?			# Compaq Smart ARRAY [234]* RAID controllers
+cac*	at eisa?
+ciss*	at pci?			# Compaq Smart ARRAY [56]* RAID controllers
 iha*	at pci?			# Initio Ultra/UltraWide SCSI controllers
-scsibus* at iha?
-#U ips*	at pci?			# IBM ServeRAID controllers
-#U scsibus* at ips?
+ips*	at pci?			# IBM ServeRAID controllers
 isp*	at pci?			# Qlogic ISP [12]0x0 SCSI/FibreChannel
-scsibus* at isp?
 #qli*	at pci?			# Qlogic 4010 & 4022 iSCSI
-#scsibus* at qli?
 aic0	at isa? port 0x340 irq 11 # Adaptec 152[02] SCSI controllers
 aic*	at pcmcia?		# PCMCIA based aic SCSI controllers
 aic*	at isapnp?		# isapnp configured aic SCSI controllers
-scsibus* at aic?
 #esp*	at pcmcia?		# PCMCIA based NCR 53C9X SCSI
-#scsibus* at esp?
 siop*	at pci?			# NCR 538XX SCSI controllers(new)
-scsibus* at siop?
 adv*	at pci?			# AdvanSys 1200A/B and ULTRA SCSI
-scsibus* at adv?
 adw*	at pci?			# AdvanSys ULTRA WIDE SCSI
-scsibus* at adw?
 pcscp*	at pci?			# AMD 53c974 PCscsi-PCI SCSI
-scsibus* at pcscp?
 sea0	at isa? disable iomem 0xc8000 irq 5 # Seagate ST0[12] SCSI controllers
-scsibus* at sea?
 trm*	at pci?			# Tekram DC-3x5U SCSI Controllers
-scsibus* at trm?
 uha0	at isa? port 0x330	# UltraStor [13]4f SCSI controllers
 uha1	at isa? disable port 0x334 # UltraStor [13]4f SCSI controllers
 uha*	at eisa?		# UltraStor 24f SCSI controllers
-scsibus* at uha?
 wds0	at isa? disable port 0x350 irq 15 drq 6	# WD7000 and TMC-7000 controllers
 #wds1	at isa? port 0x358 irq 11 drq 5
-scsibus* at wds?
 
+scsibus* at scsi?
 sd*	at scsibus?		# SCSI disk drives
 st*	at scsibus?		# SCSI tape drives
 cd*	at scsibus?		# SCSI CD-ROM drives
@@ -650,8 +597,6 @@ uk*	at scsibus?		# unknown SCSI
 fdc0	at isa? port 0x3f0 irq 6 drq 2	# standard PC floppy controllers
 #fdc1	at isa? port 0x370
 fd*	at fdc? flags 0x00
-
-#mcd0	at isa? port 0x300 irq 10	# Mitsumi CD-ROM drives
 
 # IDE controllers
 pciide* at pci? flags 0x0000
@@ -668,7 +613,6 @@ wd*	at pciide? flags 0x0000
 # ATAPI<->SCSI
 atapiscsi* at wdc?
 atapiscsi* at pciide?
-scsibus* at atapiscsi?
 
 # Networking devices
 we0	at isa? port 0x280 iomem 0xd0000 irq 9	# WD/SMC 80x3 ethernet
@@ -693,10 +637,6 @@ lc1	at isa? port 0x280			# DEC EtherWorks
 le0	at isa? port 0x360 irq 15 drq 6		# IsoLan, NE2100, and DEPCA
 ex0	at isa? port 0x320 irq 5		# Intel EtherExpress PRO/10
 sm0	at isa? port 0x300 irq 10		# SMC 91cxx-based ethernet
-#tr0	at isa? port 0xa20 iomem 0xd8000	# IBM TROPIC based Token-Ring
-#tr1	at isa? port 0xa24 iomem 0xd0000	# IBM TROPIC based Token-Ring
-#tr*	at isa?				# 3COM TROPIC based Token-Ring
-ep0	at eisa?
 ep*	at eisa?			# 3C579 ethernet
 fea*	at eisa?			# DEC DEFEA FDDI
 lmc*	at pci?				# Lan Media Corp SSI/T3/HSSI
@@ -707,7 +647,6 @@ de*	at pci?				# DC21X4X-based ethernet
 fxp*	at pci?				# EtherExpress 10/100B ethernet
 fxp*	at cardbus?			# Intel PRO/100 ethernet
 ne*	at pci?				# NE2000-compat ethernet
-ep0	at pci?				# 3C59x ethernet
 ep*	at pci?				# 3C59x ethernet
 ne*	at pcmcia?			# PCMCIA based NE2000 ethernet
 ep*	at pcmcia?			# PCMCIA based 3C5xx ethernet
@@ -738,6 +677,8 @@ em*	at pci?				# Intel Pro/1000 ethernet
 gcu*	at pci?				# Intel Pro/1000 ethernet GCU
 ixgb*	at pci?				# Intel Pro/10Gb ethernet
 ix*	at pci?				# Intel 82598EB 10Gb ethernet
+myx*	at pci?				# Myricom Myri-10G 10Gb ethernet
+oce*	at pci?				# Emulex OneConnect 10Gb ethernet
 txp*	at pci?				# 3com 3CR990
 nge*	at pci?				# NS DP83820/DP83821 GigE
 bge*	at pci?				# Broadcom BCM57xx (aka Tigon3)
@@ -757,12 +698,14 @@ thtc*	at pci?				# Tehuti Networks 10Gb ethernet
 tht*	at thtc?
 gem*	at pci?				# Sun 'gem' ethernet
 vic*	at pci?				# VMware VMXnet virtual interface
+#vmx*	at pci?				# VMware VMXNET3 virtual interface
 et*	at pci?				# Agere/LSI ET1310
 age*	at pci?				# Attansic L1 Ethernet
-alc*	at pci?				# Attansic L1C/L2C Ethernet
+alc*	at pci?				# Attansic L1C/L1D/L2C Ethernet
 ale*	at pci?				# Attansic L1E Ethernet
 lii*	at pci?				# Attansic L2 Ethernet
 jme*	at pci?				# JMicron JMC250/JMC260 Ethernet
+vte*	at pci?				# RDC R6040 Ethernet
 
 # Wireless network cards
 acx*	at pci?				# TI ACX100/ACX111 (802.11b/g)
@@ -808,6 +751,7 @@ nsphyter*	at mii?			# NS and compatible PHYs
 qsphy*	at mii?				# Quality Semi QS6612 PHYs
 luphy*	at mii?				# Lucent LU6612 PHY
 sqphy*	at mii?				# Seeq 8x220 PHYs
+tlphy*	at mii?				# ThunderLAN PHYs
 rlphy* at mii?				# RealTek 8139 internal PHYs
 mtdphy* at mii?				# Myson MTD972 PHYs
 dcphy*	at mii?				# Digital Clone PHYs
@@ -826,11 +770,10 @@ gentbi*	at mii?				# Generic 1000BASE-X ten-bit PHY
 etphy*	at mii?				# Agere/LSI ET1011 TruePHY
 jmphy*	at mii?				# JMicron JMP202/JMP211 PHYs
 atphy*	at mii?				# Attansic F1 PHYs
+rdcphy*	at mii?				# RDC R6040 PHY
 ipgphy*	at mii?				# IC Plus IP1000A PHYs
+mlphy*	at mii?				# Micro Linear 6692 PHY
 ukphy*	at mii?				# "unknown" PHYs
-
-pss0	at isa? port 0x220 irq 7 drq 6	# Personal Sound System
-sp0	at pss0 port 0x530 irq 10 drq 0	# sound port driver
 
 eap*	at pci?				# Ensoniq AudioPCI S5016
 eso*	at pci?				# ESS Solo-1 PCI AudioDrive
@@ -859,6 +802,7 @@ wss0	at isa? port 0x530 irq 10 drq 0	# Windows Sound System
 wss*	at isapnp?
 pas0	at isa? port 0x220 irq 7 drq 1	# ProAudio Spectrum
 gus0	at isa? port 0x220 irq 7 drq 1 drq2 6	# Gravis (drq2 is record drq)
+gus*	at isapnp?
 ym*	at isapnp?
 mpu*	at isapnp?
 mpu*	at isa? port 0x300		# generic MPU, Yamaha SW60XG
@@ -869,6 +813,7 @@ midi*	at ym?
 midi*	at mpu?
 midi*	at autri?
 midi*	at eap?
+midi*	at envy?
 
 spkr0	at pcppi?		# PC speaker
 
@@ -876,7 +821,6 @@ spkr0	at pcppi?		# PC speaker
 audio*	at sb?
 audio*	at gus?
 audio*	at pas?
-audio*	at sp?
 audio*	at ess?
 audio*	at wss?
 audio*	at ym?
@@ -937,9 +881,7 @@ glxsb*	at pci?			# AMD Geode LX series processor security block
 # I2O
 iop*	at pci?			# I2O processor
 ioprbs*	at iop?			# I2O arrays
-scsibus* at ioprbs?
 iopsp*	at iop?			# I2O SCSI pass-through
-scsibus* at iopsp?
 
 # GPIO ``pin bus'' drivers
 #gpioiic* at gpio? offset 0 mask 0x3	# I2C bus bit-banging
@@ -959,12 +901,14 @@ owctr*	at onewire?		# Counter device
 pseudo-device	pctr		1
 pseudo-device	mtrr		1	# Memory range attributes control
 pseudo-device	nvram		1
-pseudo-device	sequencer	1
-#pseudo-device	raid		4	# RAIDframe disk driver
 pseudo-device	hotplug		1	# devices hot plugging
 
 # mouse & keyboard multiplexor pseudo-devices
 pseudo-device	wsmux		2
 pseudo-device	crypto		1
 
-pseudo-device	rd		1	# ramdisk
+# Virtio devices
+virtio*		at pci? 	# Virtio PCI device
+vioblk*		at virtio?	# Virtio block device
+vio*		at virtio?	# Virtio network device
+viomb*		at virtio?	# Virtio memory ballooning device

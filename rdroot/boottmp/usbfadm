@@ -10,7 +10,7 @@
 #
 #========================================
 
-# Copyright (c) 2006--2010
+# Copyright (c) 2006--2014
 # Yoshihiro Kawamata
 #
 # All rights reserved.
@@ -55,7 +55,7 @@ else
     exit
 fi
 
-fuguita_sys_mb=650
+fuguita_sys_mb=700
 
 #-------------------
 # Wait for ENTER key pressed
@@ -478,7 +478,7 @@ while :; do
         devname=''
         devnames=''
         echo ''
-        for rdev in `sysctl -n hw.disknames|tr , \\\012|grep ^[ws]d[0-9]`; do
+        for rdev in `sysctl -n hw.disknames|tr :, \\\012|grep '^[ws]d[0-9]$'`; do
             if mount | grep -q "^/dev/${rdev}d" ; then
                 echo -n "($rdev) "
                 continue
@@ -524,7 +524,7 @@ while :; do
         echo ==== FYI: sd[0-9] on syslog ================================
         dmesg | sed -e '/^sd[0-9][0-9]*[ :]/!d; s/> .*/>/'
         echo ============================================================
-        newdev=`rl_wread "Enter the name of device which FuguIta will be installed" "" \`sysctl -n hw.disknames|tr , \\\\\012|grep ^[s]d[0-9]\``
+        newdev=`rl_wread "Enter the name of device which FuguIta will be installed" "" \`sysctl -n hw.disknames|tr :, \\\\\012|grep '^[s]d[0-9]$'\``
         [ 0 = `expr "$newdev" : '^[sw]d[0-9]$'` ] && continue
         if mount|grep -q "^/dev/$newdev"; then
             echo ''
@@ -585,7 +585,7 @@ while :; do
         if [ X"$sizepart_d" != 'X*' -a X"$inst" = Xsys ]; then
             fdisk_init $newdev $((${fuguita_sys_mb}+$sizepart_d)) fatrest
         else
-            fdisk_init $newdev $sizepart_d fatrest
+            fdisk_init $newdev "$sizepart_d" fatrest
         fi
         setup_fs $newdev $inst
         ;;

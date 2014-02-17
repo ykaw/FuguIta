@@ -1,4 +1,4 @@
-# Copyright (c) 2006--2010, Yoshihiro Kawamata
+# Copyright (c) 2006--2014, Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -30,16 +30,16 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 PROJNAME =FuguIta
-VERSION  =4.8
+VERSION  =5.4
 DATE    !=date +%Y%m%d
 REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
 
 FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
 
-CDR_DEV=cd1
+CDR_DEV=cd0
 
-USB_DEV=svnd1
+USB_DEV=vnd1
 USB_MNT=/mnt
 USB_IMG=media.img
 
@@ -51,48 +51,49 @@ open-all: open-rdroot open-media open-fuguita
 close-all: close-fuguita close-media close-rdroot
 
 open-rdroot:
-	-vnconfig svnd0 rdroot.img
-	-mount /dev/svnd0a rdroot
+	-vnconfig vnd0 rdroot.img
+	-mount /dev/vnd0a rdroot
 
 close-rdroot:
 	-umount rdroot
-	-vnconfig -u svnd0
+	-vnconfig -u vnd0
 
 open-media:
-	-vnconfig svnd1 media.img
-	-mount /dev/svnd1a media
+	-vnconfig vnd1 media.img
+	-mount /dev/vnd1a media
 
 close-media:
 	-umount media
-	-vnconfig -u svnd1
+	-vnconfig -u vnd1
 
 open-fuguita:
-	-vnconfig svnd2 media/fuguita.ffsimg
-	-mount /dev/svnd2a fuguita
+	-vnconfig vnd2 media/fuguita.ffsimg
+	-mount /dev/vnd2a fuguita
 
 close-fuguita:
 	-umount fuguita
-	-vnconfig -u svnd2
+	-vnconfig -u vnd2
 
-iso:
-	make open-fuguita
-	echo "$(VERSION)-$(DATE)$$(($(REVISION)+1))" > fuguita/usr/fuguita/version
-	make close-fuguita
+shrink: shrinkfiles zipfiles
 
-	/usr/local/bin/mkisofs \
-		-no-iso-translate \
-		-R \
-		-allow-leading-dots \
-		-l -d -D -N -v \
-		-V "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
-		-A "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
-		-p "$(AUTHOR)" \
-		-publisher "$(AUTHOR)" \
-		-b cdbr -no-emul-boot \
-		-c boot.catalog \
-		-o /opt/fi/4.8/livecd.iso \
-		/opt/fi/4.8/media/ \
-	&& echo $$(($(REVISION)+1)) > revcount_cdmaster
+shrinkfiles: filetypelist
+	[ X$(BASEDIR) != X ]
+	[ -d $(BASEDIR) ]
+	grep 'not stripped' filetypes | cut -d: -f1 | xargs strip
+	grep 'current ar archive' filetypes | cut -d: -f1 | xargs rm -f
+
+filetypelist:
+	[ X$(BASEDIR) != X ]
+	[ -d $(BASEDIR) ]
+	-find $(BASEDIR) -type f -print0 | xargs -0 file > filetypes 2> filetypes.err
+
+zipfiles:
+	[ X$(BASEDIR) != X ]
+	[ -d $(BASEDIR) ]
+	-cd $(BASEDIR)/man && /usr/fuguita/sbin/compress_man.sh
+	-cd $(BASEDIR)/share/doc && find . -type f -print0 | xargs -0 gzip -v9
+	-cd $(BASEDIR)/info && find . -type f \! -name dir -print0 | xargs -0 gzip -v9
+	-cd $(BASEDIR)/share/gtk-doc && find . -type f -print0 | xargs -0 gzip -v9
 
 hyb:
 	make open-fuguita
@@ -100,7 +101,7 @@ hyb:
 	make close-fuguita
 
 	mkhybrid -a -R -L -l -d -D -N \
-		-o /opt/fi/4.8/livecd.iso \
+		-o /opt/fi/5.4/livecd.iso \
 		-v -v \
 		-A "FuguIta - OpenBSD LiveCD" \
 		-P "Copyright (c) `date +%Y` KAWAMATA Yoshihiro" \
@@ -108,7 +109,7 @@ hyb:
 		-V "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
 		-b cdbr \
 		-c boot.catalog \
-		/opt/fi/4.8/media/ \
+		/opt/fi/5.4/media/ \
 	&& echo $$(($(REVISION)+1)) > revcount_cdmaster
 
 boot: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot
@@ -117,29 +118,33 @@ boot: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot
 	cp lib/boot.conf media/etc/.
 	: '[ -d media/sbin ] || mkdir media/sbin'
 	: 'cp -p /sbin/vnconfig media/sbin; strip media/sbin/vnconfig'
-	: '/usr/mdec/installboot -v media/boot /usr/mdec/biosboot svnd1'
+	: '/usr/mdec/installboot -v media/boot /usr/mdec/biosboot vnd1'
 
 bsd.rdcd: bsd.orig rdroot.img
 	cp bsd.orig bsd
-	lib/rdsetroot bsd < rdroot.img
+	lib/rdsetroot bsd rdroot.img
 	gzip -c9 bsd > media/bsd-fi
 
 bsd.mp.rdcd: bsd.mp.orig rdroot.img
 	cp bsd.mp.orig bsd.mp
-	lib/rdsetroot bsd.mp < rdroot.img
+	lib/rdsetroot bsd.mp rdroot.img
 	gzip -c9 bsd.mp > media/bsd-fi.mp
 
 cdemu:
-	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -cdrom livecd.iso -boot d
+	/usr/local/bin/qemu-system-i386 -m 256 -monitor stdio -cdrom livecd.iso -boot d
 
 usbemu:
-	/usr/local/bin/qemu -m 256 -localtime -monitor stdio -hda media.img c -boot c
+	/usr/local/bin/qemu-system-i386 -m 256 -monitor stdio -hda media.img c -boot c
 
 gz: cdgz usbgz
 
 cdgz:
-	cp livecd.iso $(FI_FILENAME).iso
+	ln livecd.iso $(FI_FILENAME).iso
 	gzip -v9 $(FI_FILENAME).iso
+
+cdxz:
+	cp livecd.iso $(FI_FILENAME).iso
+	xz -v9 $(FI_FILENAME).iso
 
 usbgz:
 	gzip -cv9 media.img > $(FI_FILENAME).usbimg.gz

@@ -218,7 +218,7 @@ echo '
 =           /___/
 =
 = Welcome to FuguIta - OpenBSD LiveCD!
-=          http://kaw.ath.cx/openbsd/?FuguIta
+=                 http://fuguita.org/?FuguIta
 =============================================
 '
 #-------------------------------
@@ -517,6 +517,12 @@ while :; do
                   rm -f /mfs/$f && cp -p /fuguita/$f /mfs/$f
               fi
             done
+
+            #-------------------------------------------
+            # Replace dir to symlink
+            #
+            rm -r /mfs/usr/local/lib/X11/app-defaults
+            ln -s /etc/X11/app-defaults /mfs/usr/local/lib/X11/app-defaults
 
             cd / && ln -sf mfs/usr .
         elif [ X"$setup_rw_mode" = X1 ]; then

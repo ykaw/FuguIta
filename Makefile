@@ -30,7 +30,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 PROJNAME =FuguIta
-VERSION  =5.4
+VERSION  =5.5
 DATE    !=date +%Y%m%d
 REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
 
@@ -101,7 +101,7 @@ hyb:
 	make close-fuguita
 
 	mkhybrid -a -R -L -l -d -D -N \
-		-o /opt/fi/5.4/livecd.iso \
+		-o /opt/fi/5.5/livecd.iso \
 		-v -v \
 		-A "FuguIta - OpenBSD LiveCD" \
 		-P "Copyright (c) `date +%Y` KAWAMATA Yoshihiro" \
@@ -109,7 +109,7 @@ hyb:
 		-V "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
 		-b cdbr \
 		-c boot.catalog \
-		/opt/fi/5.4/media/ \
+		/opt/fi/5.5/media/ \
 	&& echo $$(($(REVISION)+1)) > revcount_cdmaster
 
 boot: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot
@@ -139,15 +139,15 @@ usbemu:
 gz: cdgz usbgz
 
 cdgz:
-	ln livecd.iso $(FI_FILENAME).iso
-	gzip -v9 $(FI_FILENAME).iso
+	ln livecd.iso $(FI_FILENAME)$(VERSTAT).iso
+	gzip -v9 $(FI_FILENAME)$(VERSTAT).iso
 
 cdxz:
-	cp livecd.iso $(FI_FILENAME).iso
-	xz -v9 $(FI_FILENAME).iso
+	cp livecd.iso $(FI_FILENAME)$(VERSTAT).iso
+	xz -v9 $(FI_FILENAME)$(VERSTAT).iso
 
 usbgz:
-	gzip -cv9 media.img > $(FI_FILENAME).usbimg.gz
+	gzip -cv9 media.img > $(FI_FILENAME)$(VERSTAT).usbimg.gz
 
 cdrburn: cdrclean cdburn
 

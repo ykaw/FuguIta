@@ -314,7 +314,7 @@ fi
         fi
 
         notice Installing boot loader
-        /usr/mdec/installboot -v /mnt/boot /usr/mdec/biosboot ${scandev}
+        /usr/sbin/installboot -v -r /mnt ${scandev} /usr/mdec/biosboot /usr/mdec/boot
         umount /mnt
     fi
 
@@ -339,7 +339,7 @@ fi
 #noask_setup_rw_mode='3'
 #
 # data set name in USB flash drive
-#noask_confdir='`hostname`'
+#noask_confdir='`uname -r`-`hostname -s`'
 EOT
     umount /mnt
     echo done.
@@ -452,7 +452,7 @@ while :; do
             confs=`cd /mnt/livecd-config && echo *`
             umount $devname
         fi
-        [ X"$uconf" = X ] && uconf=`hostname`
+        [ X"$uconf" = X ] && uconf=`uname -r`-`hostname -s`
         uconf=`rl_wread "Name of saved data" $uconf $confs`
         uconf=`echo $uconf | tr -cd 0-9A-Za-z.,_-+=:%@`  # strip invalid chars
         echo ''

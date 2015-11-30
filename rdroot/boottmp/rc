@@ -1,4 +1,4 @@
-# Copyright (c) 2006--2014 Yoshihiro Kawamata
+# Copyright (c) 2006--2015 Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -37,50 +37,60 @@
 # kaw@on.rim.or.jp
 #
 
+
 #====================
-# isgreater ... compare two strings as big non-negative integers
-#
-# ksh can handle integer as 32bit signed :  -2147483648 ... 2147483647
-# This function compares two "string form" integers over 32bit int.
-#
-# usage: isgreater X Y
-# return value: -2 ... string is not form of non-negative integer
-#               -1 ... missing argument(s)
-#                0 ... X is greater than Y.
-#                1 ... X is NOT greater than Y.
-#
-function isgreater {
-    # check presence of arguments
-    #
-    [ $# -lt 2 ] && return -- -1
+# Global Definitions
+#====================
+init_args="$@"
+osrel=`sysctl -n kern.osrelease`
 
-    x=$1
-    y=$2
-
-    # Are arguments both form of positive integer or zero?
+#-------------------------------
+# make a list of all partitions
+#
+scan_disks () {
+    #-------------------------------
+    # make a list of all partitions
     #
-    case "$x" in
-        0|[1-9]*([0-9])) :            ;; # ok, do nothing
-                      *) return -- -2 ;; # ng, string is positive integer nor zero.
-    esac
-    case "$y" in
-        0|[1-9]*([0-9])) :            ;; # ok, do nothing
-                      *) return -- -2 ;; # ng, string is positive integer nor zero.
-    esac
+    for dsk in `sysctl -n hw.disknames | /boottmp/sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'`; do
+        case $dsk in
+            [csw]d[0-9]*)
+                disklabel -c -pm $dsk 2>/dev/null \
+                    | /boottmp/sed -E -e '/^  [abd-p]: /!d; s/^  (.):/'$dsk'\1/'
+                ;;
+        esac
+    done > /boottmp/boot_partitions
 
-    # Compare them
+
+    #-------------------------------
+    # inspecting every disk partitions
     #
-    if [ ${#x} -gt ${#y} ]; then
-        return 0
-    elif [ ${#x} -eq ${#y} ]; then
-        if /fuguita/bin/test $x \> $y; then # string compare
-            return 0
-        else
-            return 1
-        fi
-    else
-        return 1
-    fi
+    echo -n "scanning partitions:"
+    unset partlst part_sys part_sto part_swp part_noask
+    while read ln; do
+        set -- $ln
+        part="$1"
+        fstype="$4"
+        partlst=${partlst:+"$partlst "}$part
+        echo -n " $part"
+        case $fstype in
+            swap) part_swp=${part_swp:+"$part_swp "}$part ;;
+            *) if mount -r /dev/$part /mnt 2>/dev/null; then
+                   set -- /mnt/ISO/FuguIta-${osrel}-?????????.iso
+                   if [ -f /mnt/fuguita-${osrel}.ffsimg -o ! X"$1" = X"/mnt/ISO/FuguIta-${osrel}-?????????.iso" ]; then
+                       part_sys=${part_sys:+"$part_sys "}$part
+                   fi
+                   if [ -d /mnt/livecd-config ]; then
+                       part_sto=${part_sto:+"$part_sto "}$part
+                   fi
+                   if [ -f /mnt/noasks ]; then
+                       part_noask=${part_noask:+"$part_noask "}$part
+                   fi
+                   umount /dev/$part
+               fi
+            ;;
+        esac
+    done < /boottmp/boot_partitions
+    echo
 }
 
 #====================
@@ -90,10 +100,8 @@ function isgreater {
 #   1. /         ...  rd - ram disk attached to kernel
 #   2. /sysmedia ...  CD or USB flashdrive - containing FFS system image
 #   3. /fuguita  ...  vnode disk - mounted FFS system image
-#   4. /mfs      ...  user-modifiable file system
+#   4. /ram      ...  user-modifiable file system
 #
-
-init_args="$@"
 
 cd /
 
@@ -114,94 +122,11 @@ else
 fi
 
 if [ $boot_tries -ge 10 ]; then
-    echo
     echo 'Boot retries exceeded.'
     echo -n 'emergency stop ->'; read dummy
     boot_tries=0
 fi
 echo $boot_tries > /boottmp/boot_tries
-
-#-------------------------------
-# scan devices
-# searching for where FuguIta is stored in
-#
-def_rdev=''
-def_udev=''
-disks=''
-
-# get disk device names
-# and disk unique ID
-#
-disknames=`sysctl -n hw.disknames`
-saveIFS="$IFS"; IFS=','
-set -- $disknames
-IFS="$saveIFS"
-disknames=$@
-
-for disk_name_id in $disknames; do
-    # split one disk unit
-    # into its name and DUID
-    saveIFS="$IFS"; IFS=':'
-    set -- $disk_name_id
-    IFS="$saveIFS"
-    rdev="$1"
-
-    disk=''
-    case X"$rdev"X in
-        # ignoring fd,
-        # because accessing some floppy drives cause
-        # endless "timeout..." responses when disk is
-        # absent.
-        X[csw]d[0-9]X)
-            if mount -r /dev/${rdev}a /mnt 2>/dev/null ; then
-                if [ -d /mnt/usr/fuguita -o \
-                     -f /mnt/fuguita.ffsimg ]; then
-                    disk=" *${rdev}a"
-                    if [ X${def_rdev} = X ]; then
-                        def_rdev=${rdev}a
-                    fi
-                fi
-                umount /mnt
-            fi
-            if mount -r /dev/${rdev}i /mnt 2>/dev/null ; then
-                set -- /mnt/ISO/FuguIta-?.?-?????????.iso
-                if [ ! X"$1" = X -a \
-                     ! X"$1" = 'X/mnt/ISO/FuguIta-?.?-?????????.iso' ] ;then
-                    disk="$disk *${rdev}i"
-                    if [ X${def_rdev} = X ]; then
-                        def_rdev=${rdev}i
-                    fi
-                fi
-                umount /mnt
-            fi
-            ;;
-    esac
-    case X"$rdev"X in
-        X[sw]d[0-9]X)
-            if mount -r /dev/${rdev}d /mnt 2>/dev/null ; then
-                if [ -d /mnt/livecd-config ]; then
-                    disk="$disk +${rdev}d"
-                    def_udev=${rdev}d
-                fi
-                umount /mnt
-            fi
-            ;;
-    esac
-    if [ X"$disk" = X ]; then
-        disks="$disks $rdev"
-    else
-        disks="$disks$disk"
-    fi
-done
-rdev=''
-
-if [ ! X"$def_udev" = X ] &&
-    mount -r /dev/${def_udev} /mnt; then
-    if [ -r /mnt/noasks ]; then
-        . /mnt/noasks
-    fi
-    umount /mnt
-fi
 
 #-------------------------------
 # ask which system-stored device is.
@@ -221,37 +146,64 @@ echo '
 =                 http://fuguita.org/?FuguIta
 =============================================
 '
+
+scan_disks
+
+#-------------------------------
+# set noask parameters
+# from a single noasks file
+#
+set -- $part_noask
+if [ $# -eq 1 ]; then
+    if [ ! X"$1" = X ] &&
+    mount -r /dev/$1 /mnt; then
+        if [ -r /mnt/noasks ]; then
+            . /mnt/noasks
+        fi
+        umount /mnt
+    fi
+elif [ $# -gt 1 ]; then
+    echo "Warning: There are multiple noask files: ${part_noask}."
+    echo "disabling non-interactive boot ..."
+fi
+
 #-------------------------------
 # wait for cancelling non-interactive boot
 #
-if [ "X${noask_rdev}${noask_umem}${noask_setup_rw_mode}${noask_confdir}" != X ]; then
-    trap "unset noask_rdev noask_umem noask_setup_rw_mode noask_confdir; echo ' ... cancelled'" 2
+if [ "X${noask_rdev}${noask_umem}${noask_setup_rw_mode}${noask_confdev}${noask_confdir}" != X ]; then
+    trap "unset noask_rdev noask_umem noask_setup_rw_mode noask_confdev noask_confdir; echo ' ... cancelled'" 2
     echo "Press ^C to cancel non-interactive boot"
     sleep 5
-    echo
 fi
 trap - 2
 
-echo "disks:$disks"
-if [ X"$def_rdev" = X ]; then
-    echo    "Cannot find disk to boot FuguIta...";
-    echo -n "Anyway, disk to try booting? -> "; read ans
+
+#-------------------------------
+# ask user for FuguIta's operating device
+#
+if [ X"$part_sys" = X ]; then
+    echo "Warning: None of FuguIta's operating device(s) found." 
 else
-    echo -n "Which is FuguIta's operating device? [${def_rdev}] -> "
-    if [ X = X"$noask_rdev" ]; then
-        read ans
-    else
-        echo $noask_rdev
-        ans="$noask_rdev"
-        noask_rdev=''
+    echo "FuguIta's operating device(s): ${part_sys}."
+    set -- $part_sys
+    if [ $# -eq 1 ]; then
+        def_rdev="$1"
     fi
 fi
 
-if [ X"$ans" = X ]; then
-    rdev=$def_rdev
+if [ X = X"$noask_rdev" ]; then
+    while :; do
+        echo -n "Which is FuguIta's operating device? ${def_rdev:+[default: ${def_rdev}] }-> "
+        read rdev
+        [ -n "${def_rdev}${rdev}" ] && break
+    done
+    [ -z "${rdev}" ] && rdev="$def_rdev"
 else
-    rdev=$ans
+    echo "Which is FuguIta's operating device? -> $noask_rdev"
+    rdev="$noask_rdev"
+    noask_rdev=''
 fi
+
 
 #-------------------------------
 # mount system-stored device
@@ -260,56 +212,46 @@ fi
 vn_devname_iso="vnd4"
 
 /sbin/mount -r /dev/${rdev} /fuguita || exit
-if [ -f /fuguita/fuguita.ffsimg ]; then
+if [ -f /fuguita/fuguita-${osrel}.ffsimg ]; then
     /sbin/umount /fuguita
     /sbin/mount -r /dev/${rdev} /sysmedia
-    /sbin/vnconfig ${vn_devname} /sysmedia/fuguita.ffsimg
+    /sbin/vnconfig ${vn_devname} /sysmedia/fuguita-${osrel}.ffsimg
     /sbin/mount -r /dev/${vn_devname}a /fuguita
 elif [ -d /fuguita/ISO ]; then
     /sbin/umount /fuguita
     /sbin/mount -r /dev/${rdev} /sysmedia
-    set -- /sysmedia/ISO/FuguIta-?.?-?????????.iso
-    if [ $# -gt 1 ]; then
-        shift $(($#-1))
-    fi
+    set -- /sysmedia/ISO/FuguIta-${osrel}-?????????.iso
+    shift $(($# - 1))
     if [ ! X"$1" = X -a \
-         ! X"$1" = 'X/sysmedia/ISO/FuguIta-?.?-?????????.iso' ] ;then
+         ! X"$1" = "X/sysmedia/ISO/FuguIta-${osrel}-?????????.iso" ] ;then
         umount /sysmedia
-        mount /dev/${rdev} /sysmedia-iso
+        mount -r /dev/${rdev} /sysmedia-iso
         /sbin/vnconfig ${vn_devname_iso} /sysmedia-iso/ISO/${1##*/}
         /sbin/mount -r /dev/${vn_devname_iso}a /sysmedia
-        /sbin/vnconfig ${vn_devname} /sysmedia/fuguita.ffsimg
+        /sbin/vnconfig ${vn_devname} /sysmedia/fuguita-${osrel}.ffsimg
         /sbin/mount -r /dev/${vn_devname}a /fuguita
     fi
 fi
 
 #-------------------------------
-# set mfs size
+# activate swap partition(s)
 #
-memmax=1023
-memmin=10
-usermem=`sysctl -n hw.usermem`
-echo
-echo "  user memory: $usermem bytes"
+if [ -n "$part_swp" ]; then
+    for swdev in $part_swp; do
+        echo "activating swap partition: /dev/$swdev"
+        swapon /dev/$swdev
+    done
+fi
 
-# 2147483647 is 2^31-1 ... ksh int max
+#-------------------------------
+# set ram size
 #
-isgreater $usermem 2147483647
-if [ $? -eq 0 ]; then
-    usermem=2147483647
-fi
+maxmem=`sysctl -n hw.physmem`
+maxmem=`/fuguita/usr/sbin/chroot /fuguita /usr/bin/dc -e "$maxmem 1024 / 1024 / p"`
+defmem=0
 
-usermem=$((usermem/1024/1024))
- defmem=$(($usermem/2))
-
-if [ $memmax -lt $usermem ]; then
-    usermem=$memmax
-fi
-if [ $memmax -lt $defmem ]; then
-    defmem=$memmax
-fi
-
-echo "mfs available: ${memmin}MB to ${usermem}MB"
+echo "  user memory: $maxmem MB"
+echo "Enter tmpfs size in MB. (0MB is auto)"
 echo -n "[default: ${defmem}MB] -> "
 if [ X = X"$noask_umem" ]; then
     read umem
@@ -319,33 +261,23 @@ else
     noask_umem=''
 fi
 
-#-------------------------------
-# check mfs size
-#
-if [ X"$umem" = X ]; then
-    echo "set mfs size to default: ${defmem}MB"
-    umem=$defmem
-elif [ $umem -lt $memmin ]; then
-    echo "set mfs size to minimum limit: ${memmin}MB"
-    umem=$memmin
-elif [ $memmax -lt $umem ]; then
-    echo "set mfs size to maximum limit: ${memmax}MB"
-    umem=$memmax
-else
-    echo "set mfs size to ${umem}MB"
+if [ X = X"$umem" ]; then
+    umem="$defmem"
 fi
 
 #-------------------------------
-# mount user-writable file system
+# check ram size
 #
-mfs_alloc_blk=$((1024*2*$umem))
-mfs_inode_dens=$(($umem*1024*1024/100000))
-if [ $mfs_inode_dens -gt 16384 ]; then
-    mfs_inode_dens=16384
-elif [ $mfs_inode_dens -lt 512 ]; then
-    mfs_inode_dens=512
+if [ $maxmem -lt $umem ]; then
+    echo "set tmpfs size to maximum limit: ${maxmem}MB"
+    umem=$maxmem
+elif [ X"$umem" = X0 ]; then
+    echo "tmpfs size will be automatically allocated"
+else
+    echo "set tmpfs size to ${umem}MB"
 fi
-/fuguita/sbin/mount_mfs -o rw,async -b 4096 -f 512 -i $mfs_inode_dens -s $mfs_alloc_blk swap /mfs || exit
+
+/fuguita/sbin/mount_tmpfs -s ${umem}M tmpfs /ram || exit
 
 #-------------------------------
 # generate fstab from current
@@ -359,8 +291,8 @@ while read ln; do
             echo /dev/rd0a / ffs rw 0 0 ;;
         X/fuguitaX|X/sysmediaX)
             echo $1 $3 $5 ro 0 0 ;;
-        X/mfsX)
-            echo swap $3 $5 rw,async,-b=4096,-f=512,-i=$mfs_inode_dens,-s=$mfs_alloc_blk 0 0 ;;
+        X/ramX)
+            echo tmpfs $3 $5 rw 0 0 ;;
         *)
             echo $1 $3 $5 defaults 0 0 ;;
     esac
@@ -384,7 +316,6 @@ while :; do
     fi
 
     if [ $select_mode_tries -ge 10 ]; then
-        echo
         echo 'Too many boot retries.'
         echo -n 'emergency stop ->'; read dummy
         unset select_mode_tries
@@ -393,11 +324,10 @@ while :; do
     #----------------------------
     # boot modes
     #
-    echo
     echo 'Select boot mode;'
     echo '  0: fresh boot (normal)'
     echo '  1: fresh boot (lower memory, faster boot than mode 0)'
-    echo '  2: fresh boot (works only on mfs)'
+    echo '  2: fresh boot (works only on tmpfs)'
     echo '  3: retrieve user data from USB flash memory'
     echo '  4: retrieve user data from floppy disk'
     echo '  5: interactive shell for debugging'
@@ -422,18 +352,17 @@ while :; do
         if [ X"$setup_rw_mode" = X0 ]; then
             echo "manual"
         elif [ X"$setup_rw_mode" = X1 ]; then
-            echo "manual_less_mfs"
+            echo "manual_less_ram"
         elif [ X"$setup_rw_mode" = X2 ]; then
-            echo "manual_more_mfs"
+            echo "manual_more_ram"
         fi > /boottmp/boot_mode
 
         #-------------------------------------
-        # copy System Storage contents to rw-able mfs
+        # copy System Storage contents to rw-able file system
         #
-        echo
         echo "Running manual setup."
-        echo -n "Copying system files to /mfs ... "
-        cd /mfs
+        echo -n "Copying system files to /ram ... "
+        cd /ram
         if [ X"$setup_rw_mode" = X0 ]; then
             (cd ../fuguita && tar cf - altroot etc home tmp root var) | tar xpf -
         elif [ X"$setup_rw_mode" = X1 ]; then
@@ -446,17 +375,17 @@ while :; do
                   -s '|^var/db/pkg/.*||' \
                   -s '|^var/www/htdocs/.*||'
         elif [ X"$setup_rw_mode" = X2 ]; then
-            (cd ../fuguita && pax -rwpe . /mfs/. && cd /)
+            (cd ../fuguita && pax -rwpe . /ram/. && cd /)
         fi
         echo "done"
 
         #-----------------------
-        # symlink from / to mfs
+        # symlink from / to ram
         #
         cd /
         rm -rf /tmp
         mv /etc /bootetc
-        ln -sf mfs/* . 2>/dev/null
+        ln -sf ram/* . 2>/dev/null
         cp /boottmp/fstab /etc
 
         #-------------------------------------------
@@ -468,23 +397,23 @@ while :; do
         if [ X"$setup_rw_mode" = X0 ]; then
             #-------------------------------------------
             # extract pre-build symlinks archive
-            # or lndir from /mfs/usr to /fuguita/usr
+            # or lndir from /ram/usr to /fuguita/usr
             #
             if [ -r /fuguita/usr/fuguita/etc/mode0symlinks.cpio.gz \
                  -a ! -e /boottmp/force_lndir ]; then
-                echo -n "Extracting symlinks from /mfs to /fuguita ... "
-                (cd /mfs && pax -rzpe -f /fuguita/usr/fuguita/etc/mode0symlinks.cpio.gz)
+                echo -n "Extracting symlinks from /ram to /fuguita ... "
+                (cd /ram && pax -rzpe -f /fuguita/usr/fuguita/etc/mode0symlinks.cpio.gz)
             else
-                echo -n "Linking files from /mfs to /fuguita ... "
-                mkdir /mfs/usr && cd /mfs/usr && lndir -s /fuguita/usr
+                echo -n "Linking files from /ram to /fuguita ... "
+                mkdir /ram/usr && cd /ram/usr && lndir -s /fuguita/usr
 
                 #-------------------------------------------
                 # KLUDGE: Re-lndir under /usr/local/lib/X11/fonts
                 #
-                if [ -h /mfs/usr/local/lib/X11/fonts ]; then
-                    rm /mfs/usr/local/lib/X11/fonts
-                    mkdir -p /mfs/usr/local/lib/X11/fonts
-                    (cd /mfs/usr/local/lib/X11/fonts && lndir -s /fuguita/usr/local/lib/X11/fonts)
+                if [ -h /ram/usr/local/lib/X11/fonts ]; then
+                    rm /ram/usr/local/lib/X11/fonts
+                    mkdir -p /ram/usr/local/lib/X11/fonts
+                    (cd /ram/usr/local/lib/X11/fonts && lndir -s /fuguita/usr/local/lib/X11/fonts)
                 fi
             fi
 
@@ -492,7 +421,7 @@ while :; do
             # set time stamp of dirs containing font files
             # (to avoid re-build font caches)
             #
-            (cd /mfs && for d in usr/*/lib/X11/fonts/*; do touch -cm -r /fuguita/$d $d; done)
+            (cd /ram && for d in usr/*/lib/X11/fonts/*; do touch -cm -r /fuguita/$d $d; done)
 
             #-------------------------------------------
             # Then, copy again for trivial dirs
@@ -502,7 +431,7 @@ while :; do
                 usr/local/lib/wnn
               do
               if [ -d /fuguita/$d ]; then
-                  rm -rf /mfs/$d && cd `dirname /fuguita/$d` && pax -rwpe `basename $d` `dirname /mfs/$d`
+                  rm -rf /ram/$d && cd `dirname /fuguita/$d` && pax -rwpe `basename $d` `dirname /ram/$d`
               fi
             done
 
@@ -511,31 +440,32 @@ while :; do
             #
             for f in \
                 usr/local/info/dir \
-                usr/local/share/info/dir
+                usr/local/share/info/dir \
+                usr/local/man/mandoc.db
               do
               if [ -f /fuguita/$f ]; then
-                  rm -f /mfs/$f && cp -p /fuguita/$f /mfs/$f
+                  rm -f /ram/$f && cp -p /fuguita/$f /ram/$f
               fi
             done
 
             #-------------------------------------------
             # Replace dir to symlink
             #
-            rm -r /mfs/usr/local/lib/X11/app-defaults
-            ln -s /etc/X11/app-defaults /mfs/usr/local/lib/X11/app-defaults
+            rm -r /ram/usr/local/lib/X11/app-defaults
+            ln -s /etc/X11/app-defaults /ram/usr/local/lib/X11/app-defaults
 
-            cd / && ln -sf mfs/usr .
+            cd / && ln -sf ram/usr .
         elif [ X"$setup_rw_mode" = X1 ]; then
-            (cd /mfs/etc/X11        && lndir -s /fuguita/etc/X11)
-            (cd /mfs/etc            && ln -s /fuguita/etc/firmware .)
-            (cd /mfs/var/db/pkg     && lndir -s /fuguita/var/db/pkg)
-            (cd /mfs/var/www/htdocs && lndir -s /fuguita/var/www/htdocs)
+            (cd /ram/etc/X11        && lndir -s /fuguita/etc/X11)
+            (cd /ram/etc            && ln -s /fuguita/etc/firmware .)
+            (cd /ram/var/db/pkg     && lndir -s /fuguita/var/db/pkg)
+            (cd /ram/var/www/htdocs && lndir -s /fuguita/var/www/htdocs)
         elif [ X"$setup_rw_mode" = X2 ]; then
             umount -f /fuguita
             grep -v '/fuguita' /etc/fstab > /etc/fstab.tmp
             mv /etc/fstab.tmp /etc/fstab
 
-            if [ -f /sysmedia/fuguita.ffsimg ]; then
+            if [ -f /sysmedia/fuguita-${osrel}.ffsimg ]; then
                 vnconfig -u ${vn_devname}
                 umount -f /sysmedia
                 grep -v '/sysmedia' /etc/fstab > /etc/fstab.tmp
@@ -548,7 +478,6 @@ while :; do
         #========================================
         # setup in /etc (network etc...)
         #
-        echo
         echo "Keyboard type;"
         while :; do
             kbd -l | sed -e '1,3d; /^$/d' | sort | paste - - - -
@@ -557,17 +486,14 @@ while :; do
                 echo $kbtype > /etc/kbdtype
                 break
             fi
-            echo
         done
 
-        echo
         echo "Please wait ... "
         until passwd root
           do
           echo "passwd failed, Try again."
         done
 
-        echo
         echo -n 'host name (without domain) -> '; read myhost
         if [ X"$myhost" = X ]; then
             myhost=fuguita
@@ -579,7 +505,6 @@ while :; do
         #
         ifconfig_out=`ifconfig -a`
         nicifs=`echo "$ifconfig_out" | grep ' mtu 1500$' | cut -d: -f1`
-        echo
         if [ X"$nicifs" = X ]; then
             echo 'No available network interfaces found.'
             ipv='n'
@@ -595,7 +520,6 @@ while :; do
             # IP-generic configs
             #
             X*[46]*)
-                echo
                 echo "==[ifconfig -a]========================="
                 echo "$ifconfig_out"
                 echo "========================================"
@@ -607,7 +531,6 @@ while :; do
                 : > /etc/hostname.$mynic
                 chmod 0640 /etc/hostname.$mynic
 
-                echo
                 echo -n "FQDN of this host -> ${myhost}."; read mydomain
                 if [ ! X"$mydomain" = X ]; then
                     myfqdn=${myhost}.${mydomain}
@@ -618,7 +541,6 @@ while :; do
                 echo '127.0.0.1 localhost'  > /etc/hosts
                 echo '::1       localhost' >> /etc/hosts
 
-                echo
                 echo 'DNS setup;'
                 echo '  Manual : Enter up to three IPv4/IPv6 addresses, separated by spaces'
                 echo '  DHCP   : Just press ENTER .'
@@ -652,7 +574,6 @@ while :; do
                     #
                     case X"$ipv" in
                         X*4*)
-                            echo
                             echo -n 'IPv4 addr of this host -> '; read myv4addr
                             echo -n 'netmask                -> '; read mynetmask
                             echo -n 'default route          -> '; read mygw
@@ -676,20 +597,27 @@ while :; do
                         echo "rtsold_flags=$mynic" >> /etc/rc.conf.local
                         echo 'net.inet6.ip6.forwarding=0'   >> /etc/sysctl.conf
                         echo 'net.inet6.ip6.mforwarding=0'  >> /etc/sysctl.conf
-                        echo 'net.inet6.ip6.accept_rtadv=1' >> /etc/sysctl.conf
                         echo 'net.inet6.icmp6.rediraccept=1'>> /etc/sysctl.conf
                         ;;
                 esac
                 ;;
         esac
 
+        #  resolving myhost
+        #    This is for smtpd
+        #
+        if grep -q $myhost /etc/hosts
+        then
+            :
+        else
+            echo "127.0.0.1 $myhost" >> /etc/hosts
+            echo "::1       $myhost" >> /etc/hosts
+        fi
+
         # now disable to use prepared keys;
         #
         # To use this, uncomment following comment lines
         # then remove or comment 'ans=y' line
-        #
-         echo
-        #echo -n 'Generate cryptographic keys [Y/n] -> '; read ans
         #
         ans=y; # now force to generate keys
 
@@ -698,25 +626,9 @@ while :; do
                 :
             ;;
             *)
-            # echo 'Generation of SSH and isakmpd keys take some time while booting.'
-            # sleep 3
             rm -f /etc/ssh/*_key* /etc/isakmpd/local.pub /etc/isakmpd/private/local.key
             ;;
         esac
-
-        # insert a code fragment to unmount /mfs safely
-        #
-        UMOUNT_MFS_MSG='=== to unmount /mfs safely ==='
-        if fgrep -q -- "$UMOUNT_MFS_MSG" /etc/rc.shutdown; then
-            :
-        else
-            cat <<EOT >>/etc/rc.shutdown
-
-# $UMOUNT_MFS_MSG
-#
-umount -f /mfs
-EOT
-        fi
 
         break
         ;;
@@ -731,32 +643,46 @@ EOT
         echo "usbflash" > /boottmp/boot_mode
 
         #-----------------------
-        # search for saved data
+        # Re-scan and build device list
         #
-        usb_sd=''
-        for rdev in {sd,wd}{4,3,2,1,0}d; do
-            if mount -r /dev/${rdev} /mnt 2>/dev/null ; then
-                if [ -d /mnt/livecd-config ]; then
-                    usb_sd=${rdev}
-                    umount /mnt
-                    break;
-                fi
-                umount /mnt
-            fi
-        done
+        scan_disks
 
-        if [ X"$usb_sd" = X ]; then
-            echo
-            echo 'cannot find directory with saved data'
+        #-------------------------------
+        # ask user for FuguIta's operating device
+        #
+        if [ X"$part_sto" = X ]; then
+            echo "Warning: None of FuguIta's storage device(s) found."
+            continue
+        else
+            echo "FuguIta's storage device(s): ${part_sto}."
+            set -- $part_sto
+            if [ $# -eq 1 ]; then
+                def_sdev="$1"
+            else
+                unset def_sdev
+            fi
+        fi
+
+        if [ X = X"$noask_confdev" ]; then
+            while :; do
+                echo -n "Which is FuguIta's storage device? ${def_sdev:+[default: ${def_sdev}] }-> "
+                read sdev
+                [ -n "${def_sdev}${sdev}" ] && break
+            done
+            [ -z "${sdev}" ] && sdev="$def_sdev"
+        else
+            echo "Which is FuguIta's storage device? -> $noask_confdev"
+            sdev="$noask_confdev"
+            noask_confdev=''
+        fi
+
+        if [ X"$sdev" = X ]; then
+            echo 'no device specified'
             continue
         fi
 
-        usb_devname=/dev/${usb_sd}
+        usb_devname=/dev/${sdev}
         echo "$usb_devname" > /boottmp/boot_restore_devname
-
-        #-----------------------
-        # (User's choice in the future(?))
-        #-----------------------
 
         #-----------------------
         # mount user's storage
@@ -767,14 +693,12 @@ EOT
             # select config files
             #
             if [ ! -d /mnt/livecd-config ]; then
-                echo
                 echo "cannot find config dir on $usb_devname"
                 umount "$usb_devname"
                 continue
             fi
 
             while :; do
-                echo
                 echo "$usb_devname : available data;"
                 (cd /mnt/livecd-config && echo ; ls -C; echo )
                 echo -n 'config name -> '
@@ -786,7 +710,11 @@ EOT
                     noask_confdir=''
                 fi
 
-                if [ -d "/mnt/livecd-config/$confdir" ]; then
+                if [ X"$confdir" = X ]; then
+                    echo 'conf dir not specified'
+                    umount "$usb_devname"
+                    continue 2
+                elif [ -d "/mnt/livecd-config/$confdir" ]; then
                     echo "$confdir" > /boottmp/boot_user_config
                     break
                 else
@@ -797,27 +725,25 @@ EOT
             done
 
             #-----------------------
-            # copying to mfs
+            # copying to ram
             #
-            echo
-            echo "Copying files from flash to mfs ... "
-            cd /mnt/livecd-config/$confdir && pax -rwpe . /mfs
+            echo "Copying files from flash to ram ... "
+            cd /mnt/livecd-config/$confdir && pax -rwpe . /ram
             echo "done"
 
             #-----------------------
-            # symlink from / to mfs
+            # symlink from / to ram
             #
             cd /
             rm -rf /tmp
             mv /etc /bootetc
-            ln -sf mfs/* .
+            ln -sf ram/* .
             cp /boottmp/fstab /etc
 
             #-------------------------------------------
             # symlink rest of contents from / to System Storage
             #
             ln -s fuguita/* .     2>/dev/null
-            #ln -s fuguita/.??* . 2>/dev/null ; # Maybe not needed
 
             umount /mnt
         else
@@ -838,7 +764,7 @@ EOT
         echo "floppy" > /boottmp/boot_mode
 
         #-----------------------
-        # copying to mfs
+        # copying to ram
         #
         if mount -r /dev/fd0a /mnt; then
             if [ -r /mnt/livecd-retr.sh.inc ]; then
@@ -847,13 +773,11 @@ EOT
                 .  /boottmp/livecd-retr.sh.inc
                 umount /mnt
             else
-                echo
                 echo "Retrieval script not found on fd0a."
                 umount /mnt
                 continue
             fi
         else
-            echo
             echo "Failed to read /mnt/livecd-config.tar.gz on /dev/fd0a"
             continue
         fi
@@ -869,7 +793,6 @@ EOT
         #
         X5)
         echo "intr-shell" > /boottmp/boot_mode
-        echo
         echo "==INTERACTIVE SHELL MODE================
 =
 = An interactive shell invoked for manual operation.

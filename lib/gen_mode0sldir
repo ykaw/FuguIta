@@ -1,10 +1,10 @@
 #!/bin/sh
 
-cd /mfs || exit 1
+cd /ram || exit 1
 
-if [ ! -d /mfs/usr/fuguita/etc ]; then
-    mkdir /mfs/usr/fuguita/etc || exit 1
+if [ ! -d /ram/usr/fuguita/etc ]; then
+    mkdir /ram/usr/fuguita/etc || exit 1
 fi
 
 find . \( -type l -o -type d -empty \) -print \
-| sort | pax -w -z -x cpio > /mfs/usr/fuguita/etc/mode0symlinks.cpio.gz
+| sort | pax -w -z -x cpio > /ram/usr/fuguita/etc/mode0symlinks.cpio.gz

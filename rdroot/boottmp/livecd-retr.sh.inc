@@ -7,7 +7,7 @@
 #====================
 
 
-# Copyright (c) 2006--2014 Yoshihiro Kawamata
+# Copyright (c) 2006--2015 Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -40,20 +40,20 @@
 
 
 #-------------------------------------
-# copy CD-ROM contents to rw-able mfs
+# copy CD-ROM contents to rw-able memory filesystem
 #
-echo -n "Copying system files to /mfs ... "
-cd /mfs
+echo -n "Copying system files to /ram ... "
+cd /ram
 (cd ../fuguita && tar cf - etc home tmp root var) | tar xpf -
 echo "done"
 
 #-----------------------
-# symlink from / to mfs
+# symlink from / to ram
 #
 cd /
 rm -rf /tmp
 mv /etc /bootetc
-ln -sf mfs/* .
+ln -sf ram/* .
 cp /boottmp/fstab /etc
 
 #-------------------------------------------
@@ -63,19 +63,19 @@ ln -s fuguita/* .     2>/dev/null
 #ln -s fuguita/.??* . 2>/dev/null ; # Maybe not needed
 
 #-------------------------------------------
-# lndir from /mfs/usr to /fuguita/usr
+# lndir from /ram/usr to /fuguita/usr
 #
-echo -n "Linking files from /mfs to /fuguita ... "
-mkdir /mfs/usr && cd /mfs/usr && lndir -s /fuguita/usr
+echo -n "Linking files from /ram to /fuguita ... "
+mkdir /ram/usr && cd /ram/usr && lndir -s /fuguita/usr
 echo "done"
 
 #-------------------------------------------
 # KLUDGE: Re-lndir under /usr/local/lib/X11/fonts
 #
-if [ -h /mfs/usr/local/lib/X11/fonts ]; then
-    rm /mfs/usr/local/lib/X11/fonts
-    mkdir -p /mfs/usr/local/lib/X11/fonts
-    (cd /mfs/usr/local/lib/X11/fonts && lndir -s /fuguita/usr/local/lib/X11/fonts)
+if [ -h /ram/usr/local/lib/X11/fonts ]; then
+    rm /ram/usr/local/lib/X11/fonts
+    mkdir -p /ram/usr/local/lib/X11/fonts
+    (cd /ram/usr/local/lib/X11/fonts && lndir -s /fuguita/usr/local/lib/X11/fonts)
 fi
 
 #-------------------------------------------
@@ -85,25 +85,25 @@ for d in \
     usr/libexec/auth \
     usr/local/lib/wnn
   do
-  if [ -d /mfs/$d ]; then
-      rm -rf /mfs/$d && cd `dirname /fuguita/$d` && pax -rwpe `basename $d` `dirname /mfs/$d`
+  if [ -d /ram/$d ]; then
+      rm -rf /ram/$d && cd `dirname /fuguita/$d` && pax -rwpe `basename $d` `dirname /ram/$d`
   fi
 done
 
 #-----------------------
 # Extract an archive
 #
-echo "Extracting files from floppy to mfs ... "
-cd /mfs
+echo "Extracting files from floppy to ram ... "
+cd /ram
 tar xpvzf /mnt/livecd-config.tar.gz
 
 #-----------------------
-# symlink from / to mfs
+# symlink from / to ram
 #
 cd /
 rm -rf /tmp
 mv /etc /bootetc
-ln -sf mfs/* .
+ln -sf ram/* .
 cp /boottmp/fstab /etc
 
 #-------------------------------------------
@@ -116,4 +116,4 @@ ln -s fuguita/* .     2>/dev/null
 # set time stamp of dirs containing font files
 # (to avoid re-build font caches)
 #
-(cd /mfs && for d in usr/*/lib/X11/fonts/*; do touch -cm -r /fuguita/$d $d; done)
+(cd /ram && for d in usr/*/lib/X11/fonts/*; do touch -cm -r /fuguita/$d $d; done)

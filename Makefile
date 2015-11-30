@@ -1,4 +1,4 @@
-# Copyright (c) 2006--2014, Yoshihiro Kawamata
+# Copyright (c) 2006--2015, Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -30,11 +30,12 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 PROJNAME =FuguIta
-VERSION  =5.5
+VERSION  =5.8
 DATE    !=date +%Y%m%d
 REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
 
 FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)
+VERSTAT=
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
 
 CDR_DEV=cd0
@@ -67,7 +68,7 @@ close-media:
 	-vnconfig -u vnd1
 
 open-fuguita:
-	-vnconfig vnd2 media/fuguita.ffsimg
+	-vnconfig vnd2 media/fuguita-$(VERSION).ffsimg
 	-mount /dev/vnd2a fuguita
 
 close-fuguita:
@@ -101,15 +102,15 @@ hyb:
 	make close-fuguita
 
 	mkhybrid -a -R -L -l -d -D -N \
-		-o /opt/fi/5.5/livecd.iso \
+		-o livecd.iso \
 		-v -v \
 		-A "FuguIta - OpenBSD LiveCD" \
 		-P "Copyright (c) `date +%Y` KAWAMATA Yoshihiro" \
-		-p "KAWAMATA Yoshihiro, http://kaw.ath.cx/openbsd/?FuguIta" \
+		-p "KAWAMATA Yoshihiro, http://fuguita.org/?FuguIta" \
 		-V "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
 		-b cdbr \
 		-c boot.catalog \
-		/opt/fi/5.5/media/ \
+		media \
 	&& echo $$(($(REVISION)+1)) > revcount_cdmaster
 
 boot: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot
@@ -136,6 +137,11 @@ cdemu:
 usbemu:
 	/usr/local/bin/qemu-system-i386 -m 256 -monitor stdio -hda media.img c -boot c
 
+hddinstall:
+	cat media/bsd-fi    > /bsd-fi
+	cat media/bsd-fi.mp > /bsd-fi.mp
+	dd if=livecd.iso of=/ISO/$(FI_FILENAME).iso bs=65535k
+
 gz: cdgz usbgz
 
 cdgz:
@@ -143,7 +149,7 @@ cdgz:
 	gzip -v9 $(FI_FILENAME)$(VERSTAT).iso
 
 cdxz:
-	cp livecd.iso $(FI_FILENAME)$(VERSTAT).iso
+	dd if=livecd.iso of=$(FI_FILENAME)$(VERSTAT).iso bs=65536k
 	xz -v9 $(FI_FILENAME)$(VERSTAT).iso
 
 usbgz:

@@ -142,7 +142,7 @@ echo '
 =            __/ /
 =           /___/
 =
-= Welcome to FuguIta - OpenBSD LiveCD!
+= Welcome to FuguIta - OpenBSD Live System!
 =                 http://fuguita.org/?FuguIta
 =============================================
 '
@@ -471,6 +471,12 @@ while :; do
                 grep -v '/sysmedia' /etc/fstab > /etc/fstab.tmp
                 mv /etc/fstab.tmp /etc/fstab
             fi
+            if [ -d /sysmedia-iso/ISO ]; then
+                vnconfig -u ${vn_devname_iso}
+                umount -f /sysmedia-iso
+                grep -v '/sysmedia-iso' /etc/fstab > /etc/fstab.tmp
+                mv /etc/fstab.tmp /etc/fstab
+            fi
         fi
 
         echo "done"
@@ -597,7 +603,6 @@ while :; do
                         echo "rtsold_flags=$mynic" >> /etc/rc.conf.local
                         echo 'net.inet6.ip6.forwarding=0'   >> /etc/sysctl.conf
                         echo 'net.inet6.ip6.mforwarding=0'  >> /etc/sysctl.conf
-                        echo 'net.inet6.icmp6.rediraccept=1'>> /etc/sysctl.conf
                         ;;
                 esac
                 ;;

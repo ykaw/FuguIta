@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.802 2015/07/23 00:38:06 deraadt Exp $
+#	$OpenBSD: GENERIC,v 1.817 2016/06/28 04:41:37 jmatthew Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -58,6 +58,7 @@ option		TCP_ECN		# Explicit Congestion Notification for TCP
 option		TCP_SIGNATURE	# TCP MD5 Signatures, for BGP routing sessions
 #option		TCP_FACK	# Forward Acknowledgements for TCP
 
+option		ART		# Allotment Routing Table
 option		INET6		# IPv6
 option		IPSEC		# IPsec
 #option		KEY		# PF_KEY (implied by IPSEC)
@@ -93,23 +94,24 @@ pseudo-device	msts	1	# MSTS line discipline
 pseudo-device	endrun	1	# EndRun line discipline
 pseudo-device	vnd	6	# vnode disk devices
 pseudo-device	ksyms	1	# kernel symbols device
-pseudo-device	systrace 1	# system call tracing device
 
 # clonable devices
 pseudo-device	bpfilter	# packet filter
 pseudo-device	bridge		# network bridging support
 pseudo-device	carp		# CARP protocol support
+pseudo-device	etherip		# EtherIP (RFC 3378)
 pseudo-device	gif		# IPv[46] over IPv[46] tunnel (RFC1933)
 pseudo-device	gre		# GRE encapsulation interface
 pseudo-device	loop		# network loopback
 pseudo-device	mpe		# MPLS PE interface
 pseudo-device	mpw		# MPLS pseudowire support
+pseudo-device	pair		# Virtual Ethernet interface pair
 pseudo-device	ppp		# PPP
 pseudo-device	pppoe		# PPP over Ethernet (RFC 2516)
 pseudo-device	pppx		# PPP multiplexer
 pseudo-device	sppp	1	# Sync PPP/HDLC
 pseudo-device	trunk		# Trunking support
-pseudo-device	tun		# network tunneling over tty
+pseudo-device	tun		# network tunneling over tty (tun & tap)
 pseudo-device	vether		# Virtual ethernet
 pseudo-device	vxlan		# Virtual extensible LAN
 pseudo-device	vlan		# IEEE 802.1Q VLAN
@@ -127,16 +129,12 @@ option		USER_PCICONF	# user-space PCI configuration
 
 #option		VM86		# Virtual 8086 emulation
 option		KVM86		# Kernel Virtual 8086 emulation
-option		USER_LDT	# user-settable LDT; see i386_set_ldt(2)
 option		APERTURE	# in-kernel aperture driver for XFree86
 option		MTRR		# CPU memory range attributes control
 
 #option		KGDB		# Remote debugger support; exclusive of DDB
 #option		"KGDB_DEVNAME=\"com\"",KGDBADDR=0x2f8,KGDBRATE=9600
 
-option		COMPAT_LINUX	# binary compatibility with Linux
-
-#option		GPT		# GPT partition table support
 option		NTFS		# NTFS support
 option		HIBERNATE	# Hibernate support
 
@@ -144,8 +142,7 @@ option		RAMDISK_HOOKS
 option		MINIROOTSIZE=3800
 option		NKPTP=5
 config		bsd	root on rd0a
-#config		bsd	swap generic
- 
+
 pseudo-device   rd              1       # ramdisk
 
 mainbus0 at root
@@ -217,6 +214,7 @@ iic*	at glxpcib?
 kate*	at pci?			# AMD K8 temperature sensor
 km*	at pci?			# AMD K10 temperature sensor
 amas*	at pci? disable		# AMD memory configuration
+pchtemp* at pci?		# Intel C610 termperature sensor
 
 # power management and other environmental stuff
 elansc*	at pci?			# AMD Elan SC520 System Controller
@@ -271,6 +269,7 @@ uguru0	at isa? disable port 0xe0	# ABIT uGuru
 fins0	at isa? port 0x4e		# Fintek F71805 Super I/O
 
 aps0	at isa? port 0x1600		# ThinkPad Active Protection System
+asmc0	at isa? port 0x300		# Apple SMC
 
 itherm*	at pci?				# Intel 3400 Thermal Sensor
 adc*	at iic?				# Analog Devices AD7416/AD7417/7418
@@ -348,6 +347,7 @@ usb*	at ohci?
 uhub*	at usb?			# USB Hubs
 uhub*	at uhub?		# USB Hubs
 ualea*	at uhub?		# Araneus Alea II TRNG
+uonerng* at uhub?		# Moonbase Otago OneRNG
 umodem*	at uhub?		# USB Modems/Serial
 ucom*	at umodem?
 uvisor*	at uhub?		# Handspring Visor
@@ -413,6 +413,7 @@ ugl*	at uhub?		# Genesys Logic GL620USB-A host-to-host `network'
 udav*	at uhub?		# Davicom DM9601 based Ethernet
 mos*	at uhub?		# MOSCHIP MCS7730/7830 10/100 Ethernet
 url*	at uhub?		# Realtek RTL8150L based adapters
+ure*	at uhub?		# Realtek RTL8152 based adapters
 wi*	at uhub?		# WaveLAN IEEE 802.11DS
 udsbr*	at uhub?		# D-Link DSB-R100 radio
 radio*	at udsbr?		# USB radio
@@ -431,6 +432,7 @@ rsu*	at uhub?		# Realtek RTL8188SU/RTL8191SU/RTL8192SU
 urtwn*	at uhub?		# Realtek RTL8188CU/RTL8192CU
 udcf*	at uhub?		# Gude Expert mouseCLOCK
 umbg*	at uhub?		# Meinberg Funkuhren USB5131
+umb*	at uhub?		# Mobile Broadband Interface Model
 uthum*	at uhidev?		# TEMPerHUM sensor
 ugold*	at uhidev?		# gold TEMPer sensor
 utrh*	at uhidev?		# USBRH sensor
@@ -442,6 +444,9 @@ uoakv*	at uhidev?		# Toradex OAK 10V sensor
 onewire* at uow?
 uvideo* at uhub?		# USB video
 video*  at uvideo?
+utvfu*	at uhub?		# Fushicai Audio-Video Grabber
+video*	at utvfu?
+audio*	at utvfu?
 udl*	at uhub?		# DisplayLink USB displays
 wsdisplay* at udl?
 
@@ -460,7 +465,6 @@ isapnp0	at isa?
 option	WSDISPLAY_COMPAT_USL		# VT handling
 option	WSDISPLAY_COMPAT_RAWKBD		# provide raw scancodes; needed for X11
 option	WSDISPLAY_DEFAULTSCREENS=6	# initial number of text consoles
-option	WSDISPLAY_COMPAT_PCVT		# emulate some ioctls; needed for X11
 
 pckbc0		at isa? flags 0x00	# PC keyboard controller
 pckbd*		at pckbc?	# PC keyboard
@@ -474,7 +478,6 @@ wsdisplay0	at pcdisplay? console 1
 wskbd*		at pckbd? mux 1
 wsmouse*	at pms? mux 0
 
-intagp*		at vga?		# intel integrated graphics agp
 aliagp*		at pchb?
 amdagp*		at pchb?
 intelagp*	at pchb?
@@ -482,7 +485,6 @@ sisagp*		at pchb?
 viaagp*		at pchb?
 #mmuagp*	at pchb?
 
-agp*		at intagp?	# AGP bridges
 agp*		at aliagp?	# AGP bridges
 agp*		at amdagp?	# AGP bridges
 agp*		at intelagp?	# AGP bridges
@@ -490,19 +492,18 @@ agp*		at sisagp?	# AGP bridges
 agp*		at viaagp?	# AGP bridges
 #agp*		at mmuagp?	
 
-inteldrm*	at vga?		# Intel i915, i945 DRM driver
+inteldrm*	at pci?		# Intel i915, i945 DRM driver
+intagp*		at inteldrm?
+agp*		at intagp?
 drm0		at inteldrm? console 1
 drm*		at inteldrm?
+wsdisplay0	at inteldrm? console 1
+wsdisplay*	at inteldrm? mux -1
 radeondrm*	at pci? 	# ATI Radeon DRM driver
 drm0		at radeondrm? console 1
 drm*		at radeondrm?
 wsdisplay0	at radeondrm? console 1
-wsdisplay*	at radeondrm?
-
-#option		VESABIOSVERBOSE
-#option		VESAFB		# VESA bios framebuffer support for X11
-#vesabios0	at mainbus?
-
+wsdisplay*	at radeondrm? mux -1
 
 pcppi0		at isa?
 

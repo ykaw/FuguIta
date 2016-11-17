@@ -1,4 +1,4 @@
-# Copyright (c) 2006--2015 Yoshihiro Kawamata
+# Copyright (c) 2006--2016 Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -43,6 +43,7 @@
 #====================
 init_args="$@"
 osrel=`sysctl -n kern.osrelease`
+osmac=`sysctl -n hw.machine`
 
 #-------------------------------
 # make a list of all partitions
@@ -75,8 +76,8 @@ scan_disks () {
         case $fstype in
             swap) part_swp=${part_swp:+"$part_swp "}$part ;;
             *) if mount -r /dev/$part /mnt 2>/dev/null; then
-                   set -- /mnt/ISO/FuguIta-${osrel}-?????????.iso
-                   if [ -f /mnt/fuguita-${osrel}.ffsimg -o ! X"$1" = X"/mnt/ISO/FuguIta-${osrel}-?????????.iso" ]; then
+                   set -- /mnt/ISO/FuguIta-${osrel}-${osmac}-?????????.iso
+                   if [ -f /mnt/fuguita-${osrel}-${osmac}.ffsimg -o ! X"$1" = X"/mnt/ISO/FuguIta-${osrel}-${osmac}-?????????.iso" ]; then
                        part_sys=${part_sys:+"$part_sys "}$part
                    fi
                    if [ -d /mnt/livecd-config ]; then
@@ -212,23 +213,23 @@ fi
 vn_devname_iso="vnd4"
 
 /sbin/mount -r /dev/${rdev} /fuguita || exit
-if [ -f /fuguita/fuguita-${osrel}.ffsimg ]; then
+if [ -f /fuguita/fuguita-${osrel}-${osmac}.ffsimg ]; then
     /sbin/umount /fuguita
     /sbin/mount -r /dev/${rdev} /sysmedia
-    /sbin/vnconfig ${vn_devname} /sysmedia/fuguita-${osrel}.ffsimg
+    /sbin/vnconfig ${vn_devname} /sysmedia/fuguita-${osrel}-${osmac}.ffsimg
     /sbin/mount -r /dev/${vn_devname}a /fuguita
 elif [ -d /fuguita/ISO ]; then
     /sbin/umount /fuguita
     /sbin/mount -r /dev/${rdev} /sysmedia
-    set -- /sysmedia/ISO/FuguIta-${osrel}-?????????.iso
+    set -- /sysmedia/ISO/FuguIta-${osrel}-${osmac}-?????????.iso
     shift $(($# - 1))
     if [ ! X"$1" = X -a \
-         ! X"$1" = "X/sysmedia/ISO/FuguIta-${osrel}-?????????.iso" ] ;then
+         ! X"$1" = "X/sysmedia/ISO/FuguIta-${osrel}-${osmac}-?????????.iso" ] ;then
         umount /sysmedia
         mount -r /dev/${rdev} /sysmedia-iso
         /sbin/vnconfig ${vn_devname_iso} /sysmedia-iso/ISO/${1##*/}
         /sbin/mount -r /dev/${vn_devname_iso}a /sysmedia
-        /sbin/vnconfig ${vn_devname} /sysmedia/fuguita-${osrel}.ffsimg
+        /sbin/vnconfig ${vn_devname} /sysmedia/fuguita-${osrel}-${osmac}.ffsimg
         /sbin/mount -r /dev/${vn_devname}a /fuguita
     fi
 fi
@@ -277,7 +278,7 @@ else
     echo "set tmpfs size to ${umem}MB"
 fi
 
-/fuguita/sbin/mount_tmpfs -s ${umem}M tmpfs /ram || exit
+/fuguita/sbin/mount_tmpfs -s ${umem}M -o wxallowed tmpfs /ram || exit
 
 #-------------------------------
 # generate fstab from current
@@ -292,7 +293,7 @@ while read ln; do
         X/fuguitaX|X/sysmediaX)
             echo $1 $3 $5 ro 0 0 ;;
         X/ramX)
-            echo tmpfs $3 $5 rw 0 0 ;;
+            echo tmpfs $3 $5 rw,wxallowed 0 0 ;;
         *)
             echo $1 $3 $5 defaults 0 0 ;;
     esac
@@ -465,7 +466,7 @@ while :; do
             grep -v '/fuguita' /etc/fstab > /etc/fstab.tmp
             mv /etc/fstab.tmp /etc/fstab
 
-            if [ -f /sysmedia/fuguita-${osrel}.ffsimg ]; then
+            if [ -f /sysmedia/fuguita-${osrel}-${osmac}.ffsimg ]; then
                 vnconfig -u ${vn_devname}
                 umount -f /sysmedia
                 grep -v '/sysmedia' /etc/fstab > /etc/fstab.tmp

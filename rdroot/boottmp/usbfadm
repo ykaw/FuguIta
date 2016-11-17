@@ -10,7 +10,7 @@
 #
 #========================================
 
-# Copyright (c) 2006--2015
+# Copyright (c) 2006--2016
 # Yoshihiro Kawamata
 #
 # All rights reserved.
@@ -54,9 +54,6 @@ else
     echo "another $0 running"
     exit
 fi
-
-fuguita_sys_mb=700
-osrel=`sysctl -n kern.osrelease`
 
 #-------------------
 # Wait for ENTER key pressed
@@ -223,8 +220,15 @@ function fdisk_init {
     shift;  fatrest="$1"
 
     notice Setting up MBR
+
+    # fdisking entire disk as OpenBSD area
+    #
     fdisk -iy "$scandev"
-    [ X"$obsdsize" = 'X*' ] && return
+
+    [ $megstotal -le $obsdsize ] && return
+
+    # re-partitioning OpenBSD and FAT area
+    #
     fdisk -e "$scandev" <<EOT
 e 3
 A6
@@ -236,7 +240,11 @@ p
 q
 EOT
     eval `fdisk "$scandev" | awk '/^\*3: A6.*OpenBSD     $/ { print "obsdstart=" 0+$11; print "obsdsize=" $12 }'`
-    [ X"$fatrest" = Xfatrest ] || return
+
+    # leave unused unless FAT needed
+    #
+    [ X"$fatrest" = Xyes ] || return
+
     fdisk -e "$scandev" <<EOT
 e 0
 0C
@@ -253,11 +261,11 @@ EOT
 #-------------------
 # make specified usb devices for FuguIta
 #
-#     usage: setup_fs dev ["sys"]
+#     usage: setup_fs dev ["yes"]
 #
 # dev has the form like 'sd6' .
 #
-# With "sys", partition a is prepared and
+# With "yes", partition a is prepared and
 # FuguIta system will be copied.
 #
 function setup_fs {
@@ -269,15 +277,8 @@ function setup_fs {
         return
     fi
 
-    typeset sys
-    if [ X"$2" = Xsys ]; then
-        sys=YES
-    else
-        sys=NO
-    fi
-
     notice Setting up disklabel and FFS partitions
-    if [ X$sys = XYES ]; then
+    if [ X"$2" = Xyes ]; then
         disklabel -c -E ${scandev} <<EOT
 a a
 
@@ -304,17 +305,21 @@ fi
     echo ''
     disklabel -c -pm ${scandev}
     echo ''
-    newfs -m0 -i1024 -b4096 -f512 /dev/r${scandev}d
+    if [ $sizepart_d -le 2048 ]; then
+        newfs -m0 -i1024 -b4096 -f512 /dev/r${scandev}d
+    else
+        newfs -m0 /dev/r${scandev}d
+    fi
 
-    if [ X$sys = XYES ]; then
+    if [ X"$2" = Xyes ]; then
         notice Copying FuguIta system files
         mount -o async /dev/${scandev}a /mnt
         cd /sysmedia
-        pax -rwvpe !(fuguita-${osrel}.ffsimg) /mnt
+        pax -rwvpe !(fuguita-${verarch}.ffsimg) /mnt
 
-        if [ -r /sysmedia/fuguita-${osrel}.ffsimg ]; then
+        if [ -r /sysmedia/fuguita-${verarch}.ffsimg ]; then
             notice Transferring filesystem image...
-            dd if=fuguita-${osrel}.ffsimg of=/mnt/fuguita-${osrel}.ffsimg bs=16m
+            dd if=fuguita-${verarch}.ffsimg of=/mnt/fuguita-${verarch}.ffsimg bs=16m
         fi
 
         notice Installing boot loader
@@ -337,22 +342,22 @@ fi
 #noask_rdev='${scandev}a'
 #
 # tmpfs size in MB
-#noask_umem='32'
+#noask_umem='0'
 #
 # boot mode
 #noask_setup_rw_mode='3'
 #
 # storage device
-#noask_confdev='sd1d'
+#noask_confdev='${scandev}d'
 #
 # data set name in USB flash drive
-#noask_confdir='`uname -r`-`hostname -s`'
+#noask_confdir='${verarch}-`hostname -s`'
 EOT
     umount /mnt
     echo done.
 
     notice Checking filesystem consistency
-    [ X$sys = XYES ] && fsck -fy /dev/r${scandev}a
+    [ X"$2" = Xyes ] && fsck -fy /dev/r${scandev}a
     fsck -fy /dev/r${scandev}d
 }
 
@@ -360,17 +365,21 @@ EOT
 #-------------------
 # Active Code from HERE.
 #
+
+fuguita_sys_mb=700
+verarch=`sysctl -n kern.osrelease`-`sysctl -n hw.machine`
+
 echo ''
 echo 'Welcome to usbfadm.'
-echo 'USB flash drive maintenance tool for FuguIta'
+echo 'USB flash drive administration tool for FuguIta'
 echo ''
 
 #-------------------
 # initialization - read status files
 #
 if [ -r /boottmp/boot_mode ]; then
-    mode=`cat /boottmp/boot_mode`
-    echo "     Boot mode: $mode"
+    bootmode=`cat /boottmp/boot_mode`
+    echo "     Boot mode: $bootmode"
 fi
 
 if [ -r /boottmp/boot_restore_devname ]; then
@@ -445,7 +454,7 @@ while :; do
         #
         Xinfo)
         if mount -r $devname /mnt; then
-            (cd /mnt/livecd-config && echo ''; df -hi /mnt; echo "\nscanning...\n"; du -sh *)
+            (cd /mnt/livecd-config && echo '' && df -hi /mnt && echo "\nscanning...\n" && du -sh *)
             umount $devname
         fi
         ;;
@@ -459,7 +468,7 @@ while :; do
             confs=`cd /mnt/livecd-config && echo *`
             umount $devname
         fi
-        [ X"$uconf" = X ] && uconf=`uname -r`-`hostname -s`
+        [ X"$uconf" = X ] && uconf=${verarch}-`hostname -s`
         uconf=`rl_wread "Name of saved data" $uconf $confs`
         uconf=`echo $uconf | tr -cd 0-9A-Za-z.,_-+=:%@`  # strip invalid chars
         echo ''
@@ -557,7 +566,8 @@ while :; do
         # and write FuguIta system in it
         #
         echo ''
-        [ 1 -le `ask_yn "Do you make this USB flash drive bootable?" r` ] && inst=sys
+        instsys=no
+        [ 1 -le `ask_yn "Do you make this USB flash drive bootable?" r` ] && instsys=yes
 
         eval `disk_scan $newdev`
 
@@ -566,18 +576,23 @@ while :; do
         # which is prepared as partition d
         #
         freepart_d=$megstotal
-        [ X"$inst" = Xsys ] && freepart_d=$(($freepart_d-${fuguita_sys_mb}))
+        [ X"$instsys" = Xyes ] && freepart_d=$(($freepart_d-${fuguita_sys_mb}))
         echo ''
         echo "Enter size for saving User Data in MB (${freepart_d}MB free)."
         sizepart_d=`rl_wread "'*' implies all" '*'`
 
         if [ 1 -lt `expr "X$sizepart_d" : '^X[1-9][0-9]*$'` ]; then
+            echo ''
             if [ $freepart_d -lt $sizepart_d ]; then
-                echo ''
                 echo 'Size too much.'
                 continue
+            else
+                restpart=no
+                [ 1 -le `ask_yn "Do you format the rest as FAT?" r` ] && restpart=yes
             fi
-        elif [ X"$sizepart_d" != 'X*' ]; then
+        elif [ X"$sizepart_d" = 'X*' ]; then
+	    sizepart_d=$freepart_d
+        else
             echo ''
             echo "${sizepart_d} ... What?"
             continue
@@ -592,12 +607,12 @@ while :; do
         # performing disk modifications
         #
         init_head $newdev
-        if [ X"$sizepart_d" != 'X*' -a X"$inst" = Xsys ]; then
-            fdisk_init $newdev $((${fuguita_sys_mb}+$sizepart_d)) fatrest
+        if [ X"$instsys" = Xyes ]; then
+            fdisk_init $newdev $((${fuguita_sys_mb}+$sizepart_d)) $restpart
         else
-            fdisk_init $newdev "$sizepart_d" fatrest
+            fdisk_init $newdev "$sizepart_d" $restpart
         fi
-        setup_fs $newdev $inst
+        setup_fs $newdev $instsys
         ;;
 
         #-------------------

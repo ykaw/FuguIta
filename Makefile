@@ -1,4 +1,4 @@
-# Copyright (c) 2006--2015, Yoshihiro Kawamata
+# Copyright (c) 2006--2016, Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -30,11 +30,13 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 PROJNAME =FuguIta
-VERSION  =5.8
+VERSION !=uname -r
+ARCH    !=uname -m
 DATE    !=date +%Y%m%d
 REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
 
-FI_FILENAME=$(PROJNAME)-$(VERSION)-$(DATE)$(REVISION)
+FI_FILENAME=$(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$(REVISION)
+#VERSTAT=beta
 VERSTAT=
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
 
@@ -68,7 +70,7 @@ close-media:
 	-vnconfig -u vnd1
 
 open-fuguita:
-	-vnconfig vnd2 media/fuguita-$(VERSION).ffsimg
+	-vnconfig vnd2 media/fuguita-$(VERSION)-$(ARCH).ffsimg
 	-mount /dev/vnd2a fuguita
 
 close-fuguita:
@@ -98,7 +100,7 @@ zipfiles:
 
 hyb:
 	make open-fuguita
-	echo "$(VERSION)-$(DATE)$$(($(REVISION)+1))" > fuguita/usr/fuguita/version
+	echo "$(VERSION)-$(ARCH)-$(DATE)$$(($(REVISION)+1))" > fuguita/usr/fuguita/version
 	make close-fuguita
 
 	mkhybrid -a -R -L -l -d -D -N \
@@ -107,7 +109,7 @@ hyb:
 		-A "FuguIta - OpenBSD LiveCD" \
 		-P "Copyright (c) `date +%Y` KAWAMATA Yoshihiro" \
 		-p "KAWAMATA Yoshihiro, http://fuguita.org/?FuguIta" \
-		-V "$(PROJNAME)-$(VERSION)-$(DATE)$$(($(REVISION)+1))" \
+		-V "$(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$$(($(REVISION)+1))" \
 		-b cdbr \
 		-c boot.catalog \
 		media \

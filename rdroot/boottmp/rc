@@ -743,18 +743,42 @@ while :; do
             cd /
             rm -rf /tmp
             mv /etc /bootetc
-            ln -sf ram/* .
+            ln -sf ram/* . 2> /dev/null
             cp /boottmp/fstab /etc
 
             #-------------------------------------------
             # symlink rest of contents from / to System Storage
             #
-            ln -s fuguita/* .     2>/dev/null
+            ln -s fuguita/* . 2> /dev/null
 
             umount /mnt
         else
             echo "Failed to mount user's storage"
             continue
+        fi
+
+        #-------------------------------------------
+        # unmount operating device if not needed
+        #
+
+        # check if the origin boot mode is 2 or not
+        #
+        if [ -f /usr/fuguita/version ]; then
+            umount /fuguita
+            vnconfig -u ${vn_devname}
+            umount /sysmedia
+
+            # check if FuguIta-*.iso mounted
+            #
+            if mount | grep -q "/sysmedia-iso"; then
+                vnconfig -u ${vn_devname_iso}
+                umount /sysmedia-iso
+            fi
+
+            # modify /etc/fstab
+            #
+            egrep -v ' /(sysmedia|sysmedia-iso|fuguita) ' /etc/fstab > /etc/fstab.tmp
+            mv /etc/fstab.tmp /etc/fstab
         fi
 
         break

@@ -763,7 +763,7 @@ while :; do
 
         # check if the origin boot mode is 2 or not
         #
-        if [ -f /usr/fuguita/version ]; then
+        if [ ! -L /usr/fuguita/version ]; then
             umount /fuguita
             vnconfig -u ${vn_devname}
             umount /sysmedia

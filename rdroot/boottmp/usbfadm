@@ -43,17 +43,19 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-trap 'rm -rf /tmp/usbfadm.lock /tmp/rl_words' EXIT
 
-if mkdir /tmp/usbfadm.lock 2>/dev/null; then
-    if [ ! `id -un` = root ]; then
-        echo "$0 must be run as a root."
-        exit
-    fi
-else
-    echo "another $0 running"
-    exit
-fi
+#==================================
+# Utility functions and subcommands
+#==================================
+
+#-------------------
+# clean-ups
+#
+function clear_exit {
+    rmdir /tmp/usbfadm.lock 2>/dev/null
+    rm -f /tmp/rl_words
+    exit $1
+}
 
 #-------------------
 # Wait for ENTER key pressed
@@ -362,41 +364,98 @@ EOT
 }
 
 
-#-------------------
+#==================================
 # Active Code from HERE.
+#==================================
+
+
+#-------------------
+# initialization - an environment
 #
+trap 'clear_exit 1' INT
 
 fuguita_sys_mb=700
 verarch=`sysctl -n kern.osrelease`-`sysctl -n hw.machine`
 
-echo ''
-echo 'Welcome to usbfadm.'
-echo 'USB flash drive administration tool for FuguIta'
-echo ''
+cmdargs=`getopt qrh $*`
+set -- $cmdargs
+while [ 1 -lt $# ]; do
+    case "$1" in
+        -r) opt_mode=resync; shift;;
+        -q) opt_quiet=yes;   shift;;
+        *) cat <<EOT 2>&1
+Usage: $0 [-rqh?]
+
+    -r : run re-sync non-interactively
+        (must run interactive 'sync' once before this)
+    -q : quiet
+    -h,: print this help
+EOT
+           exit 1
+           ;;
+    esac
+done
+
+if [ ! `id -un` = root ]; then
+    echo "$0 must be run as a root."
+    exit
+fi
+
+if ! mkdir /tmp/usbfadm.lock 2>/dev/null; then
+    echo "another $0 running"
+    exit
+fi
 
 #-------------------
 # initialization - read status files
 #
-if [ -r /boottmp/boot_mode ]; then
-    bootmode=`cat /boottmp/boot_mode`
-    echo "     Boot mode: $bootmode"
-fi
-
-if [ -r /boottmp/boot_restore_devname ]; then
-    devname=`cat /boottmp/boot_restore_devname`
-    echo "Data stored in: $devname"
-fi
-
-if [ -r /boottmp/boot_user_config ]; then
-    uconf=`cat /boottmp/boot_user_config`
-    echo " Data Saved as: $uconf"
-fi
-echo ''
-echo 'Type ? for help.'
+[ -r /boottmp/boot_mode ]            && bootmode=`cat /boottmp/boot_mode`
+[ -r /boottmp/boot_restore_devname ] && devname=`cat /boottmp/boot_restore_devname`
+[ -r /boottmp/boot_user_config ]     && uconf=`cat /boottmp/boot_user_config`
 
 #-------------------
-# command loop
+# non-interactive process
 #
+if [ "$opt_mode" = 'resync' ]; then
+    if [ -z "$devname" ]; then
+        echo "$0: Name of device isn't set. Use 'target', then 'sync' in interactive mode."
+        clear_exit 1
+    elif [ -z "$uconf" ]; then
+        echo "$0: Name of saving data isn't set. Use 'saveas', then 'sync' in interactive mode."
+        clear_exit 1
+    fi
+
+    if mount -o softdep,noatime $devname /mnt; then
+        if [ "$opt_quiet" = 'yes' ]; then
+            rsync -aqHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$uconf
+        else
+            notice "Sync current tmpfs as $uconf into $devname"
+            rsync -avHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$uconf
+        fi
+        # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
+        rm -rf /mnt/livecd-config/$uconf/tmp/{.??*,*}
+        umount $devname
+    fi
+    clear_exit 0
+fi
+
+#-------------------
+# interactive process
+#   banner and command loop
+#
+d="${devname#/dev/}" ; [ -z "$devname" ] && d='NOT SET'
+u="$uconf"           ; [ -z "$uconf" ]   && u='NOT SET'
+cat <<EOT
+Welcome to usbfadm.
+USB flash drive administration tool for FuguIta
+
+     Boot mode: $bootmode
+Data stored in: $d
+ Data Saved as: $u
+
+Type ? for help.
+EOT
+
 while :; do
     #-------------------
     # setup prompt string
@@ -591,7 +650,7 @@ while :; do
                 [ 1 -le `ask_yn "Do you format the rest as FAT?" r` ] && restpart=yes
             fi
         elif [ X"$sizepart_d" = 'X*' ]; then
-	    sizepart_d=$freepart_d
+            sizepart_d=$freepart_d
         else
             echo ''
             echo "${sizepart_d} ... What?"
@@ -639,3 +698,5 @@ while :; do
         ;;
     esac
 done
+
+clear_exit 0

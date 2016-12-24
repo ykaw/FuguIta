@@ -706,7 +706,10 @@ while :; do
 
             while :; do
                 echo "$usb_devname : available data;"
-                (cd /mnt/livecd-config && echo ; ls -C; echo )
+                (if cd /mnt/livecd-config; then
+                     cd $osrel/$osmac 2>/dev/null
+                     echo; ls -C; echo
+                 fi)
                 echo -n 'config name -> '
                 if [ X = X"$noask_confdir" ]; then
                     read confdir
@@ -720,7 +723,8 @@ while :; do
                     echo 'conf dir not specified'
                     umount "$usb_devname"
                     continue 2
-                elif [ -d "/mnt/livecd-config/$confdir" ]; then
+                elif [ -d /mnt/livecd-config/$osrel/$osmac/$confdir -o \
+                       -d /mnt/livecd-config/$confdir ]; then
                     echo "$confdir" > /boottmp/boot_user_config
                     break
                 else
@@ -734,7 +738,10 @@ while :; do
             # copying to ram
             #
             echo "Copying files from flash to ram ... "
-            cd /mnt/livecd-config/$confdir && pax -rwpe . /ram
+            if cd /mnt/livecd-config/$osrel/$osmac/$confdir 2>/dev/null || \
+               cd /mnt/livecd-config/$confdir; then
+                pax -rwpe . /ram
+            fi
             echo "done"
 
             #-----------------------

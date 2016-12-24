@@ -317,11 +317,11 @@ fi
         notice Copying FuguIta system files
         mount -o async /dev/${scandev}a /mnt
         cd /sysmedia
-        pax -rwvpe !(fuguita-${verarch}.ffsimg) /mnt
+        pax -rwvpe !(fuguita-${osrel}-${hwmac}.ffsimg) /mnt
 
-        if [ -r /sysmedia/fuguita-${verarch}.ffsimg ]; then
+        if [ -r /sysmedia/fuguita-${osrel}-${hwmac}.ffsimg ]; then
             notice Transferring filesystem image...
-            dd if=fuguita-${verarch}.ffsimg of=/mnt/fuguita-${verarch}.ffsimg bs=16m
+            dd if=fuguita-${osrel}-${hwmac}.ffsimg of=/mnt/fuguita-${osrel}-${hwmac}.ffsimg bs=16m
         fi
 
         notice Installing boot loader
@@ -353,7 +353,7 @@ fi
 #noask_confdev='${scandev}d'
 #
 # data set name in USB flash drive
-#noask_confdir='${verarch}-`hostname -s`'
+#noask_confdir=`hostname -s`
 EOT
     umount /mnt
     echo done.
@@ -375,7 +375,9 @@ EOT
 trap 'clear_exit 1' INT
 
 fuguita_sys_mb=700
-verarch=`sysctl -n kern.osrelease`-`sysctl -n hw.machine`
+  osrel=`sysctl -n kern.osrelease`
+  hwmac=`sysctl -n hw.machine`
+verarch=${osrel}/${hwmac}
 
 cmdargs=`getopt qrh $*`
 set -- $cmdargs
@@ -387,7 +389,8 @@ while [ 1 -lt $# ]; do
 Usage: $0 [-rqh?]
 
     -r : run re-sync non-interactively
-        (must run interactive 'sync' once before this)
+        (must run 'sync' at interactive mode
+         before doing this)
     -q : quiet
     -h,: print this help
 EOT
@@ -427,10 +430,10 @@ if [ "$opt_mode" = 'resync' ]; then
 
     if mount -o softdep,noatime $devname /mnt; then
         if [ "$opt_quiet" = 'yes' ]; then
-            rsync -aqHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$uconf
+            rsync -aqHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
         else
             notice "Sync current tmpfs as $uconf into $devname"
-            rsync -avHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$uconf
+            rsync -avHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
         fi
         # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
         rm -rf /mnt/livecd-config/$uconf/tmp/{.??*,*}
@@ -443,12 +446,13 @@ fi
 # interactive process
 #   banner and command loop
 #
-d="${devname#/dev/}" ; [ -z "$devname" ] && d='NOT SET'
-u="$uconf"           ; [ -z "$uconf" ]   && u='NOT SET'
+d="${devname#/dev/}" ; [ -z "$devname" ] && d='not set'
+u="$uconf"           ; [ -z "$uconf" ]   && u='not set'
 cat <<EOT
 Welcome to usbfadm.
 USB flash drive administration tool for FuguIta
 
+  Version/Arch: $verarch
      Boot mode: $bootmode
 Data stored in: $d
  Data Saved as: $u
@@ -496,14 +500,15 @@ while :; do
         fi
 
         if [ 1 = `ask_yn "Sync current tmpfs as \\\`\\\`$uconf'' , OK?" n` ]; then
-            if mount -o softdep,noatime $devname /mnt; then
+            if mount -o softdep,noatime $devname /mnt &&
+               mkdir -p /mnt/livecd-config/$verarch/$uconf; then
                 echo ''
+                rsync -avHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+                # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
+                rm -rf /mnt/livecd-config/$verarch/$uconf/tmp/{.??*,*}
+                umount $devname
                 echo "$devname" > /boottmp/boot_restore_devname
                 echo "$uconf"   > /boottmp/boot_user_config
-                rsync -avHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$uconf
-                # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
-                rm -rf /mnt/livecd-config/$uconf/tmp/{.??*,*}
-                umount $devname
             fi
         fi
         ;;
@@ -513,7 +518,7 @@ while :; do
         #
         Xinfo)
         if mount -r $devname /mnt; then
-            (cd /mnt/livecd-config && echo '' && df -hi /mnt && echo "\nscanning...\n" && du -sh *)
+            (cd /mnt/livecd-config && echo '' && df -hi /mnt && echo "\nscanning...\n" && du -sh [1-9].[0-9]/*/* [1-9].[0-9]-*-*) 2>/dev/null
             umount $devname
         fi
         ;;
@@ -523,11 +528,12 @@ while :; do
         # default is our FQDN.
         #
         Xsaveas)
-        if [ X"devname" != X ] && mount -r $devname /mnt; then
-            confs=`cd /mnt/livecd-config && echo *`
+        if [ X"devname" != X ] && mount $devname /mnt; then
+            [ -d /mnt/livecd-config/$verarch ] || mkdir -p /mnt/livecd-config/$verarch
+            confs=`cd /mnt/livecd-config/$verarch && echo *`
             umount $devname
         fi
-        [ X"$uconf" = X ] && uconf=${verarch}-`hostname -s`
+        [ X"$uconf" = X ] && uconf=`hostname -s`
         uconf=`rl_wread "Name of saved data" $uconf $confs`
         uconf=`echo $uconf | tr -cd 0-9A-Za-z.,_-+=:%@`  # strip invalid chars
         echo ''

@@ -52,6 +52,9 @@
 # clean-ups
 #
 function clear_exit {
+    if mount | grep -q "^$devname on /mnt" ;then
+        umount $devname
+    fi
     rmdir /tmp/usbfadm.lock 2>/dev/null
     rm -f /tmp/rl_words
     exit $1
@@ -372,7 +375,7 @@ EOT
 #-------------------
 # initialization - an environment
 #
-trap 'clear_exit 1' INT
+trap 'echo $0: interrupted. >&2; clear_exit 1' INT
 
 fuguita_sys_mb=700
   osrel=`sysctl -n kern.osrelease`
@@ -388,10 +391,10 @@ while [ 1 -lt $# ]; do
         *) cat <<EOT 2>&1
 Usage: $0 [-rqh?]
 
-    -r : run re-sync non-interactively
+    -r : redo sync non-interactively
         (must run 'sync' at interactive mode
          before doing this)
-    -q : quiet
+    -q : quiet mode when redo sync
     -h,: print this help
 EOT
            exit 1
@@ -437,6 +440,8 @@ if [ "$opt_mode" = 'resync' ]; then
         fi
         # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
         rm -rf /mnt/livecd-config/$uconf/tmp/{.??*,*}
+        sync
+        sleep 5
         umount $devname
     fi
     clear_exit 0
@@ -449,12 +454,13 @@ fi
 d="${devname#/dev/}" ; [ -z "$devname" ] && d='not set'
 u="$uconf"           ; [ -z "$uconf" ]   && u='not set'
 cat <<EOT
+
 Welcome to usbfadm.
 USB flash drive administration tool for FuguIta
 
-  Version/Arch: $verarch
+  Version/Arch: $verarch (FuguIta-`cat /usr/fuguita/version`)
      Boot mode: $bootmode
-Data stored in: $d
+Data stored in: /dev/$d
  Data Saved as: $u
 
 Type ? for help.
@@ -506,6 +512,8 @@ while :; do
                 rsync -avHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
                 # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
                 rm -rf /mnt/livecd-config/$verarch/$uconf/tmp/{.??*,*}
+                sync
+                sleep 5
                 umount $devname
                 echo "$devname" > /boottmp/boot_restore_devname
                 echo "$uconf"   > /boottmp/boot_user_config
@@ -558,26 +566,29 @@ while :; do
         #
         devname=''
         devnames=''
-        echo ''
-        for rdev in `sysctl -n hw.disknames|tr :, \\\012|grep '^[ws]d[0-9]$'`; do
-            if mount | grep -q "^/dev/${rdev}d" ; then
-                echo -n "($rdev) "
-                continue
-            fi
-
-            if mount -r /dev/${rdev}d /mnt 2>/dev/null ; then
-                if [ -d /mnt/livecd-config ]; then
-                    devname=${rdev}d
-                    devnames="$devnames ${rdev}d"
-                    echo -n "+$devname "
-                else
-                    echo -n "$rdev "
-                fi
-                umount /mnt
-            else
-                echo -n "$rdev "
-            fi
+        for rdev in `sysctl -n hw.disknames | /boottmp/sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'`; do
+            case $rdev in
+                [csw]d[0-9]*)
+                    for rdevp in `disklabel -c -pm $rdev 2>/dev/null \
+                                  | /boottmp/sed -E -e '/^  [abd-p]: /!d; s/^  (.):/'$rdev'\1/' \
+                                  | cut -d' ' -f1`; do
+                        if mount -r /dev/$rdevp /mnt 2>/dev/null ; then
+                            if [ -d /mnt/livecd-config ]; then
+                                devname=${rdevp#/dev/}
+                                devnames="$devnames $devname"
+                                echo -n "+$rdevp "
+                            else
+                                echo -n "$rdevp "
+                            fi
+                            umount /mnt
+                        else
+                            echo -n "$rdevp "
+                        fi
+                    done
+                    ;;
+            esac
         done
+        echo ''
         echo ''
 
         if [ X"$devnames" = X ]; then

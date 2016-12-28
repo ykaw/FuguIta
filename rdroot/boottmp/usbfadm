@@ -451,16 +451,16 @@ fi
 # interactive process
 #   banner and command loop
 #
-d="${devname#/dev/}" ; [ -z "$devname" ] && d='not set'
-u="$uconf"           ; [ -z "$uconf" ]   && u='not set'
+d=$devname ; [ -z "$devname" ] && d='not set'
+u=$uconf   ; [ -z "$uconf" ]   && u='not set'
 cat <<EOT
 
 Welcome to usbfadm.
 USB flash drive administration tool for FuguIta
 
-  Version/Arch: $verarch (FuguIta-`cat /usr/fuguita/version`)
+  Version/Arch: $verarch  (FuguIta-`cat /usr/fuguita/version`)
      Boot mode: $bootmode
-Data stored in: /dev/$d
+Data stored in: $d
  Data Saved as: $u
 
 Type ? for help.

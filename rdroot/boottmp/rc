@@ -1,4 +1,4 @@
-# Copyright (c) 2006--2016 Yoshihiro Kawamata
+# Copyright (c) 2006--2017 Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -143,7 +143,7 @@ echo '
 =            __/ /
 =           /___/
 =
-= Welcome to FuguIta - OpenBSD Live System!
+= Welcome to FuguIta!  -  OpenBSD Live System
 =                 http://fuguita.org/?FuguIta
 =============================================
 '
@@ -538,21 +538,50 @@ while :; do
                 : > /etc/hostname.$mynic
                 chmod 0640 /etc/hostname.$mynic
 
+                #-----------------------
+                # host names
+                #
                 echo -n "FQDN of this host -> ${myhost}."; read mydomain
                 if [ ! X"$mydomain" = X ]; then
                     myfqdn=${myhost}.${mydomain}
                     echo "search $mydomain" > /etc/resolv.conf
                     echo $myfqdn > /etc/myname
                 fi
-
                 echo '127.0.0.1 localhost'  > /etc/hosts
                 echo '::1       localhost' >> /etc/hosts
 
+                #-----------------------
+                # wireless settings
+                #
+                if ifconfig "$mynic" 2>/dev/null | grep -q 'groups:.*wlan'; then
+                    wlan=''
+                    echo -n 'Wi-Fi SSID -> '; read ssid
+                    if [ -n "$ssid" ]; then
+                        wlan="nwid $ssid"
+                        echo -n '   WPA Key -> '; read wpakey
+                        if [ -z "$wpakey" ]; then
+                            echo -n '   WEP Key -> '; read wepkey
+                            if [ -n "$wepkey" ]; then
+                                wlan="$wlan nwkey $wepkey"
+                            fi
+                        else
+                            wlan="$wlan wpakey $wpakey"
+                        fi
+                    fi
+                    if [ -n "$wlan" ]; then
+                        echo "$wlan" >> "/etc/hostname.$mynic"
+                    fi
+                fi
+ 
+                #-----------------------
+                # name resolutions
+                #
                 echo 'DNS setup;'
                 echo '  Manual : Enter up to three IPv4/IPv6 addresses, separated by spaces'
                 echo '  DHCP   : Just press ENTER .'
                 echo '  no DNS : Enter "none".'
                 echo -n '-> '; read mydns
+
                 mydns=`echo -n $mydns | tr -cs '0-9A-Za-z:.%' ' '`
                 if [ X"$mydns" = X -o X"$mydns" = Xdhcp ]; then
                     echo "lookup file bind" >> /etc/resolv.conf

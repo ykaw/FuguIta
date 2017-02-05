@@ -94,6 +94,21 @@ scan_disks () {
     echo
 }
 
+#-------------------------------
+# make shadow directory
+#
+#    mkshadowdir orig-dir shadow-dir
+#
+mkshadowdir() {
+    [ -d "$1" ]   || return
+    mkdir -p "$2" || return
+    (if cd "$2" ; then
+         lndir -s $1
+         (cd "$1" && mtree -cdtq) | mtree -edtq -u >/dev/null
+     fi)
+}
+
+
 #====================
 # Active code from here
 #====================
@@ -406,15 +421,15 @@ while :; do
                 (cd /ram && pax -rzpe -f /fuguita/usr/fuguita/etc/mode0symlinks.cpio.gz)
             else
                 echo -n "Linking files from /ram to /fuguita ... "
-                mkdir /ram/usr && cd /ram/usr && lndir -s /fuguita/usr
+                mkshadowdir /fuguita/usr /ram/usr
+
 
                 #-------------------------------------------
                 # KLUDGE: Re-lndir under /usr/local/lib/X11/fonts
                 #
                 if [ -h /ram/usr/local/lib/X11/fonts ]; then
                     rm /ram/usr/local/lib/X11/fonts
-                    mkdir -p /ram/usr/local/lib/X11/fonts
-                    (cd /ram/usr/local/lib/X11/fonts && lndir -s /fuguita/usr/local/lib/X11/fonts)
+                    mkshadowdir /fuguita/usr/local/lib/X11/fonts /ram/usr/local/lib/X11/fonts
                 fi
             fi
 
@@ -457,10 +472,10 @@ while :; do
 
             cd / && ln -sf ram/usr .
         elif [ X"$setup_rw_mode" = X1 ]; then
-            (cd /ram/etc/X11        && lndir -s /fuguita/etc/X11)
-            (cd /ram/etc            && ln -s /fuguita/etc/firmware .)
-            (cd /ram/var/db/pkg     && lndir -s /fuguita/var/db/pkg)
-            (cd /ram/var/www/htdocs && lndir -s /fuguita/var/www/htdocs)
+            (cd /ram/etc && ln -s /fuguita/etc/firmware .)
+            mkshadowdir /fuguita/etc/X11        /ram/etc/X11
+            mkshadowdir /fuguita/var/db/pkg     /ram/var/db/pkg
+            mkshadowdir /fuguita/var/www/htdocs /ram/var/www/htdocs
         elif [ X"$setup_rw_mode" = X2 ]; then
             umount -f /fuguita
             grep -v '/fuguita' /etc/fstab > /etc/fstab.tmp

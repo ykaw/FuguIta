@@ -418,11 +418,13 @@ while :; do
             if [ -r /fuguita/usr/fuguita/etc/mode0symlinks.cpio.gz \
                  -a ! -e /boottmp/force_lndir ]; then
                 echo -n "Extracting symlinks from /ram to /fuguita ... "
-                (cd /ram && pax -rzpe -f /fuguita/usr/fuguita/etc/mode0symlinks.cpio.gz)
+                ( cd /ram \
+                  && pax -rzpe -f /fuguita/usr/fuguita/etc/mode0symlinks.cpio.gz \
+                  && [ -r /etc/mtree/special.fuguita ] \
+                  && mtree -edtq -u -p / -f /etc/mtree/special.fuguita >/dev/null )
             else
                 echo -n "Linking files from /ram to /fuguita ... "
                 mkshadowdir /fuguita/usr /ram/usr
-
 
                 #-------------------------------------------
                 # KLUDGE: Re-lndir under /usr/local/lib/X11/fonts

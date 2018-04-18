@@ -1,4 +1,4 @@
-# Copyright (c) 2006--2016, Yoshihiro Kawamata
+# Copyright (c) 2006--2018, Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -167,6 +167,17 @@ cdburn:
 
 clean:
 	rm -f bsd bsd.mp livecd.iso $(FI_FILENAME).iso.gz $(FI_FILENAME).usbimg.gz
+
+contall:
+	-make close-all
+	rm -f /ISO/FuguIta-*-$(ARCH)-?????????.iso.gz
+	make open-media
+	make boot
+	make hyb
+	make hddinstall
+	-make close-all
+	-make cdrburn
+	make cdgz
 
 #======================================================================
 

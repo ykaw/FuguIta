@@ -1,0 +1,200 @@
+#!/bin/sh
+
+#========================================
+# gennetconfs - generate network files
+#========================================
+
+#-----------------------
+# target directory - '/etc' as usual
+#
+if [ -n "$1" ]; then
+    basedir="$1"
+else
+    basedir='.'
+fi
+
+if ! [ -d $basedir ]; then
+    echo "$basedir: No such directory." >&2
+    exit 1
+fi
+
+#-----------------------
+# host name
+#
+echo -n 'host name (without domain) -> '; read myhost
+if [ X"$myhost" = X ]; then
+    myhost=fuguita
+fi
+echo $myhost >${basedir}/myname
+
+# get net i/f's
+#
+ifconfig_out=`ifconfig -a`
+nicifs=`echo "$ifconfig_out" | grep ' mtu 1500$' | cut -d: -f1`
+
+#-----------------------
+# IP protocol versions
+#
+if [ X"$nicifs" = X ]; then
+    echo 'No available network interfaces found.'
+    ipv='n'
+else
+    set - $nicifs
+    nicifs="$@"
+    defnic="$1"
+    echo 'IP version(s) to use: 4, 6, 46, 64 or n'
+    echo "  46: IPv4 preferred over IPv6 in address resolution"
+    echo "  64: reversed to 46"
+    echo "   n: stand alone operation"
+    echo -n '[46]-> '; read ipv
+    ipv=`echo -n $ipv | tr -dc '46Nn' | tr N n`
+    case "$ipv" in
+        *4*6*) ipv='46'; af='family inet4 inet6' ;;
+        *6*4*) ipv='64'; af='family inet6 inet4' ;;
+        *4*)   ipv='4';  af='family inet4' ;;
+        *6*)   ipv='6';  af='family inet6' ;;
+        *n*)   ipv='n';  af='' ;;
+        *)     echo "'46' selected as default"
+               ipv='46'; af='family inet4 inet6' ;;
+    esac
+fi
+
+case X"$ipv" in
+    #-----------------------
+    # IP-generic configs
+    #
+    X*[46]*)
+        echo "==[ifconfig -a]========================="
+        echo "$ifconfig_out"
+        echo "========================================"
+        echo "Available network interface(s): $nicifs"
+        echo -n "network interface to setup [$defnic] -> "; read mynic
+        if [ X"$mynic" = X ]; then
+            mynic=$defnic
+        fi
+        
+        #-----------------------
+        # setup hostname.* files
+        #
+        for hostname_if in ${basedir}/hostname.*; do
+            # comment out in unconfigured files
+            if [ $hostname_if != "${basedir}/hostname.*" ]; then
+                cp -p $hostname_if ${hostname_if}.orig
+                sed -e 's/^\([^#]\)/#\1/' ${hostname_if}.orig > $hostname_if \
+                    && rm -f ${hostname_if}.orig
+            fi
+        done
+        : >> ${basedir}/hostname.$mynic
+        chown root:wheel ${basedir}/hostname.$mynic
+        chmod 0640 ${basedir}/hostname.$mynic
+
+        #-----------------------
+        # host names
+        #
+        echo -n "FQDN of this host -> ${myhost}."; read mydomain
+        if [ ! X"$mydomain" = X ]; then
+            myfqdn=${myhost}.${mydomain}
+            echo "search $mydomain" > ${basedir}/resolv.conf
+            echo $myfqdn > ${basedir}/myname
+        fi
+        echo '127.0.0.1 localhost'  > ${basedir}/hosts
+        echo '::1       localhost' >> ${basedir}/hosts
+
+        #-----------------------
+        # wireless settings
+        #
+        if ifconfig "$mynic" 2>/dev/null | grep -q 'groups:.*wlan'; then
+            wlan=''
+            echo -n 'Wi-Fi SSID -> '; read ssid
+            if [ -n "$ssid" ]; then
+                wlan="nwid $ssid"
+                echo -n '   WPA Key -> '; read wpakey
+                if [ -z "$wpakey" ]; then
+                    echo -n '   WEP Key -> '; read wepkey
+                    if [ -n "$wepkey" ]; then
+                        wlan="$wlan nwkey $wepkey"
+                    fi
+                else
+                    wlan="$wlan wpakey $wpakey"
+                fi
+            fi
+            if [ -n "$wlan" ]; then
+                echo "$wlan" >> "${basedir}/hostname.$mynic"
+            fi
+        fi
+
+        #-----------------------
+        # name resolutions
+        #
+        echo 'DNS setup;'
+        echo '  Manual : Enter up to three IPv4/IPv6 addresses, separated by spaces'
+        echo '  DHCP   : Just press ENTER .'
+        echo '  no DNS : Enter "none".'
+        echo -n '-> '; read mydns
+
+        mydns=`echo -n $mydns | tr -cs '0-9A-Za-z:.%' ' '`
+
+        if [ X"$mydns" = X -o X"$mydns" = Xdhcp ]; then
+            ( echo "lookup file bind"
+              echo "$af"              ) >> ${basedir}/resolv.conf
+            mv ${basedir}/resolv.conf ${basedir}/resolv.conf.tail
+
+            #-----------------------
+            # IPv4 configs
+            #
+            case X"$ipv" in
+                X*4*)
+                    echo "dhcp" >> ${basedir}/hostname.$mynic
+                    ;;
+            esac
+        else
+            if [ X"$mydns" == Xnone ]; then
+                echo "lookup file"      >> ${basedir}/resolv.conf
+            else
+                ( echo "lookup file bind"
+                  echo "$af"
+                  set -- $mydns
+                  [ ! X"$1" = X ] && echo "nameserver $1"
+                  [ ! X"$2" = X ] && shift && echo "nameserver $1"
+                  [ ! X"$2" = X ] && shift && echo "nameserver $1" ) >> ${basedir}/resolv.conf
+            fi
+
+            #-----------------------
+            # IPv4 configs
+            #
+            case X"$ipv" in
+                X*4*)
+                    echo -n 'IPv4 addr of this host -> '; read myv4addr
+                    echo -n 'netmask                -> '; read mynetmask
+                    echo -n 'default route          -> '; read mygw
+
+                    echo "inet $myv4addr $mynetmask NONE" >> ${basedir}/hostname.$mynic
+                    echo "$mygw" > ${basedir}/mygate
+                    echo "$myv4addr $myfqdn ${myfqdn%%.*}" >> ${basedir}/hosts
+                    ;;
+            esac
+        fi
+
+        #-----------------------
+        # IPv6 configs
+        #
+        case X"$ipv" in
+            X*6*)
+                echo 'inet6 autoconf' >> ${basedir}/hostname.$mynic
+                echo 'net.inet6.ip6.forwarding=0'   >> ${basedir}/sysctl.conf
+                echo 'net.inet6.ip6.mforwarding=0'  >> ${basedir}/sysctl.conf
+                ;;
+        esac
+        ;;
+esac
+
+#  resolving myhost
+#    This is for smtpd
+#
+if grep -q $myhost ${basedir}/hosts
+then
+    :
+else
+    echo "127.0.0.1 $myhost" >> ${basedir}/hosts
+    echo "::1       $myhost" >> ${basedir}/hosts
+fi

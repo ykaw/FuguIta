@@ -424,38 +424,47 @@ while :; do
             else
                 echo -n "Linking files from /ram to /fuguita ... "
                 mkshadowdir /fuguita/usr /ram/usr
-
-                #-------------------------------------------
-                # Replace symlinks to ordinary files
-                #
-                for f in \
-                    usr/local/info/dir \
-                    usr/local/share/info/dir \
-                    usr/local/man/mandoc.db
-                do
-                  if [ -f /fuguita/$f ]; then
-                      rm -f /ram/$f && cp -p /fuguita/$f /ram/$f
-                  fi
-                done
-        
-                #-------------------------------------------
-                # Replace directories to symlinks
-                #
-                #      to                               from
-                set -- /fuguita/usr/libexec/auth        /ram/usr/libexec/auth \
-                       /fuguita/usr/X11R6/lib/X11/fonts /ram/usr/X11R6/lib/X11/fonts \
-                       /etc/X11/app-defaults            /ram/usr/local/lib/X11/app-defaults
-        
-                while [ -n "$1" -a -n "$2" ]
-                do
-                    if [ -d "$1" -a -d "$2" ]
-                    then
-                        rm -r "$2"
-                        ln -s "$1" "$2"
-                    fi
-                    shift 2
-                done
             fi
+
+            #-------------------------------------------
+            # Replace symlinks to directories and files
+            #
+            for d in \
+                usr/libexec/auth
+            do
+                if [ -d /fuguita/$d ]; then
+                    rm -rf /ram/$d && cd `dirname /fuguita/$d` && pax -rwpe `basename $d` `dirname /ram/$d`
+                fi
+            done
+        
+            #-------------------------------------------
+            # Replace symlinks to ordinary files
+            #
+            for f in \
+                usr/local/info/dir \
+                usr/local/share/info/dir \
+                usr/local/man/mandoc.db
+            do
+                if [ -f /fuguita/$f ]; then
+                    rm -f /ram/$f && cp -p /fuguita/$f /ram/$f
+                fi
+            done
+        
+            #-------------------------------------------
+            # Replace directories to symlinks
+            #
+            #      to                               from
+            set -- /fuguita/usr/X11R6/lib/X11/fonts /ram/usr/X11R6/lib/X11/fonts \
+                   /etc/X11/app-defaults            /ram/usr/local/lib/X11/app-defaults
+        
+            while [ -n "$1" -a -n "$2" ]
+            do
+                if [ -d "$1" -a -d "$2" ]; then
+                    rm -r "$2"
+                    ln -s "$1" "$2"
+                fi
+                shift 2
+            done
 
             cd / && ln -sf ram/usr .
         elif [ X"$setup_rw_mode" = X1 ]; then
@@ -502,163 +511,25 @@ while :; do
           echo "passwd failed, Try again."
         done
 
-        echo -n 'host name (without domain) -> '; read myhost
-        if [ X"$myhost" = X ]; then
-            myhost=fuguita
-        fi
-        echo $myhost >/etc/myname
-
         #-----------------------
         # Network configuration
         #
-        ifconfig_out=`ifconfig -a`
-        nicifs=`echo "$ifconfig_out" | grep ' mtu 1500$' | cut -d: -f1`
-        if [ X"$nicifs" = X ]; then
-            echo 'No available network interfaces found.'
-            ipv='n'
-        else
-            echo -n 'IP version(s) to use [n, 4, 6 or 46]-> '; read ipv
-            set - $nicifs
-            nicifs="$@"
-            defnic="$1"
-        fi
+        /boottmp/gennetconfs /etc
 
-        case X"$ipv" in
-            #-----------------------
-            # IP-generic configs
-            #
-            X*[46]*)
-                echo "==[ifconfig -a]========================="
-                echo "$ifconfig_out"
-                echo "========================================"
-                echo "Available network interface(s): $nicifs"
-                echo -n "network interface to setup [$defnic] -> "; read mynic
-                if [ X"$mynic" = X ]; then
-                    mynic=$defnic
-                fi
-                : > /etc/hostname.$mynic
-                chmod 0640 /etc/hostname.$mynic
-
-                #-----------------------
-                # host names
-                #
-                echo -n "FQDN of this host -> ${myhost}."; read mydomain
-                if [ ! X"$mydomain" = X ]; then
-                    myfqdn=${myhost}.${mydomain}
-                    echo "search $mydomain" > /etc/resolv.conf
-                    echo $myfqdn > /etc/myname
-                fi
-                echo '127.0.0.1 localhost'  > /etc/hosts
-                echo '::1       localhost' >> /etc/hosts
-
-                #-----------------------
-                # wireless settings
-                #
-                if ifconfig "$mynic" 2>/dev/null | grep -q 'groups:.*wlan'; then
-                    wlan=''
-                    echo -n 'Wi-Fi SSID -> '; read ssid
-                    if [ -n "$ssid" ]; then
-                        wlan="nwid $ssid"
-                        echo -n '   WPA Key -> '; read wpakey
-                        if [ -z "$wpakey" ]; then
-                            echo -n '   WEP Key -> '; read wepkey
-                            if [ -n "$wepkey" ]; then
-                                wlan="$wlan nwkey $wepkey"
-                            fi
-                        else
-                            wlan="$wlan wpakey $wpakey"
-                        fi
-                    fi
-                    if [ -n "$wlan" ]; then
-                        echo "$wlan" >> "/etc/hostname.$mynic"
-                    fi
-                fi
- 
-                #-----------------------
-                # name resolutions
-                #
-                echo 'DNS setup;'
-                echo '  Manual : Enter up to three IPv4/IPv6 addresses, separated by spaces'
-                echo '  DHCP   : Just press ENTER .'
-                echo '  no DNS : Enter "none".'
-                echo -n '-> '; read mydns
-
-                mydns=`echo -n $mydns | tr -cs '0-9A-Za-z:.%' ' '`
-                if [ X"$mydns" = X -o X"$mydns" = Xdhcp ]; then
-                    echo "lookup file bind" >> /etc/resolv.conf
-
-                    #-----------------------
-                    # IPv4 configs
-                    #
-                    case X"$ipv" in
-                        X*4*)
-                            echo "dhcp" >> /etc/hostname.$mynic
-                            ;;
-                    esac
-                else
-                    if [ X"$mydns" == Xnone ]; then
-                        echo "lookup file"      >> /etc/resolv.conf
-                    else
-                        echo "lookup file bind" >> /etc/resolv.conf
-                        set -- $mydns
-                        [ ! X"$1" = X ] && echo "nameserver $1"          >> /etc/resolv.conf
-                        [ ! X"$2" = X ] && shift && echo "nameserver $1" >> /etc/resolv.conf
-                        [ ! X"$2" = X ] && shift && echo "nameserver $1" >> /etc/resolv.conf
-                    fi
-
-                    #-----------------------
-                    # IPv4 configs
-                    #
-                    case X"$ipv" in
-                        X*4*)
-                            echo -n 'IPv4 addr of this host -> '; read myv4addr
-                            echo -n 'netmask                -> '; read mynetmask
-                            echo -n 'default route          -> '; read mygw
-
-                            echo "inet $myv4addr $mynetmask NONE" >> /etc/hostname.$mynic
-                            echo "$mygw" > /etc/mygate
-                            echo "$myv4addr $myfqdn ${myfqdn%%.*}" >> /etc/hosts
-                            ;;
-                    esac
-                fi
-
-                #-----------------------
-                # IPv6 configs
-                #
-                case X"$ipv" in
-                    X*6*)
-                        echo 'inet6 autoconf' >> /etc/hostname.$mynic
-                        echo 'net.inet6.ip6.forwarding=0'   >> /etc/sysctl.conf
-                        echo 'net.inet6.ip6.mforwarding=0'  >> /etc/sysctl.conf
-                        ;;
-                esac
-                ;;
-        esac
-
-        #  resolving myhost
-        #    This is for smtpd
-        #
-        if grep -q $myhost /etc/hosts
-        then
-            :
-        else
-            echo "127.0.0.1 $myhost" >> /etc/hosts
-            echo "::1       $myhost" >> /etc/hosts
-        fi
-
+        #-----------------------
         # now disable to use prepared keys;
         #
         # To use this, uncomment following comment lines
-        # then remove or comment 'ans=y' line
+        # then remove or comment 'genkeys=y' line
         #
-        ans=y; # now force to generate keys
+        genkeys=y; # now force to generate keys
 
-        case X"$ans" in
+        case X"$genkeys" in
             X[Nn]*)
                 :
             ;;
             *)
-            rm -f /etc/ssh/*_key* /etc/isakmpd/local.pub /etc/isakmpd/private/local.key
+            rm -f /etc/soii.key /etc/ssh/*_key* /etc/isakmpd/local.pub /etc/isakmpd/private/local.key
             ;;
         esac
 
@@ -766,25 +637,38 @@ while :; do
             echo "Copying files from flash to ram ... "
             if cd /mnt/livecd-config/$osrel/$osmac/$confdir 2>/dev/null || \
                cd /mnt/livecd-config/$confdir; then
-                pax -rwpe . /ram
+                if ! pax -rwpe . /ram; then
+                    # tmpfs bug workaround
+                    # will retry later
+                    pax_failed="yes"
+                fi
             fi
             echo "done"
 
             #-----------------------
-            # symlink from / to ram
+            # setup operational file/dir tree
             #
             cd /
             rm -rf /tmp
             mv /etc /bootetc
-            ln -sf ram/* . 2> /dev/null
-            cp /boottmp/fstab /etc
-
-            #-------------------------------------------
-            # symlink rest of contents from / to System Storage
+            ln -sf ram/* . 2> /dev/null    # connect /ram dirs to /
+            ln -s fuguita/* . 2> /dev/null # connect rest of dirs in System Storage to /
             #
-            ln -s fuguita/* . 2> /dev/null
-
+            # tmpfs bug work around
+            # retry copying to ram again
+            #
+            if [ "$pax_failed" = "yes" ]; then
+                if cd /mnt/livecd-config/$osrel/$osmac/$confdir 2>/dev/null || \
+                   cd /mnt/livecd-config/$confdir; then
+                    echo "Copying to ram was partially failed, retrying..."
+                    /fuguita/usr/local/bin/rsync -rlptgovH . /ram/.
+                    echo "done"
+                    cd /
+                fi
+            fi
             umount /mnt
+
+            cp /boottmp/fstab /etc  # fix /etc/fstab
         else
             echo "Failed to mount user's storage"
             continue

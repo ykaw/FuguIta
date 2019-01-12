@@ -1,11 +1,8 @@
-#	$OpenBSD: GENERIC.MP,v 1.9 2014/09/03 07:44:33 blambert Exp $
-#
-#	GENERIC.MP - sample multiprocessor kernel
-#
+#	$OpenBSD: GENERIC.MP,v 1.11 2014/09/03 07:44:33 blambert Exp $
 
-include "arch/i386/conf/RDROOT"
+include "arch/amd64/conf/RDROOT"
 
-option		MULTIPROCESSOR	# Multiple processor support
-#option		MP_LOCKDEBUG
+option	MULTIPROCESSOR
+#option	MP_LOCKDEBUG
 
 cpu*		at mainbus?

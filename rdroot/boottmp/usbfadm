@@ -10,7 +10,7 @@
 #
 #========================================
 
-# Copyright (c) 2006--2018
+# Copyright (c) 2006--2019
 # Yoshihiro Kawamata
 #
 # All rights reserved.
@@ -55,8 +55,7 @@ function clear_exit {
     if mount | grep -q "^$devname on /mnt" ;then
         umount $devname
     fi
-    rmdir /tmp/usbfadm.lock 2>/dev/null
-    rm -f /tmp/rl_words
+    rm -rf $lockdir
     exit $1
 }
 
@@ -71,8 +70,8 @@ function clear_exit {
 #                 -2: Error occured
 #
 function wait_enter {
-    typeset prompt="$1"
-    typeset line
+    local prompt="$1"
+    local line
 
     echo -n "$prompt -> " >&2; read line
 
@@ -103,9 +102,9 @@ function ask_yn {
         return
     fi
 
-    typeset prompt="$1"; shift
-    typeset yn_default="$1"; shift
-    typeset yn_ans
+    local prompt="$1"; shift
+    local yn_default="$1"; shift
+    local yn_ans
 
     case X"$yn_default"X in
         X[Yy]X) yn_default=Y; prompt="$prompt [Y/n] -> " ;;
@@ -134,30 +133,100 @@ function ask_yn {
 }
 
 #-------------------
+# ask selection out of multiple items
+# outputs answer to stdout
+#
+#     usage: ask_which prompt default item1 item2 ...
+#
+#       Note: although user's choice is one originated
+#             default is zero originated
+#
+#       output: first word of selected item
+#               returns empty line unless selected normally
+#
+function ask_which {
+    if [ $# -lt 3 ]; then
+        return
+    fi
+
+    local prompt="$1";  shift
+    local default="$1"; shift
+    local i item val
+
+    # skip null item
+    #
+    i=0
+    for val in "$@"; do
+        if [ -n "$val" ]; then
+           item[$i]="$val"
+           i=$((i+1))
+        fi
+    done
+
+    # only one item is default itself
+    #
+    [ "${#item[@]}" = 1 ] && default=${item[0]}
+
+    i=0
+    while [ -n "${item[$i]}" ]; do
+        if [ "$default" = "${item[$i]}" ]; then
+            OIFS="$IFS"
+            IFS= prompt="$prompt\n"`printf '%3d: [%s]' $((i+1)) ${item[$i]}`
+            IFS="$OIFS"
+        else
+            OIFS="$IFS"
+            IFS= prompt="$prompt\n"`printf '%3d:  %s' $((i+1)) ${item[$i]}`
+            IFS="$OIFS"
+        fi
+        i=$((i+1))
+    done
+    echo "$prompt" >&2
+
+    local ans
+    ans=`rl_wread '' ''`
+
+    # take first argument
+    #
+    set -- $ans
+    ans=$1
+    
+    # return selected item
+    #
+    if expr "$ans" : '^[0-9][0-9]*$' >/dev/null && \
+       [ "$ans" -le ${#item[@]} ]; then
+        set -- ${item[$((ans-1))]}
+        echo $1
+    elif [ -n "$default" -a -z "$ans" ]; then
+        set -- $default
+        echo $1
+    fi
+}
+
+#-------------------
 # read user's input with readline functionality
 # outputs echoed to stdout
 #
 #     usage: rl_wread prompt-str default-str [completion words ....]
 #
 function rl_wread {
-    typeset prompt="$1";  shift
-    typeset default="$1"; shift
+    local prompt="$1";  shift
+    local default="$1"; shift
 
     if [ -x /usr/local/bin/rlwrap ]; then
-        echo "$@" > /tmp/rl_words
+        echo "$@" > $lockdir/rl_words
         rlwrap -b '' \
-               -f /tmp/rl_words \
+               -f $lockdir/rl_words \
                -P "$default" \
-               sh -f -c 'echo -n "'"$prompt"' --> " >&2 ; read w || echo EOF; echo $w' || echo RL_ERR
+               sh -f -c 'echo -n "'"$prompt"'->" >&2 ; read w || echo EOF; echo $w' || echo RL_ERR
     else
         #-------------------
         # fallback to dumb input
         #
         if [ X"$default" = X ]; then
-            echo -n "$prompt --> " >&2
+            echo -n "${prompt}->" >&2
             read w
         else
-            echo -n "$prompt [$default] --> " >&2
+            echo -n "$prompt [$default] -> " >&2
             read w
             if [ X"$w" = X ]; then
               w="$default"
@@ -175,10 +244,53 @@ function notice {
 }
 
 #-------------------
+# convert bytes to sectors
+# bytes can be suffixed by 'k', 'm', 'g' or 't'
+#
+# Outputs to stdout
+#   null string unless converted sucessfully
+#
+function byte2sect {
+    local args=$@  # concat all arguments as a string
+    local val
+    val=$(expr "$args" : '0*\([1-9][0-9]*\) *[Tt][Bb]*$') && { echo "$((1024*1024*1024*1024*val/sect_size))"; return; }
+    val=$(expr "$args" : '0*\([1-9][0-9]*\) *[Gg][Bb]*$') && { echo "$((1024*1024*1024*val/sect_size))";      return; }
+    val=$(expr "$args" : '0*\([1-9][0-9]*\) *[Mm][Bb]*$') && { echo "$((1024*1024*val/sect_size))";           return; }
+    val=$(expr "$args" : '0*\([1-9][0-9]*\) *[Kk][Bb]*$') && { echo "$((1024*val/sect_size))";                return; }
+    val=$(expr "$args" : '0*\([1-9][0-9]*\) *[Bb]*$')     && { echo "$((val/sect_size+1))";                   return; }
+    val=$(expr "$args" : '00*') && { echo 0; return; }
+}
+
+#-------------------
+# convert sectors to bytes
+#
+# Outputs to stdout
+#   null string unless converted sucessfully
+#
+function sect2byte {
+    local val
+    val=$(expr "$1" : '00*$') && { echo "0B"; return; }
+    if val=$(expr "$1" : '\([1-9][0-9]*\)'); then
+        val=$((sect_size*val))
+        [ "$val" -lt 1024 ] && { echo "${val}B"; return; }
+        val=$((val/1024)); [ "$val" -lt 1024 ] && { echo "${val}KB"; return; }
+        val=$((val/1024)); [ "$val" -lt 1024 ] && { echo "${val}MB"; return; }
+        val=$((val/1024)); [ "$val" -lt 1024 ] && { echo "${val}GB"; return; }
+        val=$((val/1024)); echo "${val}TB"; return
+    fi
+}
+
+#-------------------
 # scan specified disk
 # then outputs its parameters with form of sh var assignment
 #
 # Usage: eval `disk_scan disk`
+#
+# Outputs: scandev    : name of device, e.g. 'sd0'
+#          sect_size  : sector size - bytes/sector
+#          sects_trk  : number of sectors per track
+#          sects_total: number of total sectors
+#          diskscan   : result of scan - 'ok' or 'ng'
 #
 function disk_scan {
     [ -z "$1" ] && return
@@ -187,155 +299,214 @@ BEGIN {
     paramfound = 0
     print "scandev='"$1"'"
 }
-$1 == "bytes/sector:"  { sectsize=$2;   print "sectsize=" sectsize; paramfound++; }
-$1 == "sectors/track:" { print "sectstrack=" $2; paramfound++ }
-/^total sectors: /     { sectstotal=$3; print "sectstotal=" $3; paramfound++; }
+$1 == "bytes/sector:"  { sect_size=$2;   print "sect_size=" sect_size; paramfound++; }
+$1 == "sectors/track:" { print "sects_trk=" $2; paramfound++ }
+/^total sectors: /     { sects_total=$3; print "sects_total=" $3; paramfound++; }
 END {
     if (paramfound==3) {
-        print "megstotal=" int(sectstotal*sectsize/1024/1024)
         print "diskscan=ok"
     } else
         print "diskscan=ng"
 }'
 }
 
-#-------------------
-# fill specified disk with null data
-#
-# results of previous execution of disk_scan affects this.
-#
-function init_head {
-    notice Clearing MBR and BSD disklabel
-    [ "$diskscan" = ok ]  || return
-    [ "$1" = "$scandev" ] || return
-    dd if=/dev/zero of=/dev/r"$1"c bs=1024k count=1
+function showparam {
+
+    # global variables for newdrive subcommand
+    # 
+    # global parameters
+    #    bootmode   : initial boot mode - e.g. 'usbflash'
+    #    devname    : path of target device for sync - e.g. 'sd0d'
+    #    devnames   : all disk names attached to this machine
+    #    uconf      : name of configuration - e.g. 'nimbus12-userdemo'
+    # 
+    # constatns
+    #    fuguita_sys_mb : system size of FuguIta in MB, normaly 700
+    #    fuguita_uefi_kb: Partition size for EFI Sys
+    #    osrel      : OpenBSD's release - e.g. '6.4'
+    #    hwmac      : name of the platform - e.g. 'amd64'
+    #    verarch    : $osrel/$hwmac
+    # 
+    # target disks
+    #    newdev     : device name to newdrive - e.g. 'sd0'
+    #    parttype   : partition type - MBR/GPT/Hybrid
+    #    instsys    : boot type - none/mbr (should be none/Legacy/UEFI)
+    # 
+    # results of disk_scan()
+    #    scandev    : name of device, e.g. 'sd0'
+    #    sect_size  : sector size - bytes/sector
+    #    sects_trk  : number of sectors per track
+    #    sects_total: number of total sectors
+    #    diskscan   : result of scan - 'ok' or 'ng'
+    # 
+    # partition sectors (ps_ for short)
+    #
+    #    ps_free : available sectors for user's partitioning
+    #    ps_hgap : head gap (for MBR/GPT and disklabel)
+    #    ps_uefi : sectors for UEFI (partition i)
+    #    ps_fisys: sectors for FuguIta's system (partition a)
+    #    ps_fidat: sectors for FuguIta's Data Store (partition d)
+    #    ps_fat  : sectors for Data Exchange (partition i or j)
+    #    ps_tgap : tail gap (for GPT)
+
+    echo "target disk: $scandev"
+    echo "  partition type=$parttype"
+    echo "       boot type=$instsys"
+    cat<<EOT | awk 'BEGIN{FS=","} {printf("%-20s : %6s\n", $1, $2)}'
+--------------------,------
+partition,size
+--------------------,------
+whole disk,`sect2byte $sects_total`
+disk metadata,`sect2byte $((ps_hgap+ps_tgap))`
+UEFI system,`sect2byte $ps_uefi`
+FuguIta system,`sect2byte $ps_fisys`
+FuguIta user data,`sect2byte $ps_fidat`
+MSDOS FAT,`sect2byte $ps_fat`
+--------------------,------
+EOT
 }
 
 #-------------------
-# prepare fdisk partition by given parameters
+# zero-filling specified disk 1MB from the head
 #
-#     Usage: fdisk_init devname obsd-size fat-rest
+#     Usage: zerofill_head
+#
+# results of previous execution of disk_scan affects this.
+#
+function zerofill_head {
+    notice "Clearing MBR, GPT and BSD disklabel"
+    [ "$diskscan" = ok ]  || return
+    dd if=/dev/zero of=/dev/r"$scandev"c bs=1024k count=1
+}
+
+#-------------------
+# setup MBR type fdisk partitions
+#
+#     Usage: fdisk_init partition-type
 #
 # results of previous execution of disk_scan affects this.
 #
 function fdisk_init {
     [ "$diskscan" = ok ]  || return
-    [ "$1" = "$scandev" ] || return
-    shift; obsdsize="$1"; [ X"$1" = X ] && return
-    shift;  fatrest="$1"
+    [ -z "$1" ] && return
 
-    notice Setting up MBR
+    local ptype="$1"
 
-    # fdisking entire disk as OpenBSD area
+    if [ ! $secs_total = $((ps_hgap+ps_uefi+ps_fisys+ps_fidat+ps_fat+ps_tgap)) ]; then
+        echo "Inconsistent sector sizes: $secs_total != $ps_hgap + $disk_head_gap + $ps_uefi + $ps_fisys + $ps_fidat + $ps_fat + $ps_tgap"
+        return
+    fi
+
+    notice "Setting up fdisk partitions"
+
+    # perform fdisk
     #
-    fdisk -iy "$scandev"
-
-    [ $megstotal -le $obsdsize ] && return
-
-    # re-partitioning OpenBSD and FAT area
-    #
-    fdisk -e "$scandev" <<EOT
-e 3
-A6
-n
-
-`echo $obsdsize \* 1024 \* 1024 / $sectsize | bc`
-w
-p
-q
-EOT
-    eval `fdisk "$scandev" | awk '/^\*3: A6.*OpenBSD     $/ { print "obsdstart=" 0+$11; print "obsdsize=" $12 }'`
-
-    # leave unused unless FAT needed
-    #
-    [ X"$fatrest" = Xyes ] || return
-
-    fdisk -e "$scandev" <<EOT
-e 0
-0C
-n
-`echo $obsdstart + $obsdsize | bc`
-*
-w
-p
-q
-EOT
-    newfs_msdos /dev/r${scandev}i
+    case "$ptype" in
+        MBR)
+            fdisk -iy $scandev
+            { [ 0 -lt $ps_uefi ] && echo "e 0\nEF\nn\n${ps_hgap}\n${ps_uefi}"
+              [ 0 -lt $ps_fat ]  && echo "e 2\n0C\nn\n$((ps_hgap+ps_uefi+ps_fisys+ps_fidat))\n${ps_fat}"
+              [ 0 -lt $((ps_fisys+ps_fidat)) ] && echo "e 3\nA6\nn\n$((ps_hgap+ps_uefi))\n$((ps_fisys+ps_fidat))"
+              echo "quit"
+            } | fdisk -e $scandev
+            ;;
+        GPT)
+            fdisk -igy $scandev
+            { [ 0 -lt $ps_uefi ] && echo "e 1\nEF\n${ps_hgap}\n${ps_uefi}\nUEFI Boot"
+              [ 0 -lt $ps_fat ]  && echo "e 2\n0C\n$((ps_hgap+ps_uefi+ps_fisys+ps_fidat))\n$ps_fat\nMSDOS FAT"
+              [ 0 -lt $((ps_fisys+ps_fidat)) ] && echo "e 3\nA6\n$((ps_hgap+ps_uefi))\n$((ps_fisys+ps_fidat))\nOpenBSD Area"
+              echo quit
+             } | fdisk -e $scandev
+            ;;
+        Hybrid)
+            fdisk -iy $scandev
+            { echo "e 0\nEE\nn\n1\n*"
+              [ 0 -lt $ps_uefi ] && echo "e 1\nEF\nn\n${ps_hgap}\n${ps_uefi}"
+              [ 0 -lt $ps_fat ]  && echo "e 2\n0C\nn\n$((ps_hgap+ps_uefi+ps_fisys+ps_fidat))\n$ps_fat"
+              [ 0 -lt $((ps_fisys+ps_fidat)) ] && echo "e 3\nA6\nn\n$((disk_head_gap+ps_uefi))\n$((ps_fisys+ps_fidat))"
+              echo quit
+             } | fdisk -e $scandev
+            ;;
+    esac
 }
 
 #-------------------
-# make specified usb devices for FuguIta
+# setup OpenBSD's partition and all filesystems
 #
-#     usage: setup_fs dev ["yes"]
+#     usage: setup_fs
 #
-# dev has the form like 'sd6' .
-#
-# With "yes", partition a is prepared and
+# With "Legacy", partition a is prepared and
 # FuguIta system will be copied.
 #
 function setup_fs {
     [ "$diskscan" = ok ]  || return
-    [ "$1" = "$scandev" ] || return
 
     if [ 0 -eq `expr "$scandev" : '^[sw]d[0-9]$'` ] &&
        [ 0 -eq `expr "$scandev" : '^vnd[0-9]$'` ]; then
         return
     fi
 
-    notice Setting up disklabel and FFS partitions
-    if [ X"$2" = Xyes ]; then
-        disklabel -c -E ${scandev} <<EOT
-a a
+    notice "Setting up disklabel and FFS partitions"
 
-${fuguita_sys_mb}M
+    { [ 0 -lt $ps_fisys ] && echo "a a\n$((ps_hgap+ps_uefi))\n${ps_fisys}\n4.2BSD"
+      [ 0 -lt $ps_fidat ] && echo "a d\n$((ps_hgap+ps_uefi+ps_fisys))\n*\n4.2BSD"
+      echo q
+      echo y
+    } | disklabel -c -E $scandev
 
-a d
+    local disklabel=`disklabel -c $scandev`
 
-*
+    echo "$disklabel" | grep -q 'i:.*MSDOS' && newfs_msdos ${scandev}i
+    echo "$disklabel" | grep -q 'j:.*MSDOS' && newfs_msdos ${scandev}j
 
-w
-q
-EOT
-        newfs -m0 -i$((${fuguita_sys_mb}*1024*1024/100)) /dev/r${scandev}a
-    else
-        disklabel -c -E ${scandev} <<EOT
-a d
+    if echo "$disklabel" | grep -q 'a:.*4\.2BSD'; then
+        # very few files ... make inode density low
+        newfs -m0 -i$((fuguita_sys_mb*1024*1024/100)) ${scandev}a
 
-*
+        notice "Copying FuguIta system files"
 
-w
-q
-EOT
-fi
-    echo ''
-    disklabel -c -pm ${scandev}
-    echo ''
-    if [ $sizepart_d -le 2048 ]; then
-        newfs -m0 -i1024 -b4096 -f512 /dev/r${scandev}d
-    else
-        newfs -m0 /dev/r${scandev}d
-    fi
-
-    if [ X"$2" = Xyes ]; then
-        notice Copying FuguIta system files
         mount -o async /dev/${scandev}a /mnt
         cd /sysmedia
         pax -rwvpe !(fuguita-${osrel}-${hwmac}.ffsimg) /mnt
 
         if [ -r /sysmedia/fuguita-${osrel}-${hwmac}.ffsimg ]; then
-            notice Transferring filesystem image...
-            dd if=fuguita-${osrel}-${hwmac}.ffsimg of=/mnt/fuguita-${osrel}-${hwmac}.ffsimg bs=16m
+            notice "Transferring filesystem image"
+            (sleep 15; while pkill -INFO dd; do sleep 15; done) &  # to display progress
+            dd if=fuguita-${osrel}-${hwmac}.ffsimg of=/mnt/fuguita-${osrel}-${hwmac}.ffsimg bs=1m
         fi
 
-        notice Installing boot loader
-        /usr/sbin/installboot -v -r /mnt ${scandev} /usr/mdec/biosboot /usr/mdec/boot
-        umount /mnt
+        notice "Installing boot loader"
+
+        case $instsys in
+            Legacy|Hybrid)
+                /usr/sbin/installboot -v -r /mnt ${scandev} /usr/mdec/biosboot /usr/mdec/boot
+                umount /mnt
+                ;;
+            UEFI)
+                umount /mnt
+                /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot
+                ;;
+        esac
+
+        fsck -fy /dev/r${scandev}a
     fi
 
-    notice Preparing partitions for user data
-    mount -o async /dev/${scandev}d /mnt
-    mkdir /mnt/livecd-config
-    cat <<EOT >/mnt/noasks
+    notice "Setting up a partition for user's data"
+
+    if echo "$disklabel" | grep -q 'd:.*4\.2BSD'; then
+        if [ $ps_fidat -le `byte2sect 2M` ]; then
+            # adjust inode density for little space
+            # because too many symlinks when booted mode 0
+            newfs -m0 -i1024 -b4096 -f512 ${scandev}d
+        else
+            newfs -m0 ${scandev}d
+        fi
+
+        notice "Preparing partitions for user data"
+
+        mount -o async /dev/${scandev}d /mnt
+        mkdir /mnt/livecd-config
+        cat <<EOT >/mnt/noasks
 #
 # noasks - parameter settings for non-interactive boot
 #
@@ -358,30 +529,68 @@ fi
 # data set name in USB flash drive
 #noask_confdir=`hostname -s`
 EOT
-    umount /mnt
-    echo done.
+        umount /mnt
 
-    notice Checking filesystem consistency
-    [ X"$2" = Xyes ] && fsck -fy /dev/r${scandev}a
-    fsck -fy /dev/r${scandev}d
+        fsck -fy /dev/r${scandev}d
+    fi
 }
-
 
 #==================================
 # Active Code from HERE.
 #==================================
 
-
 #-------------------
-# initialization - an environment
+# systemwide constants
 #
-trap 'echo $0: interrupted. >&2; clear_exit 1' INT
-
-fuguita_sys_mb=700
+lockdir=/tmp/usbfadm.lock
   osrel=`sysctl -n kern.osrelease`
   hwmac=`sysctl -n hw.machine`
 verarch=${osrel}/${hwmac}
 
+#-------------------
+# environment check
+#
+if [ ! -r /usr/fuguita/version ]; then
+    echo "You are not running FuguIta."
+    exit 1
+fi
+
+if [ ! `id -un` = root ]; then
+    echo "$0 must be run as a root."
+    exit 1
+fi
+
+umask_o=`umask`; umask 077
+if ! mkdir $lockdir 2>/dev/null; then
+    umask $umask_o
+    echo "another $0 running (or remove $lockdir)"
+    exit 1
+fi
+umask $umask_o
+
+#-------------------
+# initializations
+#
+trap 'echo $0: interrupted. >&2; clear_exit 1' INT
+
+# read status files
+#
+[ -r /boottmp/boot_mode ]            && bootmode=`cat /boottmp/boot_mode`
+[ -r /boottmp/boot_restore_devname ] && devname=`cat /boottmp/boot_restore_devname`
+[ -r /boottmp/boot_user_config ]     && uconf=`cat /boottmp/boot_user_config`
+
+# systemwide defaults
+#
+  disk_head_gap=64
+ fuguita_sys_mb=700
+fuguita_uefi_kb=512
+#
+# overwrite defaults
+#
+[ -r /usr/fuguita/etc/usbfadm.conf ] && . /usr/fuguita/etc/usbfadm.conf
+
+# command line arguments
+#
 cmdargs=`getopt qrh $*`
 set -- $cmdargs
 while [ 1 -lt $# ]; do
@@ -402,23 +611,6 @@ EOT
     esac
 done
 
-if [ ! `id -un` = root ]; then
-    echo "$0 must be run as a root."
-    exit
-fi
-
-if ! mkdir /tmp/usbfadm.lock 2>/dev/null; then
-    echo "another $0 running"
-    exit
-fi
-
-#-------------------
-# initialization - read status files
-#
-[ -r /boottmp/boot_mode ]            && bootmode=`cat /boottmp/boot_mode`
-[ -r /boottmp/boot_restore_devname ] && devname=`cat /boottmp/boot_restore_devname`
-[ -r /boottmp/boot_user_config ]     && uconf=`cat /boottmp/boot_user_config`
-
 #-------------------
 # non-interactive process
 #
@@ -436,7 +628,7 @@ if [ "$opt_mode" = 'resync' ]; then
             rsync -aqHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
         else
             notice "Sync current tmpfs as $uconf into $devname"
-            rsync -avHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+            rsync --progress -avHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
         fi
         # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
         rm -rf /mnt/livecd-config/$uconf/tmp/{.??*,*}
@@ -473,7 +665,7 @@ while :; do
     d="${devname#/dev/}" ; [ -z "$devname" ] && d='?'
     u="$uconf"           ; [ -z "$uconf" ]   && u='?'
     echo ''
-    cmd=`rl_wread "$d : $u" '' quit bye exit sync info saveas target newdrive help ?`
+    cmd=`rl_wread "$d : $u " '' quit bye exit sync info saveas target newdrive help ?`
 
     set X $cmd
 
@@ -509,7 +701,7 @@ while :; do
             if mount -o softdep,noatime $devname /mnt &&
                mkdir -p /mnt/livecd-config/$verarch/$uconf; then
                 echo ''
-                rsync -avHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+                rsync --progress -avHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
                 # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
                 rm -rf /mnt/livecd-config/$verarch/$uconf/tmp/{.??*,*}
                 sync
@@ -566,11 +758,11 @@ while :; do
         #
         devname=''
         devnames=''
-        for rdev in `sysctl -n hw.disknames | /boottmp/sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'`; do
+        for rdev in `sysctl -n hw.disknames | sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'`; do
             case $rdev in
                 [csw]d[0-9]*)
                     for rdevp in `disklabel -c -pm $rdev 2>/dev/null \
-                                  | /boottmp/sed -E -e '/^  [abd-p]: /!d; s/^  (.):/'$rdev'\1/' \
+                                  | sed -E -e '/^  [abd-p]: /!d; s/^  (.):/'$rdev'\1/' \
                                   | cut -d' ' -f1`; do
                         if mount -r /dev/$rdevp /mnt 2>/dev/null ; then
                             if [ -d /mnt/livecd-config ]; then
@@ -602,6 +794,7 @@ while :; do
         # make new FuguIta USB flash drive
         #
         Xnewdrive)
+
         echo ''
         if mount | grep -q '^\/dev\/[0-9a-z][0-9a-z]* on \/sysmedia type '
         then
@@ -613,20 +806,45 @@ while :; do
         fi
 
         echo ''
-        echo ==== FYI: sd[0-9] on syslog ================================
-        dmesg | sed -e '/^sd[0-9][0-9]*[ :]/!d; s/> .*/>/'
-        echo ============================================================
+        echo '==== disk(s) and vnode devices  ============================'
+        dmesg | sed -e '/^[sw]d[0-9][0-9]*[ :]/!d; s/> .*/>/'
+        vnconfig -l
+        echo '============================================================'
         newdev=`rl_wread "Enter the name of device which FuguIta will be installed" "" \`sysctl -n hw.disknames|tr :, \\\\\012|grep '^[s]d[0-9]$'\``
         if [ 0 -eq `expr "$newdev" : '^[sw]d[0-9]$'` ] &&
-           [ 0 -eq `expr "$newdev" : '^vnd[0-9]$'` ]; then
+           [ 0 -eq `expr "$newdev" : '^vnd[0-9]*$'` ]; then
             continue
         fi
+
         if mount|grep -q "^/dev/$newdev"; then
             echo ''
             echo -n "Error: $newdev is busy now."
             echo ''
             continue
         fi
+
+        # create vnode device file if specified
+        #
+        case "$newdev" in
+            vnd[0-3])
+                while :; do
+                    echo
+                    echo "Enter size of a vnode device file."
+                    echo "You can add suffix K, M, G or T (otherwise considered 'bytes')."
+                    ans=`rl_wread '' ''`
+                    echo
+                    if [ 1 -lt `expr "X$ans" : 'X[0-9][0-9]*'` ]; then
+                        sect_size=$((1024*1024)) # block size for dd
+                        [ `byte2sect 724M` -le `byte2sect $ans` ] && break
+                        [ 1 -le `ask_yn "$ans is very small value.\nDo you really take this value?" r` ] && break
+                    fi
+                done
+                vnfile=FuguIta-$(</usr/fuguita/version).img
+                (sleep 15; while pkill -INFO dd; do sleep 15; done) &  # to display progress
+                dd if=/dev/zero of=$vnfile bs=$sect_size count=`byte2sect $ans`
+                vnconfig $newdev $vnfile
+                ;;
+        esac
 
         echo ''
         fdisk $newdev || continue
@@ -637,58 +855,175 @@ while :; do
             [ `ask_yn "Continue anyway?" n` -lt 1 ] && continue
         fi
 
+        # get disk parameters
+        #
+        eval `disk_scan $newdev`
+        if [ ! "$diskscan" = ok ]; then
+            echo "cannot get parameters of $newdev"
+            continue
+        fi
+        #
+        # from here, $scandev is used as target device name instead of $newdev
+        #
+
+        # disable boot items if specified
+        #
+        legacyitem='Legacy BIOS'
+        case "$disable_legacyboot" in [Yy][Ee][Ss]) unset legacyitem;; esac
+        uefiitem='UEFI'
+        case "$disable_uefiboot" in [Yy][Ee][Ss]) unset uefiitem;; esac
+
+
+        if [ `byte2sect 2T` -lt $sects_total ]; then
+            parttype=GPT
+        else
+            #-------------------
+            # ask partition type here.
+            #
+            echo ''
+            parttype=`ask_which "Select partition type:" MBR MBR GPT 'Hybrid (not recommended if you wish modify partitioning later)'`
+            if [ -z "$parttype" ]; then
+                echo "Select one of above."
+                continue
+            fi
+        fi
+
         #-------------------
-        # Y means that partition a will be setup
-        # and write FuguIta system in it
+        # ask boot method
         #
         echo ''
-        instsys=no
-        [ 1 -le `ask_yn "Do you make this USB flash drive bootable?" r` ] && instsys=yes
+        case $parttype in
+            MBR)
+                instsys=`ask_which "Select boot method:" 'Legacy BIOS' "$legacyitem" 'none (only for save data)' "$uefiitem"`
+                ;;
+            GPT)
+                instsys=`ask_which "Select boot method:" UEFI "$uefiitem" 'none (only for save data)'`
+                ;;
+            Hybrid)
+                case "${disable_legacyboot}${disable_uefiboot}" in
+                    [Yy][Ee][Ss])
+                        instsys='none'
+                        ;;
+                    *)
+                        instsys=`ask_which "Select boot method:" Hybrid Hybrid 'none (only for save data)'`
+                        ;;
+                esac
+                ;;
+        esac
 
-        eval `disk_scan $newdev`
+        #-------------------
+        # calculate sectors
+        #
+        ps_hgap=$disk_head_gap
+        ps_uefi=0
+        ps_fisys=0
+        ps_fidat=0
+        ps_fat=0
+        ps_tgap=0
+        case "$instsys" in
+            Legacy)
+                ps_fisys=`byte2sect "${fuguita_sys_mb}M"`
+                ;;
+            UEFI|Hybrid)
+                ps_uefi=`byte2sect "${fuguita_uefi_kb}K"`
+                ps_fisys=`byte2sect "${fuguita_sys_mb}M"`
+                ps_tgap=$disk_head_gap
+                ;;
+            none)
+                ;;
+            *)
+                echo "Select one of above."
+                continue
+                ;;
+        esac
+        ps_free=$((sects_total-(ps_hgap+ps_uefi+ps_fisys+ps_tgap)))
 
         #-------------------
         # ask and calculate User's data area
         # which is prepared as partition d
         #
-        freepart_d=$megstotal
-        [ X"$instsys" = Xyes ] && freepart_d=$(($freepart_d-${fuguita_sys_mb}))
-        echo ''
-        echo "Enter size for saving User Data in MB (${freepart_d}MB free)."
-        sizepart_d=`rl_wread "'*' implies all" '*'`
+        while :; do
+            echo
+            echo "Enter size for saving User Data."
+            echo "You can add suffix K, M, G or T (otherwise considered 'bytes')."
+            echo
+            echo "`sect2byte $ps_free` (${ps_free}sectors) free"
+            ans=`rl_wread "'*' implies 'all'" '*'`
 
-        if [ 1 -lt `expr "X$sizepart_d" : '^X[1-9][0-9]*$'` ]; then
-            echo ''
-            if [ $freepart_d -lt $sizepart_d ]; then
-                echo 'Size too much.'
-                continue
+            echo
+            if [ 1 -lt `expr "X$ans" : 'X[0-9][0-9]*'` ]; then
+                ps_fidat=`byte2sect "$ans"`
+                if [ $ps_free -lt $ps_fidat ]; then
+                    echo 'That size exceeds the limit.'
+                    continue
+                elif [ $ps_fidat -lt `byte2sect 16M` ]; then
+                    if [ 1 -le `ask_yn "$ans ($ps_fidat sectors) is very small value.\nDo you really take this value?" r` ]; then
+                        break
+                    else
+                        continue
+                    fi
+                else
+                    ps_free=$((ps_free-ps_fidat))
+                    if [ 1 -le `ask_yn "Create an extra FAT partition?" r` ]; then
+                        ps_fat=$ps_free
+                        ps_free=0
+                    fi
+                fi
+                break
+            elif [ "X$ans" = 'X*' ]; then
+                ps_fidat=$ps_free
+                ps_free=0
+                break
             else
-                restpart=no
-                [ 1 -le `ask_yn "Do you format the rest as FAT?" r` ] && restpart=yes
+                echo "$ans ... What?"
+                continue
             fi
-        elif [ X"$sizepart_d" = 'X*' ]; then
-            sizepart_d=$freepart_d
-        else
-            echo ''
-            echo "${sizepart_d} ... What?"
-            continue
-        fi
+        done
 
-        echo ''
+        echo
+        showparam
+
+        echo
         echo '***THIS IS THE LAST CHANCE***'
-        echo "If you type 'Y' now, all the data on $newdev will be lost."
-        [ `ask_yn "Are you sure to initialize $newdev?" n` -lt 1 ] && continue
+        echo "If you type 'Y' now, all the data on $scandev will be lost."
+        [ `ask_yn "Are you sure to initialize ${scandev}?" n` -lt 1 ] && continue
 
         #-------------------
-        # performing disk modifications
+        # perform disk modifications
         #
-        init_head $newdev
-        if [ X"$instsys" = Xyes ]; then
-            fdisk_init $newdev $((${fuguita_sys_mb}+$sizepart_d)) $restpart
-        else
-            fdisk_init $newdev "$sizepart_d" $restpart
-        fi
-        setup_fs $newdev $instsys
+        case "$parttype" in
+            MBR|GPT)
+                zerofill_head
+                fdisk_init $parttype
+                setup_fs
+                ;;
+            Hybrid)
+                zerofill_head
+                # first, create MBR partitions including UEFI Sys (ID=EF)
+                fdisk_init $parttype
+                setup_fs
+
+                # save sector 0 (MBR) to a file
+                dd if=/dev/r${scandev}c of=$lockdir/hybrid.mbr bs=$sect_size count=1
+
+                # next, create a GPT with same contents as MBR's one
+                # (also UEFI bootloader installed)
+                fdisk_init GPT
+
+                # install MBR boot loader, too
+                [ "$instsys" = Hybrid ] \
+                    && /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot
+
+                # overwrite protective MBR with saved MBR
+                dd if=$lockdir/hybrid.mbr of=/dev/r${scandev}c
+                rm $lockdir/hybrid.mbr
+                ;;
+            *)
+                echo "Partition type: '$parttype' - unknown" >&2
+                ;;
+        esac
+
+        case "$scandev" in vnd[0-3]) vnconfig -u $scandev;; esac
         ;;
 
         #-------------------

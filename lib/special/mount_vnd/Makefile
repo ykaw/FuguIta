@@ -4,6 +4,7 @@ PROG=	mount_vnd
 SRCS=	mount_vnd.c
 LDADD=	-lutil
 DPADD=	${LIBUTIL}
+MAN=	mount_vnd.8
 
 MOUNT=	/usr/src/sbin/mount
 CFLAGS+= -I${MOUNT}

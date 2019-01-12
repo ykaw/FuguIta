@@ -1,4 +1,4 @@
-# Copyright (c) 2006--2018 Yoshihiro Kawamata
+# Copyright (c) 2006--2019 Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -158,8 +158,8 @@ echo '
 =            __/ /
 =           /___/
 =
-= Welcome to FuguIta!  -  OpenBSD Live System
-=                 http://fuguita.org/?FuguIta
+=  Welcome to FuguIta  -  OpenBSD Live System
+=                         http://fuguita.org/
 =============================================
 '
 
@@ -493,26 +493,42 @@ while :; do
         echo "done"
 
         #========================================
-        # setup in /etc (network etc...)
-        #
-        echo "Keyboard type;"
-        while :; do
-            kbd -l | sed -e '1,3d; /^$/d' | sort | paste - - - -
-            echo -n '-> '; read kbtype
-            if kbd $kbtype; then
-                echo $kbtype > /etc/kbdtype
-                break
-            fi
-        done
+        # Configurations under /etc
+        #========================================
 
-        echo "Please wait ... "
+        #---------------
+        # keyboard type
+        #
+        if dmesg | grep -q '^.* at .*: console keyboard'; then
+            echo "Keyboard type;"
+            while :; do
+                kbd -l | sed -e '1,3d; /^$/d' | sort | paste - - - -
+                echo -n '-> '; read kbtype
+                if kbd $kbtype; then
+                    echo $kbtype > /etc/kbdtype
+                    break
+                fi
+            done
+        fi
+
+        #------------------------------
+        # serial console (for vmm/vmd)
+        #
+        if dmesg | grep -q '^com0: console'; then
+            ttyspeed=`stty speed`
+            sed -i.orig -e 's|^tty00[ 	].*|tty00	"/usr/libexec/getty std.'${ttyspeed}'"	vt220	on  secure|' /etc/ttys
+        fi
+
+        #---------------
+        # root password
+        #
         until passwd root
           do
           echo "passwd failed, Try again."
         done
 
-        #-----------------------
-        # Network configuration
+        #------------------------
+        # network configurations
         #
         /boottmp/gennetconfs /etc
 

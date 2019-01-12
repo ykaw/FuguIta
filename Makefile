@@ -1,4 +1,4 @@
-# Copyright (c) 2006--2018, Yoshihiro Kawamata
+# Copyright (c) 2006--2019, Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -134,10 +134,10 @@ bsd.mp.rdcd: bsd.mp.orig rdroot.img
 	gzip -c9 bsd.mp > media/bsd-fi.mp
 
 cdemu:
-	/usr/local/bin/qemu-system-i386 -m 256 -monitor stdio -cdrom livecd.iso -boot d
+	/usr/local/bin/qemu-system-x86_64 -m 256 -monitor stdio -cdrom livecd.iso -boot d
 
 usbemu:
-	/usr/local/bin/qemu-system-i386 -m 256 -monitor stdio -hda media.img c -boot c
+	/usr/local/bin/qemu-system-x86_64 -m 256 -monitor stdio -hda media.img c -boot c
 
 hddinstall:
 	cat media/bsd-fi    > /bsd-fi
@@ -170,7 +170,7 @@ clean:
 
 contall:
 	-make close-all
-	rm -f /ISO/FuguIta-*-$(ARCH)-?????????.iso.gz
+	rm -f /ISO/FuguIta-*-$(ARCH)-?????????.iso
 	make open-media
 	make boot
 	make hyb

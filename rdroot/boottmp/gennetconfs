@@ -59,6 +59,12 @@ else
     esac
 fi
 
+#-----------------------
+# loopback in any case
+#
+echo '127.0.0.1 localhost'  > ${basedir}/hosts
+echo '::1       localhost' >> ${basedir}/hosts
+
 case X"$ipv" in
     #-----------------------
     # IP-generic configs
@@ -97,8 +103,6 @@ case X"$ipv" in
             echo "search $mydomain" > ${basedir}/resolv.conf
             echo $myfqdn > ${basedir}/myname
         fi
-        echo '127.0.0.1 localhost'  > ${basedir}/hosts
-        echo '::1       localhost' >> ${basedir}/hosts
 
         #-----------------------
         # wireless settings

@@ -9,7 +9,9 @@ MOUNT=	/usr/src/sbin/mount
 CFLAGS+= -I${MOUNT}
 .PATH:	${MOUNT}
 
+.PATH:  /usr/src/sbin/mount_ext2fs
 .include <bsd.prog.mk>
+
 # +--------------+
 # #	$OpenBSD: Makefile,v 1.1 2014/12/23 17:16:02 deraadt Exp $
 # 

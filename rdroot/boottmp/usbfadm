@@ -544,9 +544,12 @@ function clear_vn {
     local vndev="$1"
     local saveimg="$2"
 
-    [ -z "$vndev" ] && return
     case "$vndev" in
-        vnd[0-3]) vnconfig -u "$1" ;;
+        vnd[0-3])
+            if vnconfig -l | grep -q "^$vndev: covering "; then
+                vnconfig -u "$vndev"
+                fi
+            ;;
     esac
     [ "$saveimg" != preserve_img ] && rm -f $vnfile
 }
@@ -862,7 +865,7 @@ while :; do
                 vnfile=FuguIta-$(</usr/fuguita/version).img
                 if [ -e "$vnfile" ]; then
                     echo
-                    [ 1 -gt `ask_yn "Image file $vnfile already exists\nProceed anyway?" r` ] && break
+                    [ 1 -gt `ask_yn "Image file $vnfile already exists\nRemove it and proceed?" r` ] && break
                 fi
                 while :; do
                     echo
@@ -873,17 +876,22 @@ while :; do
                     if [ 1 -lt `expr "X$ans" : 'X[0-9][0-9]*'` ]; then
                         sect_size=$((1024*1024)) # block size for dd
                         [ `byte2sect 724M` -le `byte2sect $ans` ] && break
-                        [ 1 -le `ask_yn "$ans is very small value.\nDo you really take this value?" r` ] && break
+                        [ 1 -le `ask_yn "$ans is very small value.\nDo you really take this value?" n` ] && break
                     fi
                 done
                 (sleep 15; while pkill -INFO dd; do sleep 15; done) &  # to display progress
-                dd if=/dev/zero of=$vnfile bs=$sect_size count=`byte2sect $ans`
-                vnconfig $newdev $vnfile
+                if dd if=/dev/zero of=$vnfile bs=$sect_size count=`byte2sect $ans` && \
+                        vnconfig $newdev $vnfile; then
+                    :  # normal exit
+                else
+                    clear_vn "$newdev"
+                    continue
+                fi
                 ;;
         esac
 
         echo ''
-        if [ ! fdisk $newdev ]; then
+        if ! fdisk $newdev; then
             clear_vn "$newdev"
             continue
         fi
@@ -915,45 +923,75 @@ while :; do
         case "$disable_legacyboot" in [Yy][Ee][Ss]) unset legacyitem;; esac
         uefiitem='UEFI'
         case "$disable_uefiboot" in [Yy][Ee][Ss]) unset uefiitem;; esac
+        unset hybriditem
+        [ -n "$legacyitem" -a -n "uefiitem" ] && hybriditem='Hybrid'
 
-
-        if [ `byte2sect 2T` -lt $sects_total ]; then
-            parttype=GPT
-        else
-            #-------------------
-            # ask partition type here.
-            #
+        #-------------------
+        # ask boot method and partition type
+        #
+        if [ $sects_total -lt `byte2sect 2T` ]; then
             echo ''
-            parttype=`ask_which "Select partition type:" MBR MBR GPT 'Hybrid (not recommended if you wish modify partitioning later)'`
+            instsys=`ask_which "Select boot method:" 'Legacy BIOS' "$legacyitem" "$uefiitem" 'none (only for save data)' "$hybriditem"`
+
+            echo ''
+            case $instsys in
+                Legacy)
+                    parttype=MBR
+                    ;;
+                UEFI)
+                    parttype=`ask_which "Select partition type:" GPT GPT MBR`
+                    if [ "$parttype" = MBR ]; then
+                        cat <<EOT
+Notice:
+  You have selected 'UEFI' as boot type
+  and 'MBR' as partition type.
+
+  This is NOT normal configuration for many platforms.
+
+EOT
+                        if [ 1 -gt `ask_yn "Proceed anyway?" n` ]; then
+                            clear_vn "$newdev"
+                            continue
+                        fi
+                    fi
+                    ;;
+                none)
+                    parttype=`ask_which "Select partition type:" MBR MBR GPT Hybrid`
+                    ;;
+                Hybrid)
+                    cat <<EOT
+Notice:
+  You have selected 'Hybrid' as boot type.
+
+  This can be booted from either Legacy BIOS or UEFI.
+  And has two partition tables both MBR and GPT.
+
+  This is NOT normal configuration.
+  Modifying partition table later may cause any problem.
+
+EOT
+                    if [ 1 -gt `ask_yn "Proceed anyway?" n` ]; then
+                        clear_vn "$newdev"
+                        continue
+                    fi
+                    parttype=Hybrid
+                    ;;
+                *)
+                    echo "Select one of above."
+                    clear_vn "$newdev"
+                    continue
+                    ;;
+            esac
             if [ -z "$parttype" ]; then
                 echo "Select one of above."
                 clear_vn "$newdev"
                 continue
             fi
+        else
+            echo ''
+            instsys=`ask_which "Select boot method:" '' "$uefiitem" 'none (only for save data)'`
+            parttype=GPT
         fi
-
-        #-------------------
-        # ask boot method
-        #
-        echo ''
-        case $parttype in
-            MBR)
-                instsys=`ask_which "Select boot method:" 'Legacy BIOS' "$legacyitem" 'none (only for save data)' "$uefiitem"`
-                ;;
-            GPT)
-                instsys=`ask_which "Select boot method:" UEFI "$uefiitem" 'none (only for save data)'`
-                ;;
-            Hybrid)
-                case "${disable_legacyboot}${disable_uefiboot}" in
-                    [Yy][Ee][Ss])
-                        instsys='none'
-                        ;;
-                    *)
-                        instsys=`ask_which "Select boot method:" Hybrid Hybrid 'none (only for save data)'`
-                        ;;
-                esac
-                ;;
-        esac
 
         #-------------------
         # calculate sectors
@@ -1004,7 +1042,7 @@ while :; do
                     echo 'That size exceeds the limit.'
                     continue
                 elif [ 0 -gt $ps_fidat -a $ps_fidat -lt `byte2sect 16M` ]; then
-                    if [ 1 -le `ask_yn "$ans ($ps_fidat sectors) is very small value.\nDo you really take this value?" r` ]; then
+                    if [ 1 -le `ask_yn "$ans ($ps_fidat sectors) is very small value.\nDo you really take this value?" n` ]; then
                         break
                     else
                         continue
@@ -1061,8 +1099,17 @@ while :; do
                 fdisk_init GPT
 
                 # install MBR boot loader, too
-                [ "$instsys" = Hybrid ] \
-                    && /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot
+                if [ "$instsys" = Hybrid ]; then
+                    if ! /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot; then
+                        # workaround when installboot failed
+                        notice "installboot failed, taking workaround..."
+                        if mount /dev/${scandev}i /mnt; then
+                            mkdir -p /mnt/efi/BOOT
+                            cp /fuguita/usr/mdec/*.EFI /mnt/efi/BOOT/.
+                            umount /mnt
+                        fi
+                    fi
+                fi
 
                 # overwrite protective MBR with saved MBR
                 dd if=$lockdir/hybrid.mbr of=/dev/r${scandev}c

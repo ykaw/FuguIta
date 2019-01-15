@@ -352,12 +352,12 @@ function showparam {
     echo "target disk: $scandev"
     echo "  partition type=$parttype"
     echo "       boot type=$instsys"
-    cat<<EOT | awk 'BEGIN{FS=","} {printf("%-20s : %6s\n", $1, $2)}'
+    cat<<EOT | awk 'BEGIN{FS=","} {printf("%20s : %6s\n", $1, $2)}'
 --------------------,------
 partition,size
 --------------------,------
 whole disk,`sect2byte $sects_total`
-disk metadata,`sect2byte $((ps_hgap+ps_tgap))`
+partition tables,`sect2byte $((ps_hgap+ps_tgap))`
 UEFI system,`sect2byte $ps_uefi`
 FuguIta system,`sect2byte $ps_fisys`
 FuguIta user data,`sect2byte $ps_fidat`
@@ -376,7 +376,7 @@ EOT
 function zerofill_head {
     notice "Clearing MBR, GPT and BSD disklabel"
     [ "$diskscan" = ok ]  || return
-    dd if=/dev/zero of=/dev/r"$scandev"c bs=1024k count=1
+    dd if=/dev/zero of=/dev/r"$scandev"c bs=$sect_size count=$ps_hgap
 }
 
 #-------------------
@@ -475,15 +475,15 @@ function setup_fs {
             dd if=fuguita-${osrel}-${hwmac}.ffsimg of=/mnt/fuguita-${osrel}-${hwmac}.ffsimg bs=1m
         fi
 
-        notice "Installing boot loader"
-
         case $instsys in
             Legacy|Hybrid)
+                notice "Installing BIOS boot loader"
                 /usr/sbin/installboot -v -r /mnt ${scandev} /usr/mdec/biosboot /usr/mdec/boot
                 umount /mnt
                 ;;
             UEFI)
                 umount /mnt
+                notice "Installing UEFI boot loader"
                 /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot
                 ;;
         esac
@@ -491,9 +491,8 @@ function setup_fs {
         fsck -fy /dev/r${scandev}a
     fi
 
-    notice "Setting up a partition for user's data"
-
     if echo "$disklabel" | grep -q 'd:.*4\.2BSD'; then
+        notice "Setting up a partition for user's data"
         if [ $ps_fidat -le `byte2sect 2M` ]; then
             # adjust inode density for little space
             # because too many symlinks when booted mode 0
@@ -501,8 +500,6 @@ function setup_fs {
         else
             newfs -m0 ${scandev}d
         fi
-
-        notice "Preparing partitions for user data"
 
         mount -o async /dev/${scandev}d /mnt
         mkdir /mnt/livecd-config
@@ -945,10 +942,12 @@ while :; do
         while :; do
             echo
             echo "Enter size for saving User Data."
-            echo "You can add suffix K, M, G or T (otherwise considered 'bytes')."
+            echo "  You can add suffix K, M, G or T (otherwise considered 'bytes')."
+            echo "  '*' implies 'all'"
+            echo "  '0' doesn't make this partition."
             echo
             echo "`sect2byte $ps_free` (${ps_free}sectors) free"
-            ans=`rl_wread "'*' implies 'all'" '*'`
+            ans=`rl_wread '' '*'`
 
             echo
             if [ 1 -lt `expr "X$ans" : 'X[0-9][0-9]*'` ]; then
@@ -956,7 +955,7 @@ while :; do
                 if [ $ps_free -lt $ps_fidat ]; then
                     echo 'That size exceeds the limit.'
                     continue
-                elif [ $ps_fidat -lt `byte2sect 16M` ]; then
+                elif [ 0 -gt $ps_fidat -a $ps_fidat -lt `byte2sect 16M` ]; then
                     if [ 1 -le `ask_yn "$ans ($ps_fidat sectors) is very small value.\nDo you really take this value?" r` ]; then
                         break
                     else

@@ -310,7 +310,14 @@ END {
 }'
 }
 
-function showparam {
+#-------------------
+# show global parameters
+#
+# Usage: showparams ['verbose']
+#
+#   verbose is for debug output
+#
+function showparams {
 
     # global variables for newdrive subcommand
     # 
@@ -348,11 +355,34 @@ function showparam {
     #    ps_fidat: sectors for FuguIta's Data Store (partition d)
     #    ps_fat  : sectors for Data Exchange (partition i or j)
     #    ps_tgap : tail gap (for GPT)
+    # 
+    # vnode devices
+    #
+    #    vnfile  : raw disk image file
 
     echo "target disk: $scandev"
     echo "  partition type=$parttype"
     echo "       boot type=$instsys"
-    cat<<EOT | awk 'BEGIN{FS=","} {printf("%20s : %6s\n", $1, $2)}'
+    if [ "$1" = verbose ]; then
+	cat<<EOT | awk 'BEGIN{FS=","} {printf("%20s : %10s\n", $1, $2)}'
+--------------------,----------
+partition,size
+--------------------,----------
+whole disk,$sects_total
+partition tables,${ps_hgap}+${ps_tgap}
+UEFI system,$ps_uefi
+FuguIta system,$ps_fisys
+FuguIta user data,$ps_fidat
+MSDOS FAT,$ps_fat
+--------------------,----------
+
+EOT
+	echo 'fdisk:'
+	fdisk -v $scandev | grep '[0-9]: '
+	echo 'disklabel'
+	disklabel $scandev | egrep '^  [a-p]:|^bound'
+    else
+	cat<<EOT | awk 'BEGIN{FS=","} {printf("%20s : %6s\n", $1, $2)}'
 --------------------,------
 partition,size
 --------------------,------
@@ -364,6 +394,7 @@ FuguIta user data,`sect2byte $ps_fidat`
 MSDOS FAT,`sect2byte $ps_fat`
 --------------------,------
 EOT
+    fi
 }
 
 #-------------------
@@ -535,14 +566,14 @@ EOT
 #-------------------
 # clean-ups for vnode device
 #
-#     usage: clear_vn vn_device 'preserve_img'
+#     usage: clear_vn vn_device vn_img_rm
 #
-#       vn_device : vnode to be unattached 
-#  'preserve_img' : don't remove output image file
+#    vn_device : vnode to be unattached 
+#    vn_img_rm : remove this file if specified
 #
 function clear_vn {
     local vndev="$1"
-    local saveimg="$2"
+    local vnrm="$2"
 
     case "$vndev" in
         vnd[0-3])
@@ -551,7 +582,7 @@ function clear_vn {
                 fi
             ;;
     esac
-    [ "$saveimg" != preserve_img ] && rm -f $vnfile
+    [ -n "$vnrm" ] && rm -f $vnrm
 }
 
 #==================================
@@ -884,7 +915,7 @@ while :; do
                         vnconfig $newdev $vnfile; then
                     :  # normal exit
                 else
-                    clear_vn "$newdev"
+                    clear_vn $newdev $vnfile
                     continue
                 fi
                 ;;
@@ -892,7 +923,7 @@ while :; do
 
         echo ''
         if ! fdisk $newdev; then
-            clear_vn "$newdev"
+            clear_vn $newdev $vnfile
             continue
         fi
 
@@ -900,7 +931,7 @@ while :; do
             echo ''
             echo 'This disk seems to have been partitioned already.'
             if [ `ask_yn "Continue anyway?" n` -lt 1 ]; then
-                clear_vn "$newdev"
+                clear_vn $newdev $vnfile
                 continue
             fi
         fi
@@ -910,7 +941,7 @@ while :; do
         eval `disk_scan $newdev`
         if [ ! "$diskscan" = ok ]; then
             echo "cannot get parameters of $newdev"
-            clear_vn "$newdev"
+            clear_vn $newdev $vnfile
             continue
         fi
         #
@@ -950,7 +981,7 @@ Notice:
 
 EOT
                         if [ 1 -gt `ask_yn "Proceed anyway?" n` ]; then
-                            clear_vn "$newdev"
+                            clear_vn $newdev $vnfile
                             continue
                         fi
                     fi
@@ -971,20 +1002,20 @@ Notice:
 
 EOT
                     if [ 1 -gt `ask_yn "Proceed anyway?" n` ]; then
-                        clear_vn "$newdev"
+                        clear_vn $newdev $vnfile
                         continue
                     fi
                     parttype=Hybrid
                     ;;
                 *)
                     echo "Select one of above."
-                    clear_vn "$newdev"
+                    clear_vn $newdev $vnfile
                     continue
                     ;;
             esac
             if [ -z "$parttype" ]; then
                 echo "Select one of above."
-                clear_vn "$newdev"
+                clear_vn $newdev $vnfile
                 continue
             fi
         else
@@ -1015,7 +1046,7 @@ EOT
                 ;;
             *)
                 echo "Select one of above."
-                clear_vn "$newdev"
+                clear_vn $newdev $vnfile
                 continue
                 ;;
         esac
@@ -1066,13 +1097,13 @@ EOT
         done
 
         echo
-        showparam
+        showparams
 
         echo
         echo '***THIS IS THE LAST CHANCE***'
         echo "If you type 'Y' now, all the data on $scandev will be lost."
         if [ `ask_yn "Are you sure to initialize ${scandev}?" n` -lt 1 ]; then
-            clear_vn "$newdev"
+            clear_vn $newdev $vnfile
             continue
         fi
 
@@ -1103,11 +1134,13 @@ EOT
                     if ! /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot; then
                         # workaround when installboot failed
                         notice "installboot failed, taking workaround..."
+                        set -x
                         if mount /dev/${scandev}i /mnt; then
                             mkdir -p /mnt/efi/BOOT
                             cp /fuguita/usr/mdec/*.EFI /mnt/efi/BOOT/.
                             umount /mnt
                         fi
+                        set +x
                     fi
                 fi
 
@@ -1120,7 +1153,8 @@ EOT
                 ;;
         esac
 
-        clear_vn "$scandev" preserve_img;
+        showparams verbose
+        clear_vn $scandev  # don't remove vn img file
         ;;
 
         #-------------------

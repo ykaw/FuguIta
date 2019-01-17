@@ -1,8 +1,5 @@
 #!/bin/sh
 
-#set -x
-#set -e
-
 #========================================
 #
 # usbfadm - USB Flash drive ADMinistration tool
@@ -42,7 +39,6 @@
 # THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 
 #==================================
 # Utility functions and subcommands
@@ -360,11 +356,13 @@ function showparams {
     #
     #    vnfile  : raw disk image file
 
+    echo
     echo "target disk: $scandev"
     echo "  partition type=$parttype"
     echo "       boot type=$instsys"
+    echo
     if [ "$1" = verbose ]; then
-	cat<<EOT | awk 'BEGIN{FS=","} {printf("%20s : %10s\n", $1, $2)}'
+        cat<<EOT | awk 'BEGIN{FS=","} {printf("%20s : %10s\n", $1, $2)}'
 --------------------,----------
 partition,size
 --------------------,----------
@@ -375,14 +373,15 @@ FuguIta system,$ps_fisys
 FuguIta user data,$ps_fidat
 MSDOS FAT,$ps_fat
 --------------------,----------
-
 EOT
-	echo 'fdisk:'
-	fdisk -v $scandev | grep '[0-9]: '
-	echo 'disklabel'
-	disklabel $scandev | egrep '^  [a-p]:|^bound'
+        echo
+        echo '===== fdisk =========='
+        fdisk -v $scandev | egrep '[0-9]: |^(Primary|Secondary) GPT:'
+        echo
+        echo '===== disklabel ======'
+        disklabel $scandev | egrep '^  [a-p]:|^bound'
     else
-	cat<<EOT | awk 'BEGIN{FS=","} {printf("%20s : %6s\n", $1, $2)}'
+        cat<<EOT | awk 'BEGIN{FS=","} {printf("%20s : %6s\n", $1, $2)}'
 --------------------,------
 partition,size
 --------------------,------
@@ -429,6 +428,13 @@ function fdisk_init {
     fi
 
     notice "Setting up fdisk partitions"
+
+    if [ "$debugfile" ]; then
+        { echo
+          echo "////////// fdisk_init //////////"
+          showparams verbose
+        } >> "$debugfile"
+    fi
 
     # perform fdisk
     #
@@ -479,6 +485,13 @@ function setup_fs {
 
     notice "Setting up disklabel and FFS partitions"
 
+    if [ "$debugfile" ]; then
+        { echo
+          echo "////////// setup_fs //////////"
+          showparams verbose
+        } >> "$debugfile"
+    fi
+
     { [ 0 -lt $ps_fisys ] && echo "a a\n$((ps_hgap+ps_uefi))\n${ps_fisys}\n4.2BSD"
       [ 0 -lt $ps_fidat ] && echo "a d\n$((ps_hgap+ps_uefi+ps_fisys))\n*\n4.2BSD"
       echo q
@@ -497,13 +510,13 @@ function setup_fs {
         notice "Copying FuguIta system files"
 
         mount -o async /dev/${scandev}a /mnt
-        cd /sysmedia
-        pax -rwvpe !(fuguita-${osrel}-${hwmac}.ffsimg) /mnt
+        (cd /sysmedia
+         pax -rwvpe !(fuguita-${osrel}-${hwmac}.ffsimg) /mnt)
 
         if [ -r /sysmedia/fuguita-${osrel}-${hwmac}.ffsimg ]; then
             notice "Transferring filesystem image"
             (sleep 15; while pkill -INFO dd; do sleep 15; done) &  # to display progress
-            dd if=fuguita-${osrel}-${hwmac}.ffsimg of=/mnt/fuguita-${osrel}-${hwmac}.ffsimg bs=1m
+            dd if=/sysmedia/fuguita-${osrel}-${hwmac}.ffsimg of=/mnt/fuguita-${osrel}-${hwmac}.ffsimg bs=1m
         fi
 
         case $instsys in
@@ -647,25 +660,30 @@ fuguita_uefi_kb=512
 
 # command line arguments
 #
-cmdargs=`getopt qrh $*`
+cmdargs=`getopt qrtdh $*`
 set -- $cmdargs
 while [ 1 -lt $# ]; do
     case "$1" in
         -r) opt_mode=resync; shift;;
         -q) opt_quiet=yes;   shift;;
+        -t) opt_trace=yes; set -x; shift;;
+        -d) debugfile=`pwd`/usbf.debugout  # This is also flag.
+            shift;;
         *) cat <<EOT 2>&1
-Usage: $0 [-rqh?]
+Usage: $0 [-rqtdh]
 
     -r : redo sync non-interactively
-        (must run 'sync' at interactive mode
-         before doing this)
+        (must run 'sync' at interactive mode before doing this)
     -q : quiet mode when redo sync
-    -h,: print this help
+    -t : trace output (pass -x to shell)
+    -d : debug output for newdrive to file 'usbf.debugout'
+    -h : print this help
 EOT
-           exit 1
+           clear_exit 0
            ;;
     esac
 done
+[ "$debugfile" ] && rm -f "$debugfile"
 
 #-------------------
 # non-interactive process
@@ -1140,7 +1158,7 @@ EOT
                             cp /fuguita/usr/mdec/*.EFI /mnt/efi/BOOT/.
                             umount /mnt
                         fi
-                        set +x
+                        [ "$opt_trace" = yes ] || set +x
                     fi
                 fi
 
@@ -1153,7 +1171,12 @@ EOT
                 ;;
         esac
 
-        showparams verbose
+        if [ "$debugfile" ]; then
+            { echo
+              echo "////////// End of newdrive //////////"
+              showparams verbose
+            } >> "$debugfile"
+        fi
         clear_vn $scandev  # don't remove vn img file
         ;;
 
@@ -1170,14 +1193,24 @@ EOT
         #
         *)
         echo ''
-        echo "Commands are;
+        cat<<EOT
+Interactive commands are;
     target    -  set USB device for sync and info
     saveas    -  set name of saving data
     sync      -  sync current tmpfs to the target device
     info      -  Show info on the target device
     newdrive  -  make new FuguIta USB flash drive
     bye, exit, quit
-              - end of this utility"
+              - end of this utility
+
+Command line options are;
+    -r : redo sync non-interactively
+        (must run 'sync' at interactive mode before doing this)
+    -q : quiet mode when redo sync
+    -t : trace output (pass -x to shell)
+    -d : debug output for newdrive to file 'usbf.debugout'
+    -h : print this help
+EOT
         ;;
     esac
 done

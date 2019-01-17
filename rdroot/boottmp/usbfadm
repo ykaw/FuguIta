@@ -376,7 +376,7 @@ MSDOS FAT,$ps_fat
 EOT
         echo
         echo '===== fdisk =========='
-        fdisk -v $scandev | egrep '[0-9]: |^(Primary|Secondary) GPT:'
+        fdisk -v $scandev | egrep '[0-9]: |^(Primary GPT|Secondary GPT|MBR):'
         echo
         echo '===== disklabel ======'
         disklabel $scandev | egrep '^  [a-p]:|^bound'
@@ -431,40 +431,51 @@ function fdisk_init {
 
     if [ "$debugfile" ]; then
         { echo
-          echo "////////// fdisk_init //////////"
+          echo "////////// fdisk_init ////////////////////////////////////////"
           showparams verbose
         } >> "$debugfile"
     fi
 
-    # perform fdisk
+    # - initialize partition table
+    # - build input string for fdisk
     #
+    local fdisk_input=''
     case "$ptype" in
         MBR)
             fdisk -iy $scandev
-            { [ 0 -lt $ps_uefi ] && echo "e 0\nEF\nn\n${ps_hgap}\n${ps_uefi}"
-              [ 0 -lt $ps_fat ]  && echo "e 2\n0C\nn\n$((ps_hgap+ps_uefi+ps_fisys+ps_fidat))\n${ps_fat}"
-              [ 0 -lt $((ps_fisys+ps_fidat)) ] && echo "e 3\nA6\nn\n$((ps_hgap+ps_uefi))\n$((ps_fisys+ps_fidat))"
-              echo "quit"
-            } | fdisk -e $scandev
+            [ 0 -lt $ps_uefi ] && fdisk_input="e 0\nEF\nn\n${ps_hgap}\n${ps_uefi}\n"
+            [ 0 -lt $ps_fat ]  && fdisk_input="${fdisk_input}e 2\n0C\nn\n$((ps_hgap+ps_uefi+ps_fisys+ps_fidat))\n${ps_fat}\n"
+            [ 0 -lt $((ps_fisys+ps_fidat)) ] && fdisk_input="${fdisk_input}e 3\nA6\nn\n$((ps_hgap+ps_uefi))\n$((ps_fisys+ps_fidat))\n"
+            fdisk_input="${fdisk_input}quit\n"
             ;;
         GPT)
             fdisk -igy $scandev
-            { [ 0 -lt $ps_uefi ] && echo "e 1\nEF\n${ps_hgap}\n${ps_uefi}\nUEFI Boot"
-              [ 0 -lt $ps_fat ]  && echo "e 2\n0C\n$((ps_hgap+ps_uefi+ps_fisys+ps_fidat))\n$ps_fat\nMSDOS FAT"
-              [ 0 -lt $((ps_fisys+ps_fidat)) ] && echo "e 3\nA6\n$((ps_hgap+ps_uefi))\n$((ps_fisys+ps_fidat))\nOpenBSD Area"
-              echo quit
-             } | fdisk -e $scandev
+            [ 0 -lt $ps_uefi ] && fdisk_input="e 1\nEF\n${ps_hgap}\n${ps_uefi}\nUEFI Boot\n"
+            [ 0 -lt $ps_fat ]  && fdisk_input="${fdisk_input}e 2\n0C\n$((ps_hgap+ps_uefi+ps_fisys+ps_fidat))\n$ps_fat\nMSDOS FAT\n"
+            [ 0 -lt $((ps_fisys+ps_fidat)) ] && fdisk_input="${fdisk_input}e 3\nA6\n$((ps_hgap+ps_uefi))\n$((ps_fisys+ps_fidat))\nOpenBSD Area\n"
+            fdisk_input="${fdisk_input}quit\n"
             ;;
         Hybrid)
             fdisk -iy $scandev
-            { echo "e 0\nEE\nn\n1\n*"
-              [ 0 -lt $ps_uefi ] && echo "e 1\nEF\nn\n${ps_hgap}\n${ps_uefi}"
-              [ 0 -lt $ps_fat ]  && echo "e 2\n0C\nn\n$((ps_hgap+ps_uefi+ps_fisys+ps_fidat))\n$ps_fat"
-              [ 0 -lt $((ps_fisys+ps_fidat)) ] && echo "e 3\nA6\nn\n$((disk_head_gap+ps_uefi))\n$((ps_fisys+ps_fidat))"
-              echo quit
-             } | fdisk -e $scandev
+            fdisk_input="e 0\nEE\nn\n1\n*\n"
+            [ 0 -lt $ps_uefi ] && fdisk_input="${fdisk_input}e 1\nEF\nn\n${ps_hgap}\n${ps_uefi}\n"
+            [ 0 -lt $ps_fat ]  && fdisk_input="${fdisk_input}e 2\n0C\nn\n$((ps_hgap+ps_uefi+ps_fisys+ps_fidat))\n$ps_fat\n"
+            [ 0 -lt $((ps_fisys+ps_fidat)) ] && fdisk_input="${fdisk_input}e 3\nA6\nn\n$((disk_head_gap+ps_uefi))\n$((ps_fisys+ps_fidat))\n"
+            fdisk_input="${fdisk_input}quit\n"
             ;;
     esac
+
+    # invoke fdisk
+    #
+    if [ -n "$fdisk_input" ]; then
+        if [ "$debugfile" ]; then
+            { echo
+              echo "===== fdisk input ====="
+              echo "$fdisk_input"
+            } >> "$debugfile"
+        fi
+        echo -n "$fdisk_input" | fdisk -e "$scandev"
+    fi
 }
 
 #-------------------
@@ -487,16 +498,29 @@ function setup_fs {
 
     if [ "$debugfile" ]; then
         { echo
-          echo "////////// setup_fs //////////"
+          echo "////////// setup_fs ////////////////////////////////////////"
           showparams verbose
         } >> "$debugfile"
     fi
 
-    { [ 0 -lt $ps_fisys ] && echo "a a\n$((ps_hgap+ps_uefi))\n${ps_fisys}\n4.2BSD"
-      [ 0 -lt $ps_fidat ] && echo "a d\n$((ps_hgap+ps_uefi+ps_fisys))\n*\n4.2BSD"
-      echo q
-      echo y
-    } | disklabel -c -E $scandev
+    # - build input string for disklabel
+    #
+    local disklabel_input=''
+    [ 0 -lt $ps_fisys ] && disklabel_input="a a\n$((ps_hgap+ps_uefi))\n${ps_fisys}\n4.2BSD\n"
+    [ 0 -lt $ps_fidat ] && disklabel_input="${disklabel_input}a d\n$((ps_hgap+ps_uefi+ps_fisys))\n*\n4.2BSD\n"
+    disklabel_input="${disklabel_input}q\ny\n"
+
+    # invoke disklabel
+    #
+    if [ -n "$disklabel_input" ]; then
+        if [ "$debugfile" ]; then
+            { echo
+              echo "===== disklabel input ====="
+              echo "$disklabel_input"
+            } >> "$debugfile"
+        fi
+        echo -n "$disklabel_input" | disklabel -c -E "$scandev"
+    fi
 
     local disklabel=`disklabel -c $scandev`
 
@@ -1173,7 +1197,7 @@ EOT
 
         if [ "$debugfile" ]; then
             { echo
-              echo "////////// End of newdrive //////////"
+              echo "////////// End of newdrive ////////////////////////////////////////"
               showparams verbose
             } >> "$debugfile"
         fi

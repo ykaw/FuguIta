@@ -503,9 +503,16 @@ function setup_fs {
         } >> "$debugfile"
     fi
 
-    # - build input string for disklabel
+    # build input string for disklabel
     #
-    local disklabel_input=''
+    local disklabel_input='' part
+
+    # commands to delete existing FFS/swap partitions
+    for part in `disklabel $scandev | awk '/^  [a-p]: .*  (4\.2BSD|swap)/{print $1}' | tr -d :`; do
+        disklabel_input="${disklabel_input}d $part\n"
+    done
+
+    # commands to create new FFS partitions
     [ 0 -lt $ps_fisys ] && disklabel_input="a a\n$((ps_hgap+ps_uefi))\n${ps_fisys}\n4.2BSD\n"
     [ 0 -lt $ps_fidat ] && disklabel_input="${disklabel_input}a d\n$((ps_hgap+ps_uefi+ps_fisys))\n*\n4.2BSD\n"
     disklabel_input="${disklabel_input}q\ny\n"

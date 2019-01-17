@@ -379,7 +379,7 @@ EOT
         fdisk -v $scandev | egrep '[0-9]: |^(Primary GPT|Secondary GPT|MBR):'
         echo
         echo '===== disklabel ======'
-        disklabel $scandev | egrep '^  [a-p]:|^bound'
+        disklabel -c $scandev | egrep '^  [a-p]:|^bound'
     else
         cat<<EOT | awk 'BEGIN{FS=","} {printf("%20s : %6s\n", $1, $2)}'
 --------------------,------
@@ -508,12 +508,12 @@ function setup_fs {
     local disklabel_input='' part
 
     # commands to delete existing FFS/swap partitions
-    for part in `disklabel $scandev | awk '/^  [a-p]: .*  (4\.2BSD|swap)/{print $1}' | tr -d :`; do
+    for part in `disklabel -c $scandev | awk '/^  [a-p]: .*  (4\.2BSD|swap)/{print $1}' | tr -d :`; do
         disklabel_input="${disklabel_input}d $part\n"
     done
 
     # commands to create new FFS partitions
-    [ 0 -lt $ps_fisys ] && disklabel_input="a a\n$((ps_hgap+ps_uefi))\n${ps_fisys}\n4.2BSD\n"
+    [ 0 -lt $ps_fisys ] && disklabel_input="${disklabel_input}a a\n$((ps_hgap+ps_uefi))\n${ps_fisys}\n4.2BSD\n"
     [ 0 -lt $ps_fidat ] && disklabel_input="${disklabel_input}a d\n$((ps_hgap+ps_uefi+ps_fisys))\n*\n4.2BSD\n"
     disklabel_input="${disklabel_input}q\ny\n"
 

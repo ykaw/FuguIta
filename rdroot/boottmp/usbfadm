@@ -423,7 +423,7 @@ function fdisk_init {
     local ptype="$1"
 
     if [ ! $secs_total = $((ps_hgap+ps_uefi+ps_fisys+ps_fidat+ps_fat+ps_tgap)) ]; then
-        echo "Inconsistent sector sizes: $secs_total != $ps_hgap + $disk_head_gap + $ps_uefi + $ps_fisys + $ps_fidat + $ps_fat + $ps_tgap"
+        echo "Inconsistent sector sizes: $secs_total != $ps_hgap + $ps_uefi + $ps_fisys + $ps_fidat + $ps_fat + $ps_tgap"
         return
     fi
 
@@ -460,7 +460,7 @@ function fdisk_init {
             fdisk_input="e 0\nEE\nn\n1\n*\n"
             [ 0 -lt $ps_uefi ] && fdisk_input="${fdisk_input}e 1\nEF\nn\n${ps_hgap}\n${ps_uefi}\n"
             [ 0 -lt $ps_fat ]  && fdisk_input="${fdisk_input}e 2\n0C\nn\n$((ps_hgap+ps_uefi+ps_fisys+ps_fidat))\n$ps_fat\n"
-            [ 0 -lt $((ps_fisys+ps_fidat)) ] && fdisk_input="${fdisk_input}e 3\nA6\nn\n$((disk_head_gap+ps_uefi))\n$((ps_fisys+ps_fidat))\n"
+            [ 0 -lt $((ps_fisys+ps_fidat)) ] && fdisk_input="${fdisk_input}e 3\nA6\nn\n$((ps_hgap+ps_uefi))\n$((ps_fisys+ps_fidat))\n"
             fdisk_input="${fdisk_input}quit\n"
             ;;
     esac
@@ -1004,7 +1004,7 @@ while :; do
         uefiitem='UEFI'
         case "$disable_uefiboot" in [Yy][Ee][Ss]) unset uefiitem;; esac
         unset hybriditem
-        [ -n "$legacyitem" -a -n "uefiitem" ] && hybriditem='Hybrid'
+        [ "$legacyitem$uefiitem" = 'Legacy BIOSUEFI' ] && hybriditem='Hybrid'
 
         #-------------------
         # ask boot method and partition type
@@ -1081,7 +1081,13 @@ EOT
         ps_fisys=0
         ps_fidat=0
         ps_fat=0
-        ps_tgap=0
+        case "$parttype" in
+            GPT|Hybrid)
+                ps_tgap=$ps_hgap ;;  # for 2nd GPT
+            *)
+                ps_tgap=0 ;;
+        esac
+
         case "$instsys" in
             Legacy)
                 ps_fisys=`byte2sect "${fuguita_sys_mb}M"`
@@ -1089,7 +1095,6 @@ EOT
             UEFI|Hybrid)
                 ps_uefi=`byte2sect "${fuguita_uefi_kb}K"`
                 ps_fisys=`byte2sect "${fuguita_sys_mb}M"`
-                ps_tgap=$disk_head_gap
                 ;;
             none)
                 ;;
@@ -1179,9 +1184,9 @@ EOT
                 fdisk_init GPT
 
                 # install MBR boot loader, too
-                if [ "$instsys" = Hybrid ]; then
+                if [ "$instsys" = Hybrid \
+                       -a `expr "$disable_uefiboot" : '[Yy][Ee][Ss]'` != 0 ]; then
                     if ! /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot; then
-                        # workaround when installboot failed
                         notice "installboot failed, taking workaround..."
                         set -x
                         if mount /dev/${scandev}i /mnt; then

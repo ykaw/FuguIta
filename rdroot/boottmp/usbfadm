@@ -568,7 +568,7 @@ function setup_fs {
 
     if echo "$disklabel" | grep -q 'd:.*4\.2BSD'; then
         notice "Setting up a partition for user's data"
-        if [ $ps_fidat -le `byte2sect 2M` ]; then
+        if [ $ps_fidat -le `byte2sect 2G` ]; then
             # adjust inode density for little space
             # because too many symlinks when booted mode 0
             newfs -m0 -i1024 -b4096 -f512 ${scandev}d

@@ -412,7 +412,7 @@ function zerofill_head {
     [ "$diskscan" = ok ]  || return
 
     # clear partition table and disklabel
-    dd if=/dev/zero of=/dev/r"$scandev"c bs=$sect_size count=$((bound_start+`byte2sect 1M`))
+    dd if=/dev/zero of=/dev/r"$scandev"c bs=$((2048*sect_size)) count=$(((bound_start+`byte2sect 1M`)/2048))
 }
 
 #-------------------

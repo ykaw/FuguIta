@@ -565,7 +565,16 @@ function setup_fs {
             UEFI)
                 umount /mnt
                 notice "Installing UEFI boot loader"
-                /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot
+                if ! /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot; then
+                    notice "installboot failed, taking workaround..."
+                    set -x
+                    if mount /dev/${scandev}i /mnt; then
+                        mkdir -p /mnt/efi/BOOT
+                        cp /fuguita/usr/mdec/*.EFI /mnt/efi/BOOT/.
+                        umount /mnt
+                    fi
+                    [ "$opt_trace" = yes ] || set +x
+                fi
                 ;;
         esac
 
@@ -1028,6 +1037,7 @@ while :; do
                     parttype=`ask_which "Select partition type:" GPT GPT MBR`
                     if [ "$parttype" = MBR ]; then
                         cat <<EOT
+
 Notice:
   You have selected 'UEFI' as boot type
   and 'MBR' as partition type.

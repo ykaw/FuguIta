@@ -1223,6 +1223,10 @@ EOT
                 ;;
         esac
 
+        # site-specific post processing
+        #
+        [ -r /usr/fuguita/etc/usbfadm_postproc.sh ] && . /usr/fuguita/etc/usbfadm_postproc.sh
+
         if [ "$debugfile" ]; then
             { echo
               echo "////////// End of newdrive ////////////////////////////////////////"

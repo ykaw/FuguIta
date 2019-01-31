@@ -297,9 +297,11 @@ BEGIN {
 }
 $1 == "bytes/sector:"  { sect_size=$2;   print "sect_size=" sect_size; paramfound++; }
 $1 == "sectors/track:" { print "sects_trk=" $2; paramfound++ }
+$1 == "boundstart:"    { print "bound_start=" $2; paramfound++ }
+$1 == "boundend:"      { print "bound_end=" $2; paramfound++ }
 /^total sectors: /     { sects_total=$3; print "sects_total=" $3; paramfound++; }
 END {
-    if (paramfound==3) {
+    if (paramfound==5) {
         print "diskscan=ok"
     } else
         print "diskscan=ng"
@@ -340,6 +342,8 @@ function showparams {
     #    sect_size  : sector size - bytes/sector
     #    sects_trk  : number of sectors per track
     #    sects_total: number of total sectors
+    #    bound_start: start of OpenBSD boundary
+    #    bound_end  : end of OpenBSD boundary
     #    diskscan   : result of scan - 'ok' or 'ng'
     # 
     # partition sectors (ps_ for short)
@@ -406,7 +410,9 @@ EOT
 function zerofill_head {
     notice "Clearing MBR, GPT and BSD disklabel"
     [ "$diskscan" = ok ]  || return
-    dd if=/dev/zero of=/dev/r"$scandev"c bs=$sect_size count=$ps_hgap
+
+    # clear partition table and disklabel
+    dd if=/dev/zero of=/dev/r"$scandev"c bs=$sect_size count=$((bound_start+`byte2sect 1M`))
 }
 
 #-------------------

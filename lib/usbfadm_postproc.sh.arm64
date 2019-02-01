@@ -29,6 +29,7 @@ else
                 (if cd /altroot/livecd-config/${verarch}/fuguita.templ; then
                      mkdir -p /mnt/livecd-config/${verarch}/fuguita.templ
                      rsync --progress -avH . /mnt/livecd-config/${verarch}/fuguita.templ/.
+                     chflags -R uchg /mnt/livecd-config/${verarch}/fuguita.templ
                      mkdir -p /mnt/livecd-config/${verarch}/fuguita.default
                      rsync --progress -avH . /mnt/livecd-config/${verarch}/fuguita.default/.
                  fi)

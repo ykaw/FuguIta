@@ -565,15 +565,16 @@ function setup_fs {
             UEFI)
                 umount /mnt
                 notice "Installing UEFI boot loader"
-                if ! /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot; then
-                    notice "installboot failed, taking workaround..."
-                    set -x
-                    if mount /dev/${scandev}i /mnt; then
+                /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot
+                if mount /dev/${scandev}i /mnt; then
+                    if ! ls -ld /mnt/efi/BOOT/*.[Ee][Ff][Ii] 2>&1 | grep -q '^-'; then
+                        notice "installboot failed, taking workaround..."
+                        set -x
                         mkdir -p /mnt/efi/BOOT
-                        cp /fuguita/usr/mdec/*.EFI /mnt/efi/BOOT/.
-                        umount /mnt
+                        cp /fuguita/usr/mdec/*.EFI /mnt/efi/BOOT
+                        [ "$opt_trace" != yes ] && set +x
                     fi
-                    [ "$opt_trace" = yes ] || set +x
+                    umount /mnt
                 fi
                 ;;
         esac
@@ -1172,7 +1173,7 @@ EOT
         echo
         echo '***THIS IS THE LAST CHANCE***'
         echo "If you type 'Y' now, all the data on $scandev will be lost."
-        if [ `ask_yn "Are you sure to initialize ${scandev}?" n` -lt 1 ]; then
+        if [ `ask_yn "Are you sure to modify disk ${scandev}?" n` -lt 1 ]; then
             clear_vn $newdev $vnfile
             continue
         fi
@@ -1201,16 +1202,17 @@ EOT
 
                 # install MBR boot loader, too
                 if [ "$instsys" = Hybrid \
-                       -a `expr "$disable_uefiboot" : '[Yy][Ee][Ss]'` != 0 ]; then
-                    if ! /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot; then
-                        notice "installboot failed, taking workaround..."
-                        set -x
-                        if mount /dev/${scandev}i /mnt; then
+                       -a `expr "$disable_uefiboot" : '[Yy][Ee][Ss]'` -eq 0 ]; then
+                    /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot
+                    if mount /dev/${scandev}i /mnt; then
+                        if ! ls -ld /mnt/efi/BOOT/*.[Ee][Ff][Ii] 2>&1 | grep -q '^-'; then
+                            notice "installboot failed, taking workaround..."
+                            set -x
                             mkdir -p /mnt/efi/BOOT
-                            cp /fuguita/usr/mdec/*.EFI /mnt/efi/BOOT/.
-                            umount /mnt
+                            cp /fuguita/usr/mdec/*.EFI /mnt/efi/BOOT
+                            [ "$opt_trace" != yes ] && set +x
                         fi
-                        [ "$opt_trace" = yes ] || set +x
+                        umount /mnt
                     fi
                 fi
 

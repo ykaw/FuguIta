@@ -55,7 +55,7 @@ scan_disks () {
     for dsk in `sysctl -n hw.disknames | /boottmp/sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'`; do
         case $dsk in
             [csw]d[0-9]*)
-                disklabel -c -pm $dsk 2>/dev/null \
+                disklabel -c -pm $dsk 2> /dev/null \
                     | /boottmp/sed -E -e '/^  [abd-p]: /!d; s/^  (.):/'$dsk'\1/'
                 ;;
         esac
@@ -75,7 +75,7 @@ scan_disks () {
         echo -n " $part"
         case $fstype in
             swap) part_swp=${part_swp:+"$part_swp "}$part ;;
-            *) if mount -r /dev/$part /mnt 2>/dev/null; then
+            *) if mount -r /dev/$part /mnt 2> /dev/null; then
                    set -- /mnt/ISO/FuguIta-${osrel}-${osmac}-?????????.iso
                    if [ -f /mnt/fuguita-${osrel}-${osmac}.ffsimg -o ! X"$1" = X"/mnt/ISO/FuguIta-${osrel}-${osmac}-?????????.iso" ]; then
                        part_sys=${part_sys:+"$part_sys "}$part
@@ -104,7 +104,7 @@ mkshadowdir() {
     mkdir -p "$2" || return
     (if cd "$2" ; then
          lndir -s $1
-         (cd "$1" && mtree -cdtq) | mtree -edtq -u >/dev/null
+         (cd "$1" && mtree -cdtq) | mtree -edtq -u > /dev/null
      fi)
 }
 
@@ -122,7 +122,7 @@ mkshadowdir() {
 cd /
 
 #-------------------------------
-# create fstab then mount by it
+# setup root fs and record starting timestamp of boot
 #
 mount -w /dev/rd0a /
 : > /boottmp/boot_starts
@@ -299,6 +299,7 @@ fi
 # generate fstab from current
 # mounting status
 #
+echo "# generated automatically at boot time" > /boottmp/fstab
 /sbin/mount | \
 while read ln; do
     set - $ln
@@ -312,7 +313,7 @@ while read ln; do
         *)
             echo $1 $3 $5 defaults 0 0 ;;
     esac
-done >/boottmp/fstab
+done >> /boottmp/fstab
 
 #----------------------------
 # re-link bin dirs to System device
@@ -400,14 +401,14 @@ while :; do
         cd /
         rm -rf /tmp
         mv /etc /bootetc
-        ln -sf ram/* . 2>/dev/null
+        ln -sf ram/* . 2> /dev/null
         cp /boottmp/fstab /etc
 
         #-------------------------------------------
         # symlink rest of contents from / to System Storage
         #
-        ln -s fuguita/* .     2>/dev/null
-        #ln -s fuguita/.??* . 2>/dev/null ; # Maybe not needed
+        ln -s fuguita/* .     2> /dev/null
+        #ln -s fuguita/.??* . 2> /dev/null ; # Maybe not needed
 
         if [ X"$setup_rw_mode" = X0 ]; then
             #-------------------------------------------
@@ -420,7 +421,7 @@ while :; do
                 ( cd /ram \
                   && pax -rzpe -f /fuguita/usr/fuguita/etc/mode0symlinks.cpio.gz \
                   && [ -r /etc/mtree/special.fuguita ] \
-                  && mtree -edtq -u -p / -f /etc/mtree/special.fuguita >/dev/null )
+                  && mtree -edtq -u -p / -f /etc/mtree/special.fuguita > /dev/null )
             else
                 echo -n "Linking files from /ram to /fuguita ... "
                 mkshadowdir /fuguita/usr /ram/usr
@@ -620,7 +621,7 @@ while :; do
             while :; do
                 echo "$usb_devname : available data;"
                 (if cd /mnt/livecd-config; then
-                     cd $osrel/$osmac 2>/dev/null
+                     cd $osrel/$osmac 2> /dev/null
                      echo; ls -C; echo
                  fi)
                 echo -n 'config name -> '
@@ -651,7 +652,7 @@ while :; do
             # copying to ram
             #
             echo "Copying files from flash to ram ... "
-            if cd /mnt/livecd-config/$osrel/$osmac/$confdir 2>/dev/null || \
+            if cd /mnt/livecd-config/$osrel/$osmac/$confdir 2> /dev/null || \
                cd /mnt/livecd-config/$confdir; then
                 if ! pax -rwpe . /ram; then
                     # tmpfs bug workaround
@@ -674,7 +675,7 @@ while :; do
             # retry copying to ram again
             #
             if [ "$pax_failed" = "yes" ]; then
-                if cd /mnt/livecd-config/$osrel/$osmac/$confdir 2>/dev/null || \
+                if cd /mnt/livecd-config/$osrel/$osmac/$confdir 2> /dev/null || \
                    cd /mnt/livecd-config/$confdir; then
                     echo "Copying to ram was partially failed, retrying..."
                     /fuguita/usr/local/bin/rsync -rlptgovH . /ram/.
@@ -712,6 +713,20 @@ while :; do
             #
             egrep -v ' /(sysmedia|sysmedia-iso|fuguita) ' /etc/fstab > /etc/fstab.tmp
             mv /etc/fstab.tmp /etc/fstab
+        fi
+
+        #-------------------------------------------
+        # merge user-defined fstab entries
+        # into auto generated /etc/fstab
+        #
+        fstab_tail="/usr/fuguita/etc/fstab.tail"
+        fstab_merged="# followings are merged from $fstab_tail"
+
+        if ! fgrep -q "$fstab_merged" /etc/fstab; then
+            if [ -r $fstab_tail ]; then
+                echo $fstab_merged >> /etc/fstab
+                cat $fstab_tail >> /etc/fstab
+            fi
         fi
 
         break

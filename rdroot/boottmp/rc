@@ -678,7 +678,7 @@ while :; do
                 if cd /mnt/livecd-config/$osrel/$osmac/$confdir 2> /dev/null || \
                    cd /mnt/livecd-config/$confdir; then
                     echo "Copying to ram was partially failed, retrying..."
-                    /fuguita/usr/local/bin/rsync -rlptgovH . /ram/.
+                    /fuguita/usr/local/bin/rsync -rlptgovHS . /ram/.
                     echo "done"
                     cd /
                 fi

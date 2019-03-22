@@ -746,10 +746,10 @@ if [ "$opt_mode" = 'resync' ]; then
 
     if mount -o softdep,noatime $devname /mnt; then
         if [ "$opt_quiet" = 'yes' ]; then
-            rsync -aqHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+            rsync -aqHxS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
         else
             notice "Sync current tmpfs as $uconf into $devname"
-            rsync --progress -avHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+            rsync --progress -avHxS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
         fi
         # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
         rm -rf /mnt/livecd-config/$uconf/tmp/{.??*,*}
@@ -822,7 +822,7 @@ while :; do
             if mount -o softdep,noatime $devname /mnt &&
                mkdir -p /mnt/livecd-config/$verarch/$uconf; then
                 echo ''
-                rsync --progress -avHx --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+                rsync --progress -avHxS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
                 # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
                 rm -rf /mnt/livecd-config/$verarch/$uconf/tmp/{.??*,*}
                 sync

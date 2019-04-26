@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.463 2018/08/31 00:09:13 jmatthew Exp $
+#	$OpenBSD: GENERIC,v 1.468 2019/03/28 09:41:35 kettenis Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -10,6 +10,11 @@
 # device.
 
 machine		amd64
+
+#	$OpenBSD: GENERIC,v 1.259 2019/04/05 09:06:31 deraadt Exp $
+#
+#	Machine-independent option; used by all architectures for their
+#	GENERIC kernel
 
 option		DDB		# in-kernel debugger
 #option		DDBPROF		# ddb(4) based profiling
@@ -102,6 +107,8 @@ pseudo-device	mobileip	# MobileIP encapsulation interface
 pseudo-device	loop		# network loopback
 pseudo-device	mpe		# MPLS PE interface
 pseudo-device	mpw		# MPLS pseudowire support
+pseudo-device	mpip		# MPLS IP Layer2 pseudowire support
+pseudo-device	bpe		# Provider Backbone Bridge edge interface
 pseudo-device	pair		# Virtual Ethernet interface pair
 pseudo-device	ppp		# PPP
 pseudo-device	pppoe		# PPP over Ethernet (RFC 2516)
@@ -120,7 +127,6 @@ pseudo-device	fuse		# fuse device
 
 option		BOOT_CONFIG	# add support for boot -c
 
-
 maxusers	80			# estimated number of users
 
 option		USER_PCICONF	# user-space PCI configuration
@@ -136,10 +142,9 @@ option		RAMDISK_HOOKS
 option		MINIROOTSIZE=3800
 option		NKPTP=5
 
-#config		bsd	root on rd0a
 config		bsd root on rd0a swap on rd0b and wd0b and sd0b
 
-pseudo-device   rd              1       # ramdisk
+pseudo-device   rd              1 # ramdisk
 
 mainbus0 at root
 
@@ -164,6 +169,7 @@ acpicpu*	at acpi?
 acpicmos*	at acpi?
 acpidock*	at acpi?
 acpiec*		at acpi?
+acpipci*	at acpi?
 acpiprt*	at acpi?
 acpisbs*	at acpi?
 acpitz*		at acpi?
@@ -194,6 +200,7 @@ mpbios0		at bios0
 ipmi0	at mainbus? disable	# IPMI
 
 vmt0	at pvbus?		# VMware Tools
+pvclock0 at pvbus?		# KVM pvclock
 
 xen0	at pvbus?		# Xen HVM domU
 xnf*	at xen?			# Xen Netfront
@@ -363,6 +370,8 @@ uchcom*	at uhub?		# WinChipHead CH341/340 serial
 ucom*	at uchcom?
 uticom*	at uhub?		# TI serial
 ucom*	at uticom?
+uxrcom*	at uhub?		# Exar XR21V1410 serial
+ucom*	at uxrcom?
 uaudio* at uhub?		# USB Audio
 audio*	at uaudio?
 umidi*	at uhub?		# USB MIDI
@@ -421,6 +430,7 @@ urtw*	at uhub?		# Realtek 8187
 rsu*	at uhub?		# Realtek RTL8188SU/RTL8191SU/RTL8192SU
 urtwn*	at uhub?		# Realtek RTL8188CU/RTL8192CU
 udcf*	at uhub?		# Gude Expert mouseCLOCK
+umbg*	at uhub?		# Meinberg Funkuhren USB5131/DCF600USB
 umb*	at uhub?		# Mobile Broadband Interface Model
 uthum*	at uhidev?		# TEMPerHUM sensor
 ugold*	at uhidev?		# gold TEMPer sensor
@@ -633,6 +643,7 @@ ale*	at pci?				# Attansic L1E Ethernet
 lii*	at pci?				# Attansic L2 Ethernet
 jme*	at pci?				# JMicron JMC250/JMC260 Ethernet
 bnxt*	at pci?				# Broadcom BCM573xx, BCM574xx
+ixl*	at pci?				# Intel Ethernet 700 Series
 
 # Wireless network cards
 acx*	at pci?				# TI ACX100/ACX111 (802.11b/g)

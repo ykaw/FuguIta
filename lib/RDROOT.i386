@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.837 2018/08/27 19:32:48 jcs Exp $
+#	$OpenBSD: GENERIC,v 1.840 2019/03/22 12:07:00 sthen Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -102,6 +102,8 @@ pseudo-device	mobileip	# MobileIP encapsulation interface
 pseudo-device	loop		# network loopback
 pseudo-device	mpe		# MPLS PE interface
 pseudo-device	mpw		# MPLS pseudowire support
+pseudo-device	mpip		# MPLS IP Layer2 pseudowire support
+pseudo-device	bpe		# Provider Backbone Bridge edge interface
 pseudo-device	pair		# Virtual Ethernet interface pair
 pseudo-device	ppp		# PPP
 pseudo-device	pppoe		# PPP over Ethernet (RFC 2516)
@@ -119,7 +121,6 @@ pseudo-device	bio	1	# ioctl multiplexing device
 pseudo-device	fuse		# fuse device
 
 option		BOOT_CONFIG	# add support for boot -c
-
 
 maxusers	80			# estimated number of users
 
@@ -153,6 +154,7 @@ amdmsr0	at mainbus?		# MSR access for AMD Geode LX CPUs with GP
 
 pvbus0	at mainbus0		# Paravirtual device bus
 vmt0	at pvbus?		# VMware Tools
+pvclock0 at pvbus?		# KVM pvclock
 
 acpitimer*	at acpi?
 acpihpet*	at acpi?
@@ -191,7 +193,6 @@ isa0	at gscpcib?
 isa0	at glxpcib?
 eisa0	at mainbus0
 pci*	at mainbus0
-vmm0	at mainbus0
 
 pchb*	at pci?			# PCI-Host bridges
 ppb*	at pci?			# PCI-PCI bridges
@@ -432,7 +433,7 @@ urtw*	at uhub?		# Realtek 8187
 rsu*	at uhub?		# Realtek RTL8188SU/RTL8191SU/RTL8192SU
 urtwn*	at uhub?		# Realtek RTL8188CU/RTL8192CU
 udcf*	at uhub?		# Gude Expert mouseCLOCK
-umbg*	at uhub?		# Meinberg Funkuhren USB5131
+umbg*	at uhub?		# Meinberg Funkuhren USB5131/DCF600USB
 umb*	at uhub?		# Mobile Broadband Interface Model
 uthum*	at uhidev?		# TEMPerHUM sensor
 ugold*	at uhidev?		# gold TEMPer sensor

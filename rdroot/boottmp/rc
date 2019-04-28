@@ -550,6 +550,19 @@ while :; do
             ;;
         esac
 
+        # settings on xenodm activation
+        #
+        case `uname -m` in
+            i386|amd64)
+                echo 'Do you wish to login with Console or X?'
+                echo -n '[C] -> '; read ans
+                case "$ans" in
+                    [Xx]*) echo 'xenodm_flags=' >> /etc/rc.conf.local
+                    ;;
+                esac
+            ;;
+        esac
+
         break
         ;;
 

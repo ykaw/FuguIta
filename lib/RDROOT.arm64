@@ -1,4 +1,4 @@
-# $OpenBSD: GENERIC,v 1.91 2018/09/11 13:54:28 ccardenas Exp $
+# $OpenBSD: GENERIC,v 1.98 2019/04/01 08:46:16 patrick Exp $
 #
 # GENERIC machine description file
 #
@@ -111,6 +111,8 @@ pseudo-device	mobileip	# MobileIP encapsulation interface
 pseudo-device	loop		# network loopback
 pseudo-device	mpe		# MPLS PE interface
 pseudo-device	mpw		# MPLS pseudowire support
+pseudo-device	mpip		# MPLS IP Layer2 pseudowire support
+pseudo-device	bpe		# Provider Backbone Bridge edge interface
 pseudo-device	pair		# Virtual Ethernet interface pair
 pseudo-device	ppp		# PPP
 pseudo-device	pppoe		# PPP over Ethernet (RFC 2516)
@@ -128,7 +130,6 @@ pseudo-device	bio	1	# ioctl multiplexing device
 pseudo-device	fuse		# fuse device
 
 option		BOOT_CONFIG	# add support for boot -c
-
 
 maxusers	32
 
@@ -151,6 +152,7 @@ pseudo-device   rd              1       # ramdisk
 # The main bus device
 mainbus0	at root
 cpu0		at mainbus?
+apm0		at mainbus?
 efi0		at mainbus?
 acpi0		at mainbus?
 acpibtn*	at acpi?
@@ -180,6 +182,7 @@ ahci*		at fdt?
 dwge*		at fdt?
 dwpcie*		at fdt?
 pci*		at dwpcie?
+ohci*		at fdt?
 ehci*		at fdt?
 pciecam*	at fdt?
 pci*		at pciecam?
@@ -231,8 +234,7 @@ imxiic*		at fdt?
 iic*		at imxiic?
 imxesdhc*	at fdt?
 sdmmc*		at imxesdhc?
-imxpd*		at fdt?
-imxdwusb*	at fdt?
+imxsrc*		at fdt?
 imxspi*		at fdt?
 ssdfb*		at iic?
 ssdfb*		at spi?
@@ -255,6 +257,7 @@ hitemp*		at fdt?
 
 # Marvell SoCs
 mvclock*	at fdt? early 1
+mvgicp*		at fdt? early 1
 mvicu*		at fdt? early 1
 mvpinctrl*	at fdt? early 1
 mvgpio*		at fdt?
@@ -356,6 +359,8 @@ uchcom*		at uhub?		# WinChipHead CH341/340 serial
 ucom*		at uchcom?
 uticom*		at uhub?		# TI serial
 ucom*		at uticom?
+uxrcom*		at uhub?		# Exar XR21V1410 serial
+ucom*		at uxrcom?
 uaudio*		at uhub?		# USB Audio
 audio*		at uaudio?
 umidi*		at uhub?		# USB MIDI
@@ -444,6 +449,7 @@ ch*		at scsibus?
 uk*		at scsibus?
 
 # I2C devices
+abcrtc*		at iic?			# Abracon x80x RTC
 fanpwr*		at iic?			# FAN53555 regulator
 islrtc*		at iic?			# ISL1208 RTC
 rkpmic*		at iic?			# RK808 PMIC

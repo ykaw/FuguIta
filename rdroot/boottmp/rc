@@ -554,7 +554,7 @@ while :; do
         #
         case `uname -m` in
             i386|amd64)
-                echo 'Do you wish to login with Console or X Window System?'
+                echo 'Do you login with Console or X Window System?'
                 echo -n '[default: Console] -> '; read ans
                 case "$ans" in
                     [Xx]*) echo 'xenodm_flags=' >> /etc/rc.conf.local

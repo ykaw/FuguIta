@@ -1,0 +1,51 @@
+--- rc	Wed May  1 12:10:33 2019
++++ rc.fi	Wed May  1 12:24:27 2019
+@@ -177,22 +177,15 @@
+ 	# filesystems, otherwise record which ones are mounted read-only.
+ 	for _dkdev in $(df /usr/{lib,libexec} $_relink |
+ 	    sed '1d;s/ .*//' | sort -u); do
+-		_mp=$(mount -t ffs | grep "^$_dkdev") || return
++		_mp=$(mount | egrep 'ffs|tmpfs' | grep "^$_dkdev") || return
+ 		if [[ $_mp == *read-only* ]]; then
+-			_ro_list="$_ro_list ${_mp%% *}"
++			echo "fuguita: can't reorder libraries at this boot mode"
++			return
+ 		fi
+ 	done
+ 
+ 	echo -n 'reordering libraries:'
+ 
+-	# Remount the (read-only) filessystems in _ro_list as read-write.
+-	for _mp in $_ro_list; do
+-		if ! mount -u -w $_mp; then
+-			echo ' failed.'
+-			return
+-		fi
+-	done
+-
+ 	# Only choose the latest version of the libraries.
+ 	for _liba in $_relink/usr/lib/lib{c,crypto}; do
+ 		_libas="$_libas $(ls $_liba.so.+([0-9.]).a | sort -rV | head -1)"
+@@ -374,8 +367,9 @@
+ # Re-mount the root filesystem read/writeable. (root on nfs requires this,
+ # others aren't hurt.)
+ mount -uw /
+-chmod og-rwx /bsd
+-ln -fh /bsd /bsd.booted
++# KARL disabled
++#chmod og-rwx /bsd
++#ln -fh /bsd /bsd.booted
+ 
+ rm -f /fastboot
+ 
+@@ -613,7 +607,9 @@
+ 
+ # Re-link the kernel, placing the objects in a random order.
+ # Replace current with relinked kernel and inform root about it.
+-/usr/libexec/reorder_kernel &
++echo 'fuguita: disabled KARL because of read-only media'
++echo
++#/usr/libexec/reorder_kernel &
+ 
+ date
+ exit 0

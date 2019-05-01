@@ -563,6 +563,10 @@ while :; do
             ;;
         esac
 
+        # modify OpenBSD's orignal /etc/rc
+        #
+        (cd /etc && patch -s < /boottmp/etc.rc.diff)
+
         break
         ;;
 

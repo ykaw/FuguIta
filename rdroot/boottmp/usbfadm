@@ -537,8 +537,8 @@ function setup_fs {
 
     local disklabel=`disklabel -c $scandev`
 
-    echo "$disklabel" | grep -q 'i:.*MSDOS' && newfs_msdos -F 32 ${scandev}i
-    echo "$disklabel" | grep -q 'j:.*MSDOS' && newfs_msdos -F 32 ${scandev}j
+    echo "$disklabel" | grep -q 'i:.*MSDOS' && newfs_msdos ${scandev}i
+    echo "$disklabel" | grep -q 'j:.*MSDOS' && newfs_msdos ${scandev}j
 
     if echo "$disklabel" | grep -q 'a:.*4\.2BSD'; then
         # very few files ... make inode density low

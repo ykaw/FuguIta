@@ -517,7 +517,10 @@ while :; do
         #
         if dmesg | grep -q '^com0: console'; then
             ttyspeed=`stty speed`
-            sed -i.orig -e 's|^tty00[ 	].*|tty00	"/usr/libexec/getty std.'${ttyspeed}'"	vt220	on  secure|' /etc/ttys
+            sed -i.orig \
+                -e '/^console/s|[	 ]on| off|;
+                    s|^tty00[ 	].*|tty00	"/usr/libexec/getty std.'${ttyspeed}'"	vt220	on  secure|' \
+                /etc/ttys
         fi
 
         #---------------

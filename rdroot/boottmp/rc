@@ -812,7 +812,10 @@ done
 rm -f /boot.catalog /cdboot /cdbr /rr_moved
 rmdir /sysmedia-iso 2> /dev/null
 
-echo "========================================"
+echo "            _________________________________________________
+           /     Setup for FuguIta ends.          /
+          / OpenBSD's boot sequence will follow. /
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 date > /boottmp/boot_livecd_rc_ends
 
 #========================================

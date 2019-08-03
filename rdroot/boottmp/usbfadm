@@ -670,7 +670,10 @@ if [ ! `id -un` = root ]; then
     exit 1
 fi
 
-if [ 1 -le $(expr $(pwd) : /mnt) ]; then
+if ! pwd >/dev/null; then
+    # in case of cwd already unmounted
+    cd /
+elsif [ 1 -le $(expr $(pwd) : /mnt) ]; then
     echo ''
     echo 'You are under /mnt. Please move to other directory.'
     exit 1

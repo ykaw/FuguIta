@@ -22,7 +22,7 @@ fi
 if [ "${srcpart%?}" = "$scandev" ]; then
     echo "src and dest disk are identical."
 else
-    if mount -o async,noatime /dev/${scandev}d /mnt; then
+    if mount -o softdep,noatime /dev/${scandev}d /mnt; then
         if mount -r /dev/${srcpart} /altroot; then
             if [ -d /mnt/livecd-config -a \
                  -d /altroot/livecd-config/${verarch}/fuguita.templ ]; then

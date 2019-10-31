@@ -106,7 +106,7 @@ hyb:
 	mkhybrid -a -R -L -l -d -D -N \
 		-o livecd.iso \
 		-v -v \
-		-A "FuguIta - OpenBSD LiveCD" \
+		-A "FuguIta - OpenBSD Live System" \
 		-P "Copyright (c) `date +%Y` KAWAMATA Yoshihiro" \
 		-p "KAWAMATA Yoshihiro, http://fuguita.org/?FuguIta" \
 		-V "$(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$$(($(REVISION)+1))" \

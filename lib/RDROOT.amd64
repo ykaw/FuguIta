@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.468 2019/03/28 09:41:35 kettenis Exp $
+#	$OpenBSD: GENERIC,v 1.480 2019/09/26 12:59:01 brynet Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -10,11 +10,6 @@
 # device.
 
 machine		amd64
-
-#	$OpenBSD: GENERIC,v 1.259 2019/04/05 09:06:31 deraadt Exp $
-#
-#	Machine-independent option; used by all architectures for their
-#	GENERIC kernel
 
 option		DDB		# in-kernel debugger
 #option		DDBPROF		# ddb(4) based profiling
@@ -103,7 +98,6 @@ pseudo-device	carp		# CARP protocol support
 pseudo-device	etherip		# EtherIP (RFC 3378)
 pseudo-device	gif		# IPv[46] over IPv[46] tunnel (RFC1933)
 pseudo-device	gre		# GRE encapsulation interface
-pseudo-device	mobileip	# MobileIP encapsulation interface
 pseudo-device	loop		# network loopback
 pseudo-device	mpe		# MPLS PE interface
 pseudo-device	mpw		# MPLS pseudowire support
@@ -115,6 +109,8 @@ pseudo-device	pppoe		# PPP over Ethernet (RFC 2516)
 pseudo-device	pppx		# PPP multiplexer
 pseudo-device	sppp	1	# Sync PPP/HDLC
 pseudo-device	trunk		# Trunking support
+pseudo-device	aggr		# 802.1AX Link Aggregation
+pseudo-device	tpmr		# 802.1Q Two-Port MAC Relay (TPMR)
 pseudo-device	tun		# network tunneling over tty (tun & tap)
 pseudo-device	vether		# Virtual ethernet
 pseudo-device	vxlan		# Virtual extensible LAN
@@ -138,11 +134,10 @@ option		MTRR		# CPU memory range attributes control
 option		NTFS		# NTFS support
 option		HIBERNATE	# Hibernate support
 
+config		bsd root on rd0a swap on wd0b and sd0b
 option		RAMDISK_HOOKS
 option		MINIROOTSIZE=3800
 option		NKPTP=5
-
-config		bsd root on rd0a swap on rd0b and wd0b and sd0b
 
 pseudo-device   rd              1 # ramdisk
 
@@ -183,8 +178,10 @@ acpivideo*	at acpi?
 acpivout*	at acpivideo?
 acpipwrres*	at acpi?
 aibs*		at acpi?
+aplgpio*	at acpi?
 bytgpio*	at acpi?
 chvgpio*	at acpi?
+glkgpio*	at acpi?
 sdhc*		at acpi?
 acpicbkbd*	at acpi?
 acpials*	at acpi?
@@ -223,6 +220,7 @@ amdpcib* at pci?		# AMD 8111 LPC bridge
 tcpcib*	at pci?			# Intel Atom E600 LPC bridge
 kate*	at pci?			# AMD K8 temperature sensor
 km*	at pci?			# AMD K10 temperature sensor
+ksmn*	at pci?			# AMD K17 temperature sensor
 amas*	at pci? disable		# AMD memory configuration
 pchtemp* at pci?		# Intel C610 termperature sensor
 ccp*	at pci?			# AMD Cryptographic Co-processor
@@ -346,6 +344,8 @@ uvscom*	at uhub?		# SUNTAC Slipper U VS-10U serial
 ucom*	at uvscom?
 ubsa*	at uhub?		# Belkin serial adapter
 ucom*	at ubsa?
+ukspan* at uhub?		# Keyspan USA19HS serial adapter
+ucom*	at ukspan?
 uftdi*	at uhub?		# FTDI FT8U100AX serial adapter
 ucom*	at uftdi?
 uplcom* at uhub?		# I/O DATA USB-RSAQ2 serial adapter
@@ -356,6 +356,8 @@ uslcom*	at uhub?		# Silicon Laboratories CP210x serial
 ucom*	at uslcom?
 uscom*	at uhub?		# Simple USB serial adapters
 ucom*	at uscom?
+ucrcom*	at uhub?		# Chromebook serial
+ucom*	at ucrcom?
 uark*	at uhub?		# Arkmicro ARK3116 serial
 ucom*	at uark?
 moscom*	at uhub?		# MosChip MCS7703 serial
@@ -481,15 +483,20 @@ wsmouse*	at pms? mux 0
 inteldrm*	at pci? 	# Intel i915, i945 DRM driver
 intagp*		at inteldrm?
 agp*		at intagp?
-drm0		at inteldrm? console 1
+drm0		at inteldrm? primary 1
 drm*		at inteldrm?
-wsdisplay0	at inteldrm? console 1
+wsdisplay0	at inteldrm? primary 1
 wsdisplay*	at inteldrm? mux -1
 radeondrm*	at pci? 	# ATI Radeon DRM driver
-drm0		at radeondrm? console 1
+drm0		at radeondrm? primary 1
 drm*		at radeondrm?
-wsdisplay0	at radeondrm? console 1
+wsdisplay0	at radeondrm? primary 1
 wsdisplay*	at radeondrm? mux -1
+amdgpu*		at pci?
+drm0		at amdgpu? primary 1
+drm*		at amdgpu?
+wsdisplay0	at amdgpu? primary 1
+wsdisplay*	at amdgpu? mux -1
 
 pcppi0		at isa?
 
@@ -511,7 +518,7 @@ lpt0	at isa? port 0x378 irq 7	# standard PC parallel ports
 lpt*	at puc?
 
 efifb0		at mainbus?		# EFI Framebuffer
-wsdisplay0	at efifb? console ?
+wsdisplay0	at efifb?
 
 ahc*	at pci?				# Adaptec 2940 SCSI controllers
 jmb*	at pci?				# JMicron JMB36x controllers
@@ -644,6 +651,8 @@ lii*	at pci?				# Attansic L2 Ethernet
 jme*	at pci?				# JMicron JMC250/JMC260 Ethernet
 bnxt*	at pci?				# Broadcom BCM573xx, BCM574xx
 ixl*	at pci?				# Intel Ethernet 700 Series
+mcx*	at pci?				# Mellanox ConnectX-4
+iavf*	at pci?				# Intel Ethernet Adaptive VF
 
 # Wireless network cards
 acx*	at pci?				# TI ACX100/ACX111 (802.11b/g)

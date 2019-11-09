@@ -1,4 +1,4 @@
-# $OpenBSD: GENERIC,v 1.98 2019/04/01 08:46:16 patrick Exp $
+# $OpenBSD: GENERIC,v 1.129 2019/10/07 19:35:07 patrick Exp $
 #
 # GENERIC machine description file
 #
@@ -19,122 +19,11 @@
 # device.
 
 machine		arm64
-
-option		DDB		# in-kernel debugger
-#option		DDBPROF		# ddb(4) based profiling
-#option		DDB_SAFE_CONSOLE # allow break into ddb during boot
-#makeoptions	DEBUG=""	# do not compile full symbol table
-#makeoptions	PROF="-pg"	# build profiled kernel
-#option		GPROF		# kernel profiling, kgmon(8)
-option		DIAGNOSTIC	# internal consistency checks
-option		KTRACE		# system call tracing, a la ktrace(1)
-option		ACCOUNTING	# acct(2) process accounting
-option		KMEMSTATS	# collect malloc(9) statistics
-option		PTRACE		# ptrace(2) system call
-#option		WITNESS		# witness(4) lock checker
-
-#option		KVA_GUARDPAGES	# slow virtual address recycling (+ guarding)
-#option		POOL_DEBUG	# pool corruption detection
-#option		VFSLCKDEBUG	# VFS locking checks
-
-option		CRYPTO		# Cryptographic framework
-
-option		SYSVMSG		# System V-like message queues
-option		SYSVSEM		# System V-like semaphores
-option		SYSVSHM		# System V-like memory sharing
-
-option		UVM_SWAP_ENCRYPT# support encryption of pages going to swap
-
-option		FFS		# UFS
-option		FFS2		# UFS2
-option		FFS_SOFTUPDATES	# Soft updates
-option		UFS_DIRHASH	# hash large directories
-option		QUOTA		# UFS quotas
-option		EXT2FS		# Second Extended Filesystem
-option		MFS		# memory file system
-option		NFSCLIENT	# Network File System client
-option		NFSSERVER	# Network File System server
-option		CD9660		# ISO 9660 + Rock Ridge file system
-option		UDF		# UDF (DVD) file system
-option		MSDOSFS		# MS-DOS file system
-option		FIFO		# FIFOs; RECOMMENDED
+include		"../../../conf/GENERIC"
 option		TMPFS		# efficient memory file system
-option		FUSE		# FUSE
-
-option		SOCKET_SPLICE	# Socket Splicing for TCP and UDP
-option		TCP_ECN		# Explicit Congestion Notification for TCP
-option		TCP_SIGNATURE	# TCP MD5 Signatures, for BGP routing sessions
-
-option		INET6		# IPv6
-option		IPSEC		# IPsec
-option		PPP_BSDCOMP	# PPP BSD compression
-option		PPP_DEFLATE
-option		PIPEX		# Ppp IP EXtension, for npppd
-option		MROUTING	# Multicast router
-option		MPLS		# Multi-Protocol Label Switching
-#option		BFD		# Bi-directional Forwarding Detection
-
-#mpath0		at root		# SCSI Multipathing
-#scsibus*	at mpath?
-#emc*		at scsibus?
-#hds*		at scsibus?
-#rdac*		at scsibus?
-#sym*		at scsibus?
-
-softraid0	at root		# Software RAID
-scsibus*	at softraid?
-
-vscsi0		at root		# Userland backed Virtual SCSI
-scsibus*	at vscsi?
-
-pseudo-device	pf		# packet filter
-pseudo-device	pflog		# pf log if
-pseudo-device	pfsync		# pf sync if
-pseudo-device	pflow		# pflow export if
-pseudo-device	enc		# option IPSEC needs the encapsulation interface
-
-pseudo-device	pty	16	# initial number of pseudo-terminals
-pseudo-device	nmea	1	# NMEA 0183 line discipline
-pseudo-device	msts	1	# MSTS line discipline
-pseudo-device	endrun	1	# EndRun line discipline
 pseudo-device	vnd	6	# vnode disk devices
-pseudo-device	ksyms	1	# kernel symbols device
+maxusers	80
 
-# clonable devices
-pseudo-device	bpfilter	# packet filter
-pseudo-device	bridge		# network bridging support
-pseudo-device	carp		# CARP protocol support
-pseudo-device	etherip		# EtherIP (RFC 3378)
-pseudo-device	gif		# IPv[46] over IPv[46] tunnel (RFC1933)
-pseudo-device	gre		# GRE encapsulation interface
-pseudo-device	mobileip	# MobileIP encapsulation interface
-pseudo-device	loop		# network loopback
-pseudo-device	mpe		# MPLS PE interface
-pseudo-device	mpw		# MPLS pseudowire support
-pseudo-device	mpip		# MPLS IP Layer2 pseudowire support
-pseudo-device	bpe		# Provider Backbone Bridge edge interface
-pseudo-device	pair		# Virtual Ethernet interface pair
-pseudo-device	ppp		# PPP
-pseudo-device	pppoe		# PPP over Ethernet (RFC 2516)
-pseudo-device	pppx		# PPP multiplexer
-pseudo-device	sppp	1	# Sync PPP/HDLC
-pseudo-device	trunk		# Trunking support
-pseudo-device	tun		# network tunneling over tty (tun & tap)
-pseudo-device	vether		# Virtual ethernet
-pseudo-device	vxlan		# Virtual extensible LAN
-pseudo-device	vlan		# IEEE 802.1Q VLAN
-pseudo-device	switch		# Switch
-
-pseudo-device	bio	1	# ioctl multiplexing device
-
-pseudo-device	fuse		# fuse device
-
-option		BOOT_CONFIG	# add support for boot -c
-
-maxusers	32
-
-option		TIMEZONE=0	# time zone to adjust RTC time by
-option		DST=0		# daylight saving time used by RTC
 option		PCIVERBOSE
 option		USER_PCICONF	# user-space PCI configuration
 option		USBVERBOSE
@@ -154,6 +43,7 @@ mainbus0	at root
 cpu0		at mainbus?
 apm0		at mainbus?
 efi0		at mainbus?
+smbios0		at efi?
 acpi0		at mainbus?
 acpibtn*	at acpi?
 acpiec*		at acpi?
@@ -161,7 +51,11 @@ acpimcfg*	at acpi?
 acpipci*	at acpi?
 pci*		at acpipci?
 ahci*		at acpi?
+ccp*		at acpi?		# AMD Cryptographic Co-processor
 com*		at acpi?
+dwiic*		at acpi?
+iic*		at dwiic?
+ipmi*		at acpi?
 pluart*		at acpi?
 xhci*		at acpi?
 simplebus*	at fdt?
@@ -201,6 +95,7 @@ plgpio*		at fdt? early 1
 plrtc*		at fdt?
 pluart*		at fdt?
 psci*		at fdt? early 1
+pwmreg*		at fdt? early 1
 syscon*		at fdt? early 1
 
 virtio*		at fdt?
@@ -221,11 +116,15 @@ wsdisplay*	at simplefb?
 radeondrm*	at pci?
 drm*		at radeondrm?
 wsdisplay*	at radeondrm?
+amdgpu*		at pci?
+drm*		at amdgpu?
+wsdisplay*	at amdgpu?
 
 # iMX
 imxccm*		at fdt? early 1
 imxiomuxc*	at fdt? early 1
 imxanatop*	at fdt? early 1
+imxsrc*		at fdt? early 1
 imxgpc*		at fdt?
 imxgpio*	at fdt?
 fec*		at fdt?
@@ -234,11 +133,11 @@ imxiic*		at fdt?
 iic*		at imxiic?
 imxesdhc*	at fdt?
 sdmmc*		at imxesdhc?
-imxsrc*		at fdt?
 imxspi*		at fdt?
 ssdfb*		at iic?
 ssdfb*		at spi?
 wsdisplay*	at ssdfb?
+imxtmu*		at fdt?
 
 # Raspberry Pi 3
 bcmaux*		at fdt?
@@ -248,6 +147,21 @@ bcmrng*		at fdt?
 bcmtemp*	at fdt?
 dwctwo*		at fdt?
 usb*		at dwctwo?
+
+# Amlogic SoCs
+amlclock*	at fdt? early 1
+amldwusb*	at fdt?
+amliic*		at fdt?
+iic*		at amliic?
+amlmmc*		at fdt?
+sdmmc*		at amlmmc?
+amlpciephy*	at fdt?
+amlpinctrl*	at fdt? early 1
+amlpwm*		at fdt?
+amlreset*	at fdt? early 1
+amlrng*		at fdt?
+amluart*	at fdt?
+amlusbphy*	at fdt?
 
 # HiSilicon SoCs
 hiclock*	at fdt? early 1
@@ -260,10 +174,19 @@ mvclock*	at fdt? early 1
 mvgicp*		at fdt? early 1
 mvicu*		at fdt? early 1
 mvpinctrl*	at fdt? early 1
+mvdog*		at fdt?
 mvgpio*		at fdt?
+mviic*		at fdt?
+iic*		at mviic?
+mvmdio*		at fdt?
+mvneta*		at fdt?
 mvrng*		at fdt?
 mvrtc*		at fdt?
+mvspi*		at fdt?
+moxtet*		at spi?
 mvtemp*		at fdt?
+mvuart*		at fdt?
+sfp*		at fdt?
 
 # Rockchip SoCs
 rkclock*	at fdt? early 1
@@ -285,9 +208,10 @@ gpio*		at sxipio?
 sxiccmu*	at fdt? early 1	# Clock Control Module/Unit
 sxirsb*		at fdt? early 1	# Reduced Serial Bus
 axppmic*	at rsb?
-sxirtc*		at fdt?		# Real Time Clock
+sxirtc*		at fdt? early 1	# Real Time Clock
 sximmc*		at fdt?		# SD/MMC card controller
 sdmmc*		at sximmc?	# SD/MMC bus
+sxisyscon*	at fdt? early 1	# System controller
 sxitemp*	at fdt?		# Temperature sensor
 sxitwi*		at fdt?		# I2C controller
 iic*		at sxitwi?	# I2C bus
@@ -301,6 +225,7 @@ pci*		at ppb?
 bnxt*		at pci?			# Broadcom BCM573xx, BCM574xx
 em*		at pci?			# Intel Pro/1000 Ethernet
 ix*		at pci?			# Intel 82598EB 10Gb Ethernet
+mcx*		at pci?			# Mellanox ConnectX-4/5 Ethernet
 mskc*		at pci?			# Marvell Yukon-2
 msk*		at mskc?		#  each port of above
 re*		at pci?			# Realtek 8169/8169S/8110S
@@ -345,6 +270,8 @@ uslcom*		at uhub?		# Silicon Laboratories CP210x serial
 ucom*		at uslcom?
 uscom*		at uhub?		# Simple USB serial adapters
 ucom*		at uscom?
+ucrcom*		at uhub?		# Chromebook serial
+ucom*		at ucrcom?
 uark*		at uhub?		# Arkmicro ARK3116 serial
 ucom*		at uark?
 moscom*		at uhub?		# MosChip MCS7703 serial
@@ -451,7 +378,11 @@ uk*		at scsibus?
 # I2C devices
 abcrtc*		at iic?			# Abracon x80x RTC
 fanpwr*		at iic?			# FAN53555 regulator
+fusbtc*		at iic?			# USB Type-C controller
+ipmi*		at iic?			# IPMI (SIIF)
 islrtc*		at iic?			# ISL1208 RTC
+mcprtc*		at iic?			# MCP794XX RTC
+pcxrtc*		at iic?			# PCF8563 RTC
 rkpmic*		at iic?			# RK808 PMIC
 sypwr*		at iic?			# SY8106A regulator
 

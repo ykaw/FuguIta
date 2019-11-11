@@ -27,16 +27,21 @@ else
             if [ -d /mnt/livecd-config -a \
                  -d /altroot/livecd-config/${verarch}/fuguita.templ ]; then
                 (if cd /altroot/livecd-config/${verarch}/fuguita.templ; then
+                     echo -n 'fuguita.templ ... '
                      mkdir -p /mnt/livecd-config/${verarch}/fuguita.templ
-                     rsync --progress -avH . /mnt/livecd-config/${verarch}/fuguita.templ/.
+                     pax -rwpe . /mnt/livecd-config/${verarch}/fuguita.templ/.
                      chflags -R uchg /mnt/livecd-config/${verarch}/fuguita.templ
+                     echo done
+                     echo -n 'fuguita.default ... '
                      mkdir -p /mnt/livecd-config/${verarch}/fuguita.default
-                     rsync --progress -avH . /mnt/livecd-config/${verarch}/fuguita.default/.
+                     pax -rwpe . /mnt/livecd-config/${verarch}/fuguita.default/.
+                     echo done
                  fi)
             else
                 echo "Directory don't exist:"
                 ls -ld /mnt/livecd-config /altroot/livecd-config/${verarch}/fuguita.templ
             fi
+            echo -n 'noasks ... '
             cat <<EOT >/mnt/noasks
 #
 # noasks - parameter settings for non-interactive boot
@@ -60,6 +65,7 @@ noask_confdev='sd0d'
 # data set name in USB flash drive
 noask_confdir='fuguita.default'
 EOT
+            echo done
             umount /altroot
         else
             echo "can't mount source device - $srcpart"

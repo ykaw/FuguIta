@@ -266,12 +266,18 @@ function byte2sect {
 function sect2byte {
     local val
     val=$(expr "$1" : '00*$') && { echo "0B"; return; }
+    local scale
+    case "$2" in
+        2) scale=$((1024*1024));;
+        3) scale=$((1024*1024*1024));;
+        *) scale=1024;;
+    esac
     if val=$(expr "$1" : '\([1-9][0-9]*\)'); then
         val=$((sect_size*val))
-        [ "$val" -lt 1024 ] && { echo "${val}B"; return; }
-        val=$((val/1024)); [ "$val" -lt 1024 ] && { echo "${val}KB"; return; }
-        val=$((val/1024)); [ "$val" -lt 1024 ] && { echo "${val}MB"; return; }
-        val=$((val/1024)); [ "$val" -lt 1024 ] && { echo "${val}GB"; return; }
+        [ "$val" -lt $scale ] && { echo "${val}B"; return; }
+        val=$((val/1024)); [ "$val" -lt $scale ] && { echo "${val}KB"; return; }
+        val=$((val/1024)); [ "$val" -lt $scale ] && { echo "${val}MB"; return; }
+        val=$((val/1024)); [ "$val" -lt $scale ] && { echo "${val}GB"; return; }
         val=$((val/1024)); echo "${val}TB"; return
     fi
 }
@@ -352,6 +358,7 @@ function showparams {
     #    ps_hgap : head gap (for MBR/GPT and disklabel)
     #    ps_uefi : sectors for UEFI (partition i)
     #    ps_fisys: sectors for FuguIta's system (partition a)
+    #    ps_fiswp: sectors for FuguIta's Swap (partition b)
     #    ps_fidat: sectors for FuguIta's Data Store (partition d)
     #    ps_fat  : sectors for Data Exchange (partition i or j)
     #    ps_tgap : tail gap (for GPT)
@@ -374,6 +381,7 @@ whole disk,$sects_total
 partition tables,${ps_hgap}+${ps_tgap}
 UEFI system,$ps_uefi
 FuguIta system,$ps_fisys
+FuguIta swap,$ps_fiswp
 FuguIta user data,$ps_fidat
 MSDOS FAT,$ps_fat
 --------------------,----------
@@ -393,6 +401,7 @@ whole disk,`sect2byte $sects_total`
 partition tables,`sect2byte $((ps_hgap+ps_tgap))`
 UEFI system,`sect2byte $ps_uefi`
 FuguIta system,`sect2byte $ps_fisys`
+FuguIta swap,`sect2byte $ps_fiswp`
 FuguIta user data,`sect2byte $ps_fidat`
 MSDOS FAT,`sect2byte $ps_fat`
 --------------------,------
@@ -428,8 +437,8 @@ function fdisk_init {
 
     local ptype="$1"
 
-    if [ ! $secs_total = $((ps_hgap+ps_uefi+ps_fisys+ps_fidat+ps_fat+ps_tgap)) ]; then
-        echo "Inconsistent sector sizes: $secs_total != $ps_hgap + $ps_uefi + $ps_fisys + $ps_fidat + $ps_fat + $ps_tgap"
+    if [ ! $secs_total = $((ps_hgap+ps_uefi+ps_fisys+ps_fiswp+ps_fidat+ps_fat+ps_tgap)) ]; then
+        echo "Inconsistent sector sizes: $secs_total != $ps_hgap + $ps_uefi + $ps_fisys + $ps_fiswp + $ps_fidat + $ps_fat + $ps_tgap"
         return
     fi
 
@@ -450,23 +459,23 @@ function fdisk_init {
         MBR)
             fdisk -iy $scandev
             [ 0 -lt $ps_uefi ] && fdisk_input="e 0\nEF\nn\n${ps_hgap}\n${ps_uefi}\n"
-            [ 0 -lt $ps_fat ]  && fdisk_input="${fdisk_input}e 2\n0C\nn\n$((ps_hgap+ps_uefi+ps_fisys+ps_fidat))\n${ps_fat}\n"
-            [ 0 -lt $((ps_fisys+ps_fidat)) ] && fdisk_input="${fdisk_input}e 3\nA6\nn\n$((ps_hgap+ps_uefi))\n$((ps_fisys+ps_fidat))\n"
+            [ 0 -lt $ps_fat ]  && fdisk_input="${fdisk_input}e 2\n0C\nn\n$((ps_hgap+ps_uefi+ps_fisys+ps_fiswp+ps_fidat))\n${ps_fat}\n"
+            [ 0 -lt $((ps_fisys+ps_fiswp+ps_fidat)) ] && fdisk_input="${fdisk_input}e 3\nA6\nn\n$((ps_hgap+ps_uefi))\n$((ps_fisys+ps_fiswp+ps_fidat))\n"
             fdisk_input="${fdisk_input}quit\n"
             ;;
         GPT)
             fdisk -igy $scandev
             [ 0 -lt $ps_uefi ] && fdisk_input="e 1\nEF\n${ps_hgap}\n${ps_uefi}\nUEFI Boot\n"
-            [ 0 -lt $ps_fat ]  && fdisk_input="${fdisk_input}e 2\n0C\n$((ps_hgap+ps_uefi+ps_fisys+ps_fidat))\n$ps_fat\nMSDOS FAT\n"
-            [ 0 -lt $((ps_fisys+ps_fidat)) ] && fdisk_input="${fdisk_input}e 3\nA6\n$((ps_hgap+ps_uefi))\n$((ps_fisys+ps_fidat))\nOpenBSD Area\n"
+            [ 0 -lt $ps_fat ]  && fdisk_input="${fdisk_input}e 2\n0C\n$((ps_hgap+ps_uefi+ps_fisys+ps_fiswp+ps_fidat))\n$ps_fat\nMSDOS FAT\n"
+            [ 0 -lt $((ps_fisys+ps_fiswp+ps_fidat)) ] && fdisk_input="${fdisk_input}e 3\nA6\n$((ps_hgap+ps_uefi))\n$((ps_fisys+ps_fiswp+ps_fidat))\nOpenBSD Area\n"
             fdisk_input="${fdisk_input}quit\n"
             ;;
         Hybrid)
             fdisk -iy $scandev
             fdisk_input="e 0\nEE\nn\n1\n*\n"
             [ 0 -lt $ps_uefi ] && fdisk_input="${fdisk_input}e 1\nEF\nn\n${ps_hgap}\n${ps_uefi}\n"
-            [ 0 -lt $ps_fat ]  && fdisk_input="${fdisk_input}e 2\n0C\nn\n$((ps_hgap+ps_uefi+ps_fisys+ps_fidat))\n$ps_fat\n"
-            [ 0 -lt $((ps_fisys+ps_fidat)) ] && fdisk_input="${fdisk_input}e 3\nA6\nn\n$((ps_hgap+ps_uefi))\n$((ps_fisys+ps_fidat))\n"
+            [ 0 -lt $ps_fat ]  && fdisk_input="${fdisk_input}e 2\n0C\nn\n$((ps_hgap+ps_uefi+ps_fisys+ps_fiswp+ps_fidat))\n$ps_fat\n"
+            [ 0 -lt $((ps_fisys+ps_fiswp+ps_fidat)) ] && fdisk_input="${fdisk_input}e 3\nA6\nn\n$((ps_hgap+ps_uefi))\n$((ps_fisys+ps_fiswp+ps_fidat))\n"
             fdisk_input="${fdisk_input}quit\n"
             ;;
     esac
@@ -520,7 +529,8 @@ function setup_fs {
 
     # commands to create new FFS partitions
     [ 0 -lt $ps_fisys ] && disklabel_input="${disklabel_input}a a\n$((ps_hgap+ps_uefi))\n${ps_fisys}\n4.2BSD\n"
-    [ 0 -lt $ps_fidat ] && disklabel_input="${disklabel_input}a d\n$((ps_hgap+ps_uefi+ps_fisys))\n*\n4.2BSD\n"
+    [ 0 -lt $ps_fiswp ] && disklabel_input="${disklabel_input}a b\n$((ps_hgap+ps_uefi+ps_fisys))\n${ps_fiswp}\nSWAP\n"
+    [ 0 -lt $ps_fidat ] && disklabel_input="${disklabel_input}a d\n$((ps_hgap+ps_uefi+ps_fisys+ps_fiswp))\n*\n4.2BSD\n"
     disklabel_input="${disklabel_input}q\ny\n"
 
     # invoke disklabel
@@ -587,7 +597,7 @@ function setup_fs {
         if [ $ps_fidat -le `byte2sect 2G` ]; then
             # adjust inode density for little space
             # because too many symlinks when booted mode 0
-            newfs -m0 -i1024 -b4096 -f512 ${scandev}d
+            newfs -m0 -o space -i1024 -b4096 -f512 ${scandev}d
         else
             newfs -m0 ${scandev}d
         fi
@@ -1102,6 +1112,7 @@ EOT
         ps_hgap=$disk_head_gap
         ps_uefi=0
         ps_fisys=0
+        ps_fiswp=0
         ps_fidat=0
         ps_fat=0
         case "$parttype" in
@@ -1135,14 +1146,35 @@ EOT
         #
         while :; do
             echo
-            echo "Enter size for saving User Data."
+            echo "Enter sizes for swap, user data and extra FAT."
             echo "  You can add suffix K, M, G or T (otherwise considered 'bytes')."
             echo "  '*' implies 'all'"
             echo "  '0' doesn't make this partition."
             echo
-            echo "`sect2byte $ps_free` (${ps_free}sectors) free"
-            ans=`rl_wread '' '*'`
+            echo "`sect2byte $ps_free` (`sect2byte $ps_free 2`) (${ps_free}sectors) free"
 
+            ans=`rl_wread 'swap' ''`
+            echo
+            if [ 1 -lt `expr "X$ans" : 'X[0-9][0-9]*'` ]; then
+                ps_fiswp=`byte2sect "$ans"`
+                if [ $ps_free -lt $ps_fiswp ]; then
+                    echo 'That size exceeds the limit.'
+                    continue
+                fi
+            elif [ "X$ans" = 'X*' ]; then
+                ps_fiswp=$ps_free
+                ps_free=0
+                break
+            else
+                echo "$ans ... What?"
+                continue
+            fi
+
+            ps_free=$((ps_free-ps_fiswp))
+
+            echo
+            echo "`sect2byte $ps_free` (`sect2byte $ps_free 2`) (${ps_free}sectors) free"
+            ans=`rl_wread 'user data' '*'`
             echo
             if [ 1 -lt `expr "X$ans" : 'X[0-9][0-9]*'` ]; then
                 ps_fidat=`byte2sect "$ans"`

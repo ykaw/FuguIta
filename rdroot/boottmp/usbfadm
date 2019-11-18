@@ -293,10 +293,13 @@ copydirs () {
     [ -d "$srcdir" ]  || { echo "source directory $srcdir not found";       return; }
     [ -d "$destdir" ] || { echo "destination directory $destdir not found"; return; }
     if [ -x /usr/local/bin/pv ]; then
-        pax -wX "$srcdir" | pv | ( cd "$destdir" && pax -rpe )
+        local srcsize; srcsize=$(df -k /ram | awk '/^tmpfs .* \/ram$/ { print $3 "K"}')
+        echo "copying $srcdir to $destdir (${srcsize}B approx.):"
+        (cd "$srcdir" && pax -wX -x cpio .) | (pv -s $srcsize; echo -n "waiting for pax ... " >&2) | (cd "$destdir" && pax -rpe)
+        (echo -n "syncing ... "; sync; sync; sync; echo done.) >&2
     else
         (while :; do sleep 15; pkill -INFO dd || exit; done) &
-        pax -wX "$srcdir" | dd bs=1m | ( cd "$destdir" && pax -rpe )
+        pax -wX -x cpio "$srcdir" | dd bs=1m | (cd "$destdir" && pax -rpe)
     fi
 }
 
@@ -783,10 +786,10 @@ if [ "$opt_mode" = 'resync' ]; then
 
     if mount -o softdep,noatime $devname /mnt; then
         if [ "$opt_quiet" = 'yes' ]; then
-            rsync -q -rlptgo --devices -HxS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+            rsync -q -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
         else
             notice "Sync current tmpfs as $uconf into $devname"
-            rsync --progress -rlptgo --devices -HxS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+            rsync --progress -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
         fi
         # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
         rm -rf /mnt/livecd-config/$uconf/tmp/{.??*,*}
@@ -860,10 +863,10 @@ while :; do
 
                 echo ''
                 if [ -d /mnt/livecd-config/$verarch/$uconf ]; then
-                    rsync -v -rlptgo --devices -HxS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+                    rsync -v -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
                 else
                     mkdir -p /mnt/livecd-config/$verarch/$uconf
-                    (cd /ram; copydirs . /mnt/livecd-config/$verarch/$uconf)
+                    copydirs /ram /mnt/livecd-config/$verarch/$uconf
                 fi
                 # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
                 rm -rf /mnt/livecd-config/$verarch/$uconf/tmp/{.??*,*}

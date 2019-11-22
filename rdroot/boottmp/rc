@@ -472,23 +472,6 @@ while :; do
             mkshadowdir /fuguita/etc/X11        /ram/etc/X11
             mkshadowdir /fuguita/var/db/pkg     /ram/var/db/pkg
             mkshadowdir /fuguita/var/www/htdocs /ram/var/www/htdocs
-        elif [ X"$setup_rw_mode" = X2 ]; then
-            umount -f /fuguita
-            grep -v '/fuguita' /etc/fstab > /etc/fstab.tmp
-            mv /etc/fstab.tmp /etc/fstab
-
-            if [ -f /sysmedia/fuguita-${osrel}-${osmac}.ffsimg ]; then
-                vnconfig -u ${vn_devname}
-                umount -f /sysmedia
-                grep -v '/sysmedia' /etc/fstab > /etc/fstab.tmp
-                mv /etc/fstab.tmp /etc/fstab
-            fi
-            if [ -d /sysmedia-iso/ISO ]; then
-                vnconfig -u ${vn_devname_iso}
-                umount -f /sysmedia-iso
-                grep -v '/sysmedia-iso' /etc/fstab > /etc/fstab.tmp
-                mv /etc/fstab.tmp /etc/fstab
-            fi
         fi
 
         echo "done"
@@ -712,30 +695,6 @@ while :; do
         fi
 
         #-------------------------------------------
-        # unmount operating device if not needed
-        #
-
-        # check if the origin boot mode is 2 or not
-        #
-        if [ ! -L /usr/fuguita/version ]; then
-            umount /fuguita
-            vnconfig -u ${vn_devname}
-            umount /sysmedia
-
-            # check if FuguIta-*.iso mounted
-            #
-            if mount | grep -q "/sysmedia-iso"; then
-                vnconfig -u ${vn_devname_iso}
-                umount /sysmedia-iso
-            fi
-
-            # modify /etc/fstab
-            #
-            egrep -v ' /(sysmedia|sysmedia-iso|fuguita) ' /etc/fstab > /etc/fstab.tmp
-            mv /etc/fstab.tmp /etc/fstab
-        fi
-
-        #-------------------------------------------
         # merge user-defined fstab entries
         # into auto generated /etc/fstab
         #
@@ -812,8 +771,43 @@ done
 rm -f /boot.catalog /cdboot /cdbr /rr_moved
 rmdir /sysmedia-iso 2> /dev/null
 
+
+#-------------------------------------------
+# if the origin boot mode is 2:
+#  - unmount operating devices
+#  - deactivate swap partitions
+#
+if [ -d /ram/usr -a ! -L /ram/usr/fuguita/version ]; then
+
+    # umount sysmedia - the device containing file tree
+    #
+    umount /fuguita
+    vnconfig -u ${vn_devname}
+    umount /sysmedia
+
+    # umount ISO image file if mounted
+    #
+    if mount | grep -q "/sysmedia-iso"; then
+        vnconfig -u ${vn_devname_iso}
+        umount /sysmedia-iso
+    fi
+
+    # modify /etc/fstab
+    #
+    egrep -v ' /(sysmedia|sysmedia-iso|fuguita) ' /etc/fstab > /etc/fstab.tmp
+    mv /etc/fstab.tmp /etc/fstab
+
+    # deactivate swap partitions if any
+    #
+    for swdev in $(swapctl -l | grep '^/dev/' | cut -d' ' -f1); do
+        echo -n "deactivating swap partition: $swdev "
+        swapctl -d $swdev
+        echo
+    done
+fi
+
 echo "            _________________________________________________
-           /     Setup for FuguIta ends.          /
+           /      Setup for FuguIta ends.         /
           / OpenBSD's boot sequence will follow. /
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 date > /boottmp/boot_livecd_rc_ends

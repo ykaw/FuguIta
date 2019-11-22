@@ -108,7 +108,7 @@ hyb:
 		-v -v \
 		-A "FuguIta - OpenBSD Live System" \
 		-P "Copyright (c) `date +%Y` KAWAMATA Yoshihiro" \
-		-p "KAWAMATA Yoshihiro, http://fuguita.org/?FuguIta" \
+		-p "KAWAMATA Yoshihiro, http://fuguita.org/" \
 		-V "$(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$$(($(REVISION)+1))" \
 		-b cdbr \
 		-c boot.catalog \

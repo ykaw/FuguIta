@@ -799,11 +799,22 @@ if [ -d /ram/usr -a ! -L /ram/usr/fuguita/version ]; then
 
     # deactivate swap partitions if any
     #
-    for swdev in $(swapctl -l | grep '^/dev/' | cut -d' ' -f1); do
-        echo -n "deactivating swap partition: $swdev "
-        swapctl -d $swdev
-        echo
-    done
+    swapctl -l \
+    | awk '/^\/dev\// && $3 == 0 {
+              printf("deactivating swap partition: %s ", $1)
+              system("swapctl -d " $1)
+              printf("\n") }'
+
+    # check and report
+    #   - umount all fs except RAM fs
+    #   - all swap partitions deactivated
+    #
+    if ! mount | egrep -v ' on (/ |/ram )' | grep -q '.' && \
+       swapctl -l 2>&1 | grep -q 'no swap devices configured'; then
+        echo 'on-memory operation: You can remove all storage device(s).'
+    else
+        echo "on-memory operation: tmpfs paged out ... can't remove any storage device(s)."
+    fi
 fi
 
 echo "            _________________________________________________

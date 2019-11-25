@@ -295,7 +295,7 @@ copydirs () {
     if [ -x /usr/local/bin/pv ]; then
         local srcsize; srcsize=$(df -k /ram | awk '/^tmpfs .* \/ram$/ { print $3 "K"}')
         echo "copying $srcdir to $destdir (${srcsize}B approx.):"
-        (cd "$srcdir" && pax -wX -x cpio .) | (pv -s $srcsize; echo -n "waiting for pax ... " >&2) | (cd "$destdir" && pax -rpe)
+        (cd "$srcdir" && pax -wX -x cpio .) | (pv -s $srcsize; echo -n "waiting for pax to finish ... " >&2) | (cd "$destdir" && pax -rpe)
         (echo -n "syncing ... "; sync; sync; sync; echo done.) >&2
     else
         (while :; do sleep 15; pkill -INFO dd || exit; done) &

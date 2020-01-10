@@ -1,0 +1,452 @@
+#!/bin/sh
+
+#========================================
+#
+# dtjsetup - Desktop (and Japanese) setup utility
+# KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
+#
+#========================================
+
+
+#-------------------
+# Wait for ENTER key pressed
+# outputs results to stdout
+#
+#     usage: wait_enter prompt
+#
+#       output ... 1: ENTER key pressed
+#                 -1: Key pressed but not ENTER
+#                 -2: Error occured
+#
+function wait_enter {
+    local prompt="$1"
+    local line
+
+    echo -n "$prompt -> " >&2; read line
+
+    if [ X"$line" = X ]; then
+        echo 1
+    else
+        echo -1
+    fi
+}
+
+#-------------------
+# ask user yes or no
+# outputs answer to stdout
+#
+#     usage: ask_yn prompt yn
+#
+#       yn ... y: defaults to yes
+#              n: defaults to no
+#              r: no default ... ask again
+#              else: no default ... return -1 if answered not yn
+#
+#       output ... 1: yes, 0: no, -1: else yn, -2: error occured
+#
+function ask_yn {
+
+    if [ -z "$2" ]; then
+        echo -2 >&2
+        return
+    fi
+
+    local prompt="$1"; shift
+    local yn_default="$1"; shift
+    local yn_ans
+
+    case X"$yn_default"X in
+        X[Yy]X) yn_default=Y; prompt="$prompt [Y/n] -> " ;;
+        X[Nn]X) yn_default=N; prompt="$prompt [y/N] -> " ;;
+        X[Rr]X) yn_default=R; prompt="$prompt [y/n] -> " ;;
+        *)      yn_default=E; prompt="$prompt [y/n] -> " ;;
+    esac
+
+    while :; do
+        echo -n "$prompt" >&2; read yn_ans
+
+        case X"$yn_ans"X in
+            X[Yy]X) echo 1; return;;
+            X[Nn]X) echo 0; return;;
+            XX)
+                case X"$yn_default"X in
+                    XYX) echo 1;  return;;
+                    XNX) echo 0;  return;;
+                    XRX) continue;;
+                    *)   echo -1; return;;
+                esac;;
+            *)
+                continue;;
+        esac
+    done
+}
+
+#-------------------
+# ask selection out of multiple items
+# outputs answer to stdout
+#
+#     usage: ask_which prompt default item1 item2 ...
+#
+#       Note: although user's choice is one originated
+#             default is zero originated
+#
+#       output: first word of selected item
+#               returns empty line unless selected normally
+#
+function ask_which {
+    if [ $# -lt 3 ]; then
+        return
+    fi
+
+    local prompt="$1";  shift
+    local default="$1"; shift
+    local i item val
+
+    # skip null item
+    #
+    i=0
+    for val in "$@"; do
+        if [ -n "$val" ]; then
+            item[$i]="$val"
+            i=$((i+1))
+        fi
+    done
+
+    # only one item is default itself
+    #
+    [ "${#item[@]}" = 1 ] && default=${item[0]}
+
+    i=0
+    while [ -n "${item[$i]}" ]; do
+        if [ "$default" = "${item[$i]}" ]; then
+            OIFS="$IFS"
+            IFS= prompt="$prompt\n"`printf '%3d: [%s]' $((i+1)) ${item[$i]}`
+            IFS="$OIFS"
+        else
+            OIFS="$IFS"
+            IFS= prompt="$prompt\n"`printf '%3d:  %s' $((i+1)) ${item[$i]}`
+            IFS="$OIFS"
+        fi
+        i=$((i+1))
+    done
+    echo "$prompt" >&2
+
+    local ans
+    ans=`rl_wread '' ''`
+
+    # take first argument
+    #
+    set -- $ans
+    ans=$1
+    
+    # return selected item
+    #
+    if expr "$ans" : '^[0-9][0-9]*$' >/dev/null && \
+            [ "$ans" -le ${#item[@]} ]; then
+        set -- ${item[$((ans-1))]}
+        echo $1
+    elif [ -n "$default" -a -z "$ans" ]; then
+        set -- $default
+        echo $1
+    fi
+}
+
+#-------------------
+# read user's input with readline functionality
+# outputs echoed to stdout
+#
+#     usage: rl_wread prompt-str default-str [completion words ....]
+#
+function rl_wread {
+    local prompt="$1";  shift
+    local default="$1"; shift
+
+    if [ -x /usr/local/bin/rlwrap ]; then
+        echo "$@" > /tmp/rl_words
+        rlwrap -b '' \
+               -f /tmp/rl_words \
+               -P "$default" \
+               sh -f -c 'echo -n "'"$prompt"'->" >&2 ; read w || echo EOF; echo $w' || echo RL_ERR
+    else
+        #-------------------
+        # fallback to dumb input
+        #
+        if [ X"$default" = X ]; then
+            echo -n "${prompt}->" >&2
+            read w
+        else
+            echo -n "$prompt [$default] -> " >&2
+            read w
+            if [ X"$w" = X ]; then
+                w="$default"
+            fi
+        fi
+        echo $w
+    fi
+}
+
+#-------------------
+# echo message to stderr with header string
+#
+function msg {
+    echo '***' "$@" 1>&2
+}
+
+#=======================
+# Active code from here
+#=======================
+
+if [ ! -r /usr/fuguita/version ]; then
+    msg You are not running FuguIta.
+    if [ $(ask_yn 'Run this installer anyway?' y) -ne 1 ]; then
+        exit 1
+    fi
+    fi_version='IS_NOT_HERE'
+else
+    fi_version=$(</usr/fuguita/version)
+fi
+
+cat <<EOF
+#=================================
+# Welcome to installdesktop.sh
+# for FuguIta-$fi_version
+#=================================
+EOF
+
+# check if this account administrative
+#
+TAB=$(echo -n "\t")
+echo
+msg checking your account...
+if id -p | grep -q "^uid${TAB}root$"; then
+    root=YES
+    install_cmd="pkg_add"
+elif id -p | egrep -q "^groups${TAB}(.*[0-9A-Za-z_] )?wheel( |\$)"; then
+    wheel=YES
+    if [ -f /etc/doas.conf ]; then
+        install_cmd="doas pkg_add"
+    else
+        #install_cmd='echo -n "root "; su root -c pkg_add $pkgs'
+        msg not privileged to root
+        exit 1
+    fi
+fi
+
+if [ "$root$wheel" = "" ]; then
+    echo
+    msg "It seems you don't seem to be able to get root privileges."
+    exit 1
+fi
+
+msg OK.
+
+# check install source
+#
+echo
+msg checking network accessibility...
+if [ -f /etc/installurl ]; then
+    checkurl=$(</etc/installurl)
+elif [ "$PKG_PATH" != "" ]; then
+    checkurl="$PKG_PATH"
+else
+    msg Install source should be set.
+    msg Please check /etc/installurl or '$PKG_PATH'
+    exit 1
+fi
+
+# check if network accessible
+#
+if ! ftp -o /dev/null "$checkurl" </dev/null >/dev/null 2>&1; then
+    echo
+    msg cannot access to "$checkurl"
+    msg Please check network reachability, or the URL is correct.
+    exit 1
+fi
+
+msg OK.
+
+# select Desktop Environment
+#
+while :; do
+    echo
+    dt=$(ask_which "Which desktop software will you install?" "rox-filer" "no desktop (wm only)" "rox-filer" "xfce" "mate" "lumina")
+    case "$dt" in
+        "") ;;  # try again
+        no)   break;;
+        *)    pkgs="$pkgs $dt"; break;;
+    esac
+done
+
+# select Window Manager
+#
+case "$dt" in
+    "no"|"rox-filer")
+        while :; do
+            echo
+            wm=$(ask_which "Which window manager will you install?" "icewm" "cwm" "fvwm" "twm" "icewm" "jwm")
+            case "$wm" in
+                icewm|jwm)
+                    pkgs="$pkgs $wm"
+                    break;;
+                fvwm|twm)
+                    break;;
+            esac
+        done;;
+    *)
+        wm=$dt
+esac
+
+# Setup Japanese Env?
+#
+echo
+if [ $(ask_yn "Do you setup Japanese language environment?" n) = 1 ]; then
+    ja_env=YES
+    pkgs="$pkgs ja-kterm ja-sazanami-ttf mixfont-mplus-ipa mplus-fonts"
+
+    # if so, select input method software
+    while :; do
+        echo
+        im=$(ask_which "Which input method will you install?" "scim-anthy" "scim-anthy" "uim-gtk" "fcitx-anthy")
+        case "$im" in
+            "") ;;
+            fcitx-anthy) pkgs="$pkgs $im fcitx-gtk3";  break;;
+            *) pkgs="$pkgs $im";  break;;
+        esac
+    done
+else
+    ja_env=NO
+fi
+
+# Display of selections
+#
+echo
+msg You selected $wm as desktop software.
+msg Installing Japanese environment is $ja_env.
+if [ "$ja_env" = YES ]; then
+    msg Japanese input method is \"$im\".
+else
+    msg No Japanese input method selected.
+fi
+
+# do pkg_add
+#
+echo
+msg Installing packages: $pkgs
+if [ 1 != $(ask_yn "Do you proceed?" n) ]; then
+    exit
+fi
+$install_cmd $pkgs
+
+if [ $? -ne 0 ]; then
+    msg "Installing package(s) failed."
+    exit 1
+fi
+
+# Detecting existing .xsession
+#
+xs="$HOME/.xsession"
+
+if [ -e "$xs" ]; then
+    xs_bak="${xs}_$(date +%Y%m%d_%H%M%S)"
+    echo
+    msg $xs already exists.
+    msg This will be replaced to a new file.
+    msg and the old one will be renamed as $xs_bak.
+fi
+
+# make backup of .xsession
+#
+echo
+msg Rewriting .xsession configuration file.
+if [ 1 != $(ask_yn "Do you proceed?" n) ]; then
+    exit
+fi
+
+if [ -n "$xs_bak" ]; then
+    mv $HOME/.xsession "$xs_bak"
+fi
+
+# write .xsession - head part
+#
+cat <<EOF > $xs
+#!/bin/sh
+. \$HOME/.profile
+if [ -x /usr/local/bin/dbus-launch -a -z "\${DBUS_SESSION_BUS_ADDRESS}" ]; then
+        eval \`dbus-launch --sh-syntax --exit-with-session\`
+fi
+EOF
+
+# write .xsession - Japanese IM part
+#
+if [ "$ja_env" = YES ]; then
+    echo >> $xs
+    echo "export LANG=ja_JP.UTF-8" >> $xs
+    case "$im" in
+        scim-anthy)
+            xmod="SCIM"
+            im_mod="xim"
+            im_daemon="scim -d"
+            ;;
+        uim-gtk)
+            xmod="uim"
+            im_mod="uim"
+            im_daemon="uim-xim & uim-toolbar-gtk &"
+            ;;
+        fcitx-anthy)
+            xmod="fcitx"
+            im_mod="fcitx"
+            im_daemon="fcitx-autostart"
+            ;;
+        *)
+            xmod="$im"
+            im_mod="$im"
+            im_daemon="$im &"
+            ;;
+    esac
+    cat <<EOF >> $xs
+
+# $im
+export XMODIFIERS="@im=$xmod"
+export GTK_IM_MODULE="$im_mod"
+export QT_IM_MODULE="$im_mod"
+$im_daemon
+EOF
+fi
+
+# write .xsession - Invocation of Desktop software
+#
+cat <<EOF >> $xs
+
+dt="$dt"
+wm="$wm"
+case "\$dt" in
+    no)
+        xsetroot -solid gray12
+        xclock -geometry 115x115-0+0 -analog -update 1 -fg white -bg '#000020' -hd gray25 -hl white &
+        xterm -geometry +0+0 -rv &
+        \$wm
+        ;;
+    rox-filer)
+        rox -t top -p pin
+        \$wm
+        ;;
+    xfce)   startxfce4 ;;
+    mate)   mate-session ;;
+    lumina) start-lumina-desktop ;;
+    *)
+        start\$dt
+        ;;
+esac
+
+# fail safe
+#
+if [ \$? -ne 0 ]; then
+    twm
+fi
+EOF
+
+# That's all
+#
+echo
+msg $0 finished.
+msg Check your $xs if OK, then login to X again.

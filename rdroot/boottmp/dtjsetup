@@ -4,9 +4,42 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
+# $Id: dtjsetup,v 1.2 2020/01/10 12:52:40 kaw Exp $
 #
 #========================================
 
+# Copyright (c) 2020
+# Yoshihiro Kawamata
+#
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are
+# met:
+# 
+#   * Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+# 
+#   * Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in
+#     the documentation and/or other materials provided with the
+#     distribution.
+# 
+#   * Neither the name of Yoshihiro Kawamata nor the names of its
+#     contributors may be used to endorse or promote products derived
+#     from this software without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #-------------------
 # Wait for ENTER key pressed
@@ -207,63 +240,13 @@ else
 fi
 
 cat <<EOF
-#=================================
-# Welcome to installdesktop.sh
+#==========================================
+# Welcome to dtjsetup
+#     Desktop (and Japanese) setup utility
+#
 # for FuguIta-$fi_version
-#=================================
+#==========================================
 EOF
-
-# check if this account administrative
-#
-TAB=$(echo -n "\t")
-echo
-msg checking your account...
-if id -p | grep -q "^uid${TAB}root$"; then
-    root=YES
-    install_cmd="pkg_add"
-elif id -p | egrep -q "^groups${TAB}(.*[0-9A-Za-z_] )?wheel( |\$)"; then
-    wheel=YES
-    if [ -f /etc/doas.conf ]; then
-        install_cmd="doas pkg_add"
-    else
-        #install_cmd='echo -n "root "; su root -c pkg_add $pkgs'
-        msg not privileged to root
-        exit 1
-    fi
-fi
-
-if [ "$root$wheel" = "" ]; then
-    echo
-    msg "It seems you don't seem to be able to get root privileges."
-    exit 1
-fi
-
-msg OK.
-
-# check install source
-#
-echo
-msg checking network accessibility...
-if [ -f /etc/installurl ]; then
-    checkurl=$(</etc/installurl)
-elif [ "$PKG_PATH" != "" ]; then
-    checkurl="$PKG_PATH"
-else
-    msg Install source should be set.
-    msg Please check /etc/installurl or '$PKG_PATH'
-    exit 1
-fi
-
-# check if network accessible
-#
-if ! ftp -o /dev/null "$checkurl" </dev/null >/dev/null 2>&1; then
-    echo
-    msg cannot access to "$checkurl"
-    msg Please check network reachability, or the URL is correct.
-    exit 1
-fi
-
-msg OK.
 
 # select Desktop Environment
 #
@@ -288,7 +271,7 @@ case "$dt" in
                 icewm|jwm)
                     pkgs="$pkgs $wm"
                     break;;
-                fvwm|twm)
+                cwm|fvwm|twm)
                     break;;
             esac
         done;;
@@ -330,16 +313,78 @@ fi
 
 # do pkg_add
 #
-echo
-msg Installing packages: $pkgs
-if [ 1 != $(ask_yn "Do you proceed?" n) ]; then
-    exit
-fi
-$install_cmd $pkgs
+if [ -n "$pkgs" ]; then
+    # check if this account administrative
+    #
+    TAB=$(echo -n "\t")
+    echo
+    msg checking your account...
+    if id -p | grep -q "^uid${TAB}root$"; then
+        root=YES
+        function rootcmd {
+            "$@"
+        }
+    elif id -p | egrep -q "^groups${TAB}(.*[0-9A-Za-z_] )?wheel( |\$)"; then
+        wheel=YES
+        if [ grep -q 'permit..*:wheel' /etc/doas.conf 2>/dev/null ]; then
+            function root_cmd {
+                doas "$@"
+            }
+        else
+            function root_cmd {
+                echo -n 'Root '
+                su root -c "$*"
+            }
+        fi
+    else
+        msg "You aren't authorized to be root."
+        exit 1
+    fi
 
-if [ $? -ne 0 ]; then
-    msg "Installing package(s) failed."
-    exit 1
+    if [ "$root$wheel" = "" ]; then
+        echo
+        msg "It seems you don't seem to be able to get root privileges."
+        exit 1
+    fi
+
+    msg OK.
+
+    # check install source
+    #
+    echo
+    msg checking network accessibility...
+    if [ -f /etc/installurl ]; then
+        checkurl=$(</etc/installurl)
+    elif [ "$PKG_PATH" != "" ]; then
+        checkurl="$PKG_PATH"
+    else
+        msg Install source should be set.
+        msg Please check /etc/installurl or '$PKG_PATH'
+        exit 1
+    fi
+
+    # check if network accessible
+    #
+    if ! ftp -o /dev/null "$checkurl" </dev/null >/dev/null 2>&1; then
+        echo
+        msg cannot access to "$checkurl"
+        msg Please check network reachability, or the URL is correct.
+        exit 1
+    fi
+
+    msg OK.
+
+    echo
+    msg Installing packages: $pkgs
+    if [ 1 != $(ask_yn "Do you proceed?" n) ]; then
+        exit
+    fi
+
+    root_cmd pkg_add $pkgs
+    if [ $? -ne 0 ]; then
+        msg "Installing package(s) failed."
+        exit 1
+    fi
 fi
 
 # Detecting existing .xsession

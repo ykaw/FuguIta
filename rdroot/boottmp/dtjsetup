@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.2 2020/01/10 12:52:40 kaw Exp $
+# $Id: dtjsetup,v 1.3 2020/01/12 09:09:29 kaw Exp $
 #
 #========================================
 
@@ -230,8 +230,8 @@ function msg {
 #=======================
 
 if [ ! -r /usr/fuguita/version ]; then
-    msg You are not running FuguIta.
-    if [ $(ask_yn 'Run this installer anyway?' y) -ne 1 ]; then
+    msg FuguIta is not running.
+    if [ $(ask_yn 'Do you want to run this installer anyway?' y) -ne 1 ]; then
         exit 1
     fi
     fi_version='IS_NOT_HERE'
@@ -266,12 +266,12 @@ case "$dt" in
     "no"|"rox-filer")
         while :; do
             echo
-            wm=$(ask_which "Which window manager will you install?" "icewm" "cwm" "fvwm" "twm" "icewm" "jwm")
+            wm=$(ask_which "Which window manager will you install?" "icewm" "cwm" "fvwm" "twm" "icewm" "fluxbox" "jwm")
             case "$wm" in
-                icewm|jwm)
-                    pkgs="$pkgs $wm"
-                    break;;
                 cwm|fvwm|twm)
+                    break;;
+                *)
+                    pkgs="$pkgs $wm"
                     break;;
             esac
         done;;
@@ -282,7 +282,7 @@ esac
 # Setup Japanese Env?
 #
 echo
-if [ $(ask_yn "Do you setup Japanese language environment?" n) = 1 ]; then
+if [ $(ask_yn "Will you setup Japanese language environment?" n) = 1 ]; then
     ja_env=YES
     pkgs="$pkgs ja-kterm ja-sazanami-ttf mixfont-mplus-ipa mplus-fonts"
 
@@ -306,9 +306,9 @@ echo
 msg You selected $wm as desktop software.
 msg Installing Japanese environment is $ja_env.
 if [ "$ja_env" = YES ]; then
-    msg Japanese input method is \"$im\".
+    msg Japanese input method is $im.
 else
-    msg No Japanese input method selected.
+    msg No Japanese input method choosen.
 fi
 
 # do pkg_add
@@ -318,32 +318,34 @@ if [ -n "$pkgs" ]; then
     #
     TAB=$(echo -n "\t")
     echo
-    msg checking your account...
+    msg Checking your root authorization...
     if id -p | grep -q "^uid${TAB}root$"; then
         root=YES
-        function rootcmd {
-            "$@"
+        function root_cmd {
+            sh -c "$*"
         }
     elif id -p | egrep -q "^groups${TAB}(.*[0-9A-Za-z_] )?wheel( |\$)"; then
         wheel=YES
-        if [ grep -q 'permit..*:wheel' /etc/doas.conf 2>/dev/null ]; then
+        if grep -q 'permit..*:wheel' /etc/doas.conf 2>/dev/null; then
             function root_cmd {
-                doas "$@"
+                doas sh -c "$*"
             }
         else
             function root_cmd {
-                echo -n 'Root '
+                echo -n 'Root '  # to display "Root Password:"
                 su root -c "$*"
             }
         fi
     else
         msg "You aren't authorized to be root."
+        msg 'To install packages, you should be root or a member of wheel group.'
         exit 1
     fi
 
     if [ "$root$wheel" = "" ]; then
         echo
         msg "It seems you don't seem to be able to get root privileges."
+        msg 'To install packages, you should be root or a member of wheel group.'
         exit 1
     fi
 
@@ -352,13 +354,13 @@ if [ -n "$pkgs" ]; then
     # check install source
     #
     echo
-    msg checking network accessibility...
+    msg Checking network accessibility...
     if [ -f /etc/installurl ]; then
         checkurl=$(</etc/installurl)
     elif [ "$PKG_PATH" != "" ]; then
         checkurl="$PKG_PATH"
     else
-        msg Install source should be set.
+        msg Install source is not set yet.
         msg Please check /etc/installurl or '$PKG_PATH'
         exit 1
     fi
@@ -376,7 +378,7 @@ if [ -n "$pkgs" ]; then
 
     echo
     msg Installing packages: $pkgs
-    if [ 1 != $(ask_yn "Do you proceed?" n) ]; then
+    if [ 1 != $(ask_yn "Will you continue?" n) ]; then
         exit
     fi
 
@@ -395,15 +397,15 @@ if [ -e "$xs" ]; then
     xs_bak="${xs}_$(date +%Y%m%d_%H%M%S)"
     echo
     msg $xs already exists.
-    msg This will be replaced to a new file.
-    msg and the old one will be renamed as $xs_bak.
+    msg This will be replaced with a new file.
+    msg and the old one will be renamed to $xs_bak.
 fi
 
 # make backup of .xsession
 #
 echo
-msg Rewriting .xsession configuration file.
-if [ 1 != $(ask_yn "Do you proceed?" n) ]; then
+msg Rewrite .xsession configuration file.
+if [ 1 != $(ask_yn "Will you continue?" n) ]; then
     exit
 fi
 
@@ -490,8 +492,41 @@ if [ \$? -ne 0 ]; then
 fi
 EOF
 
+echo
+if [ $(ask_yn 'Copy this .xsession file to /etc/skel ?' n) -eq 1 ]; then
+    root_cmd cp $HOME/.xsession /etc/skel/.
+fi
+
+if [ "$ja_env" = YES ]; then
+    ls -l /etc/localtime | egrep -q 'zoneinfo/(Japan|Asia/Tokyo)'
+    if [ $? -eq 1 ]; then
+        echo
+        msg Japanese environment and related software have been set up.
+        msg However, the time zone has not yet been set to JST.
+        if [ $(ask_yn 'Set timezone to JST?' y) = 1 ]; then
+           root_cmd ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+        fi
+
+        echo
+        msg When you use this machine both running OpenBSD and Windows.
+        msg You may set the hardware clock to JST instead  UTC.
+        if [ $(ask_yn 'Set hardware clock to JST?' y) = 1 ]; then
+            root_cmd echo 'sysctl kern.utc_offset=-540' '>>' '/etc/sysctl.conf'
+            msg This will take effect on the next boot.
+        fi
+    fi
+fi
+
+
 # That's all
 #
 echo
-msg $0 finished.
-msg Check your $xs if OK, then login to X again.
+msg all installation and configuration completed.
+msg Check your $xs and login to X if OK.
+
+if [ "$fi_version" != 'IS_NOT_HERE' ]; then
+    echo
+    msg 'Note: You can save this configuration and addtionally installed softwares'
+    msg '      by using usbfadm utility.'
+    msg '      And can reload them at next boot time by selecting boot mode 3.'
+fi

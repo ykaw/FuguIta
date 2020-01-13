@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.4 2020/01/13 04:04:11 kaw Exp $
+# $Id: dtjsetup,v 1.5 2020/01/13 14:18:15 kaw Exp $
 #
 #========================================
 
@@ -289,10 +289,11 @@ if [ $(ask_yn "Will you setup Japanese language environment?" n) = 1 ]; then
     # if so, select input method software
     while :; do
         echo
-        im=$(ask_which "Which input method will you install?" "scim-anthy" "scim-anthy" "uim-gtk" "fcitx-anthy")
+        im=$(ask_which "Which input method will you install?" "scim-anthy" "scim-anthy" "uim-gtk" "fcitx-anthy" "ibus-skk")
         case "$im" in
             "") ;;
             fcitx-anthy) pkgs="$pkgs $im fcitx-gtk3";  break;;
+            ibus-skk)    pkgs="$pkgs $im ibus";  break;;
             *) pkgs="$pkgs $im";  break;;
         esac
     done
@@ -316,7 +317,7 @@ fi
 if [ -n "$pkgs" ]; then
     # check if this account administrative
     #
-    TAB=$(echo -n "\t")
+    TAB=$(echo -n "\t")  # to make tab visible
     echo
     msg Checking your root authorization...
     if id -p | grep -q "^uid${TAB}root$"; then
@@ -443,6 +444,11 @@ if [ "$ja_env" = YES ]; then
             xmod="fcitx"
             im_mod="fcitx"
             im_daemon="fcitx-autostart"
+            ;;
+        ibus-skk)
+            xmod="ibus"
+            im_mod="ibus"
+            im_daemon="ibus-daemon -d -x"
             ;;
         *)
             xmod="$im"

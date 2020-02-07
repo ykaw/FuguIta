@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.6 2020/01/14 20:42:41 kaw Exp $
+# $Id: dtjsetup,v 1.7 2020/02/07 03:46:56 kaw Exp $
 #
 #========================================
 
@@ -40,6 +40,15 @@
 # THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+#-------------------
+# clean-ups
+#
+RL_WORDS=/tmp/rl_words_$$
+function clear_exit {
+    rm -f $RL_WORDS
+    exit $1
+}
 
 #-------------------
 # Wait for ENTER key pressed
@@ -195,9 +204,9 @@ function rl_wread {
     local default="$1"; shift
 
     if [ -x /usr/local/bin/rlwrap ]; then
-        echo "$@" > /tmp/rl_words
+        echo "$@" > $RL_WORDS
         rlwrap -b '' \
-               -f /tmp/rl_words \
+               -f $RL_WORDS \
                -P "$default" \
                sh -f -c 'echo -n "'"$prompt"'->" >&2 ; read w || echo EOF; echo $w' || echo RL_ERR
     else
@@ -228,6 +237,11 @@ function msg {
 #=======================
 # Active code from here
 #=======================
+
+#-------------------
+# initializations
+#
+trap 'echo $0: interrupted. >&2; clear_exit 1' INT
 
 if [ ! -r /usr/fuguita/version ]; then
     msg FuguIta is not running.
@@ -517,7 +531,7 @@ if [ "$ja_env" = YES ]; then
         echo
         msg When you use this machine both running OpenBSD and Windows.
         msg You may set the hardware clock to JST instead  UTC.
-        if [ $(ask_yn 'Set hardware clock to JST?' y) = 1 ]; then
+        if [ $(ask_yn 'Set hardware clock to JST?' n) = 1 ]; then
             root_cmd echo 'sysctl kern.utc_offset=-540' '>>' '/etc/sysctl.conf'
             msg This will take effect on the next boot.
         fi
@@ -537,3 +551,5 @@ if [ "$fi_version" != 'IS_NOT_HERE' ]; then
     msg '      by using usbfadm utility.'
     msg '      And can reload them at next boot time by selecting boot mode 3.'
 fi
+
+clear_exit 0

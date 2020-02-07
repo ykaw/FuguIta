@@ -444,7 +444,9 @@ while :; do
             for f in \
                 usr/local/info/dir \
                 usr/local/share/info/dir \
-                usr/local/man/mandoc.db
+                usr/local/man/mandoc.db \
+                usr/local/libdata/perl5/site_perl/OpenBSD/Quirks.pm \
+                usr/local/libdata/perl5/site_perl/OpenBSD/Quirks/ghc.pm
             do
                 if [ -f /fuguita/$f ]; then
                     rm -f /ram/$f && cp -p /fuguita/$f /ram/$f

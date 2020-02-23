@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.7 2020/02/07 03:46:56 kaw Exp $
+# $Id: dtjsetup,v 1.8 2020/02/23 08:30:06 kaw Exp $
 #
 #========================================
 
@@ -280,7 +280,7 @@ case "$dt" in
     "no"|"rox-filer")
         while :; do
             echo
-            wm=$(ask_which "Which window manager will you install?" "icewm" "cwm" "fvwm" "twm" "icewm" "fluxbox" "jwm")
+            wm=$(ask_which "Which window manager will you install?" "icewm" "cwm" "fvwm" "twm" "icewm" "fluxbox" "jwm" $DTJ_WMS)
             case "$wm" in
                 cwm|fvwm|twm)
                     break;;
@@ -298,7 +298,7 @@ esac
 echo
 if [ $(ask_yn "Will you setup Japanese language environment?" n) = 1 ]; then
     ja_env=YES
-    pkgs="$pkgs ja-kterm ja-sazanami-ttf mixfont-mplus-ipa mplus-fonts"
+    pkgs="$pkgs ja-kterm ja-fonts-funet ja-fonts-gnu ja-sazanami-ttf mixfont-mplus-ipa mplus-fonts"
 
     # if so, select input method software
     while :; do

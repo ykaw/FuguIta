@@ -1,2 +1,5 @@
+#!/bin/sh
+
 crunchgen -m Makefile -E ../bootbin.conf 
+
 make objs exe

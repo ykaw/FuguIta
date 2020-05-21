@@ -1,5 +1,5 @@
---- rc	Thu Oct 24 18:00:40 2019
-+++ rc.new	Thu Oct 24 18:00:59 2019
+--- rc	Thu May 21 22:06:28 2020
++++ rc.new	Thu May 21 22:06:41 2020
 @@ -177,22 +177,15 @@
  	# filesystems, otherwise record which ones are mounted read-only.
  	for _dkdev in $(df /usr/{lib,libexec} $_relink |
@@ -26,7 +26,7 @@
  	# Only choose the latest version of the libraries.
  	for _liba in $_relink/usr/lib/lib{c,crypto}; do
  		_libas="$_libas $(ls $_liba.so.+([0-9.]).a | sort -rV | head -1)"
-@@ -376,8 +369,9 @@
+@@ -379,8 +372,9 @@
  # Re-mount the root filesystem read/writeable. (root on nfs requires this,
  # others aren't hurt.)
  mount -uw /
@@ -38,7 +38,7 @@
  
  rm -f /fastboot
  
-@@ -616,7 +610,9 @@
+@@ -617,7 +611,9 @@
  
  # Re-link the kernel, placing the objects in a random order.
  # Replace current with relinked kernel and inform root about it.

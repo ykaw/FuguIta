@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.844 2019/05/28 08:44:27 sf Exp $
+#	$OpenBSD: GENERIC,v 1.850 2020/01/22 05:06:19 tedu Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -90,6 +90,7 @@ pseudo-device	msts	1	# MSTS line discipline
 pseudo-device	endrun	1	# EndRun line discipline
 pseudo-device	vnd	6	# vnode disk devices
 pseudo-device	ksyms	1	# kernel symbols device
+#pseudo-device	dt		# Dynamic Tracer
 
 # clonable devices
 pseudo-device	bpfilter	# packet filter
@@ -127,7 +128,6 @@ maxusers	80			# estimated number of users
 
 option		USER_PCICONF	# user-space PCI configuration
 
-option		KVM86		# Kernel Virtual 8086 emulation
 option		APERTURE	# in-kernel aperture driver for XFree86
 option		MTRR		# CPU memory range attributes control
 
@@ -138,7 +138,7 @@ option		RAMDISK_HOOKS
 option		MINIROOTSIZE=3800
 option		NKPTP=6
 config		bsd	root on rd0a
-
+ 
 pseudo-device   rd              1       # ramdisk
 
 mainbus0 at root
@@ -190,7 +190,6 @@ isa0	at pcib?
 isa0	at amdpcib?
 isa0	at tcpcib?
 isa0	at ichpcib?
-isa0	at piixpcib?
 isa0	at gscpcib?
 isa0	at glxpcib?
 eisa0	at mainbus0
@@ -204,7 +203,6 @@ pcib*	at pci?			# PCI-ISA bridge
 amdpcib* at pci?		# AMD 8111 LPC bridge 
 tcpcib*	at pci?			# Intel Atom E600 LPC bridge
 ichpcib* at pci?		# Intel ICHx/ICHx-M LPC bridges
-piixpcib* at pci?		# Intel PIIX4 PCI-ISA bridge
 gscpcib* at pci?		# NS Geode SC1100 PCI-ISA bridge
 gpio*	at gscpcib?
 glxpcib* at pci?		# AMD CS5536 PCI-ISA bridge
@@ -403,6 +401,7 @@ ucom*	at uslhcom?
 uticom* at uhub?		# TI serial
 ucom*	at uticom?
 uhid*	at uhidev?		# USB generic HID support
+fido*	at uhidev?		# FIDO/U2F security key support
 upd*	at uhidev?		# USB Power Devices sensors
 aue*	at uhub?		# ADMtek AN986 Pegasus Ethernet
 atu*	at uhub?		# Atmel AT76c50x based 802.11b
@@ -527,8 +526,6 @@ com*	at ast?
 #com*	at boca?
 #addcom0	at isa? port 0x108 irq 5	# Addonics FlexPort
 #com*	at addcom?
-#rtfps0	at isa? port 0x1230 irq 10	# RT 4-port serial cards
-#com*	at rtfps?
 #hsq0	at isa? port 0x140 irq 10	# Hostess 4-port serial card
 #com*	at hsq?
 com*	at pcmcia?			# PCMCIA modems/serial ports
@@ -578,7 +575,6 @@ qle*	at pci?			# QLogic ISP 2[45]xx FibreChannel
 aic0	at isa? port 0x340 irq 11 # Adaptec 152[02] SCSI controllers
 aic*	at pcmcia?		# PCMCIA based aic SCSI controllers
 aic*	at isapnp?		# isapnp configured aic SCSI controllers
-#esp*	at pcmcia?		# PCMCIA based NCR 53C9X SCSI
 siop*	at pci?			# NCR 538XX SCSI controllers(new)
 adv*	at pci?			# AdvanSys 1200A/B and ULTRA SCSI
 adw*	at pci?			# AdvanSys ULTRA WIDE SCSI
@@ -693,6 +689,7 @@ bge*	at pci?				# Broadcom BCM57xx (aka Tigon3)
 bnx*	at pci?				# Broadcom BCM5706/5708 GigE
 re*	at pci?				# Realtek 8169/8169S/8110S
 re*	at cardbus?			# Realtek 8169/8169S/8110S
+rge*	at pci?				# Realtek 8125
 stge*	at pci?				# Sundance TC9021 GigE
 lge*	at pci?				# Level1 LXT1001 GigE
 hme*	at pci?				# Sun Happy Meal

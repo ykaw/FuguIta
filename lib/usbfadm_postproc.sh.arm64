@@ -16,7 +16,7 @@ notice "Copying stuffs for non-interactive boot..."
 if [ -n "$devname" ]; then
     srcpart="${devname#/dev/}"
 else
-    srcpart='sd0d'
+    srcpart='sd1d'  # since 6.7, sd0 is SD for boot.
 fi
 
 if [ "${srcpart%?}" = "$scandev" ]; then
@@ -50,7 +50,7 @@ else
 #
 #
 # FuguIta system device
-noask_rdev='sd0a'
+noask_rdev='sd1a'
 #
 # tmpfs size in MB
 noask_umem='0'
@@ -59,7 +59,7 @@ noask_umem='0'
 noask_setup_rw_mode='3'
 #
 # storage device
-noask_confdev='sd0d'
+noask_confdev='sd1d'
 #
 # data set name in USB flash drive
 noask_confdir='fuguita.default'

@@ -1,4 +1,4 @@
-# $OpenBSD: GENERIC,v 1.129 2019/10/07 19:35:07 patrick Exp $
+# $OpenBSD: GENERIC,v 1.164 2020/04/27 21:31:37 patrick Exp $
 #
 # GENERIC machine description file
 #
@@ -99,6 +99,7 @@ pseudo-device	msts	1	# MSTS line discipline
 pseudo-device	endrun	1	# EndRun line discipline
 pseudo-device	vnd	6	# vnode disk devices
 pseudo-device	ksyms	1	# kernel symbols device
+#pseudo-device	dt		# Dynamic Tracer
 
 # clonable devices
 pseudo-device	bpfilter	# packet filter
@@ -145,7 +146,7 @@ option		RAMDISK_HOOKS
 option		MINIROOTSIZE=15360
 option		NKPTP=5
 config		bsd	root on rd0a
-
+ 
 pseudo-device   rd              1       # ramdisk
 
 # The main bus device
@@ -195,6 +196,7 @@ sdmmc*		at sdhc?
 bwfm*		at sdmmc?	# Broadcom FullMAC
 xhci*		at fdt?
 ccp*		at fdt?		# AMD Cryptographic Co-processor
+ipmi*		at fdt?
 
 # NS16550 compatible serial ports
 com*		at fdt?
@@ -207,6 +209,7 @@ pluart*		at fdt?
 psci*		at fdt? early 1
 pwmreg*		at fdt? early 1
 syscon*		at fdt? early 1
+pwmfan*		at fdt?
 
 virtio*		at fdt?
 virtio*		at pci?
@@ -222,6 +225,8 @@ option	WSDISPLAY_DEFAULTSCREENS=6	# initial number of text consoles
 
 simplefb*	at fdt?
 wsdisplay*	at simplefb?
+simplepanel*	at fdt?
+pwmbl*		at fdt?			# PWM backlight
 
 radeondrm*	at pci?
 drm*		at radeondrm?
@@ -235,26 +240,45 @@ imxccm*		at fdt? early 1
 imxiomuxc*	at fdt? early 1
 imxanatop*	at fdt? early 1
 imxsrc*		at fdt? early 1
+imxehci*	at fdt?
+usb*		at imxehci?
 imxgpc*		at fdt?
 imxgpio*	at fdt?
 fec*		at fdt?
 imxuart*	at fdt?
 imxiic*		at fdt?
 iic*		at imxiic?
+bdpmic*		at iic?
 imxesdhc*	at fdt?
 sdmmc*		at imxesdhc?
+imxpciephy*	at fdt?
+imxpwm*		at fdt?
 imxspi*		at fdt?
 ssdfb*		at iic?
 ssdfb*		at spi?
 wsdisplay*	at ssdfb?
 imxtmu*		at fdt?
 
-# Raspberry Pi 3
-bcmaux*		at fdt?
-bcmintc*	at fdt?
+# Raspberry Pi 3/4
+bcmaux*		at fdt? early 1
+bcmbsc*		at fdt?
+iic*		at bcmbsc?
+bcmclock*	at fdt? early 1
+bcmdmac*	at fdt? early 1
 bcmdog*		at fdt?
+bcmgpio*	at fdt? early 1
+gpio*		at bcmgpio?
+bcmintc*	at fdt? early 1
+bcmirng*	at fdt?
+bcmmbox*	at fdt? early 1
+bcmpcie*	at fdt?
+pci*		at bcmpcie?
 bcmrng*		at fdt?
+bcmsdhost*	at fdt?
+sdmmc*		at bcmsdhost?
 bcmtemp*	at fdt?
+bse*		at fdt?
+bse*		at acpi?
 dwctwo*		at fdt?
 usb*		at dwctwo?
 
@@ -270,6 +294,8 @@ amlpinctrl*	at fdt? early 1
 amlpwm*		at fdt?
 amlreset*	at fdt? early 1
 amlrng*		at fdt?
+amlsm*		at fdt? early 1
+amltemp*	at fdt?
 amluart*	at fdt?
 amlusbphy*	at fdt?
 
@@ -302,12 +328,21 @@ sfp*		at fdt?
 rkclock*	at fdt? early 1
 rkgrf*		at fdt? early 1
 rkpinctrl*	at fdt? early 1
+rkanxdp*	at fdt?
+rkdrm*		at fdt?
+drm*		at rkdrm?
+wsdisplay*	at rkdrm?
+rkdwhdmi*	at fdt?
+rkemmcphy*	at fdt?
 rkgpio*		at fdt?
 rkiic*		at fdt?
 iic*		at rkiic?
 rkpcie*		at fdt?
 pci*		at rkpcie?
+rkpwm*		at fdt?
+rkrng*		at fdt?
 rktemp*		at fdt?
+rkvop*		at fdt?
 rkdwusb*	at fdt?
 dwmmc*		at fdt?
 sdmmc*		at dwmmc?
@@ -316,11 +351,14 @@ sdmmc*		at dwmmc?
 sxipio*		at fdt? early 1	# GPIO pins for leds & PHYs
 gpio*		at sxipio?
 sxiccmu*	at fdt? early 1	# Clock Control Module/Unit
+sxidog*		at fdt?
+sxipwm*		at fdt?
 sxirsb*		at fdt? early 1	# Reduced Serial Bus
 axppmic*	at rsb?
 sxirtc*		at fdt? early 1	# Real Time Clock
 sximmc*		at fdt?		# SD/MMC card controller
 sdmmc*		at sximmc?	# SD/MMC bus
+sxisid*		at fdt? early 1
 sxisyscon*	at fdt? early 1	# System controller
 sxitemp*	at fdt?		# Temperature sensor
 sxitwi*		at fdt?		# I2C controller
@@ -339,11 +377,16 @@ mcx*		at pci?			# Mellanox ConnectX-4/5 Ethernet
 mskc*		at pci?			# Marvell Yukon-2
 msk*		at mskc?		#  each port of above
 re*		at pci?			# Realtek 8169/8169S/8110S
+rge*		at pci?			# Realtek 8125
 
 # PCI SCSI
 ahci*		at pci? flags 0x0000	# AHCI SATA controllers
 					# flags 0x0001 to force SATA 1 (1.5Gb/s)
 nvme*		at pci?			# NVMe controllers
+mpi*		at pci?			# LSI Logic Fusion MPT Message Passing Interface
+mpii*		at pci?			# LSI Fusion MPT Message Passing Interface II
+mfi*		at pci?			# LSI MegaRAID SAS controllers
+mfii*		at pci?			# LSI MegaRAID SAS Fusion controller
 
 # USB Controllers
 ohci*		at pci?			# Open Host Controller
@@ -407,6 +450,8 @@ umass*		at uhub?		# USB Mass Storage devices
 uhidev*		at uhub?		# Human Interface Devices
 ums*		at uhidev?		# USB mouse
 wsmouse*	at ums? mux 0
+umt*		at uhidev?		# USB multitouch touchpad
+wsmouse*	at umt? mux 0
 uts*		at uhub?		# USB touchscreen
 wsmouse*	at uts? mux 0
 uwacom*		at uhidev?		# USB Wacom tablet
@@ -418,6 +463,7 @@ ucom*		at ucycom?
 uslhcom*	at uhidev?		# Silicon Labs CP2110 USB HID UART
 ucom*		at uslhcom?
 uhid*		at uhidev?		# USB generic HID support
+fido*		at uhidev?		# FIDO/U2F security key support
 upd*		at uhidev?		# USB Power Devices sensors
 aue*		at uhub?		# ADMtek AN986 Pegasus Ethernet
 atu*		at uhub?		# Atmel AT76c50x based 802.11b
@@ -472,6 +518,7 @@ bwfm*		at uhub?		# Broadcom FullMAC
 
 amphy*		at mii?			# AMD 79C873 PHYs
 atphy*		at mii?			# Attansic F1 PHYs
+brgphy*		at mii?			# Broadcom Gigabit PHYs
 eephy*		at mii?			# Marvell 88E1000 series PHY
 rgephy*		at mii?			# Realtek 8169S/8110S PHY
 rlphy*		at mii?			# Realtek 8139 internal PHYs
@@ -487,14 +534,18 @@ uk*		at scsibus?
 
 # I2C devices
 abcrtc*		at iic?			# Abracon x80x RTC
+dsxrtc*		at iic?			# DS3231 RTC
 fanpwr*		at iic?			# FAN53555 regulator
 fusbtc*		at iic?			# USB Type-C controller
 ipmi*		at iic?			# IPMI (SIIF)
 islrtc*		at iic?			# ISL1208 RTC
+maxrtc*		at iic?			# DS1307 RTC
 mcprtc*		at iic?			# MCP794XX RTC
+pcfrtc*		at iic?			# PCF8523 RTC
 pcxrtc*		at iic?			# PCF8563 RTC
 rkpmic*		at iic?			# RK808 PMIC
 sypwr*		at iic?			# SY8106A regulator
+tcpci*		at iic?			# USB Type-C controller
 
 # GPIO "pin bus" drivers
 gpioiic*	at gpio?		# I2C bus bit-banging

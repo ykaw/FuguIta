@@ -66,7 +66,7 @@ scan_disks () {
     # inspecting every disk partitions
     #
     echo -n "scanning partitions:"
-    unset partlst part_sys part_sto part_swp part_noask
+    unset partlst part_sys part_sto part_enc part_swp part_noask
     while read ln; do
         set -- $ln
         part="$1"
@@ -74,21 +74,33 @@ scan_disks () {
         partlst=${partlst:+"$partlst "}$part
         echo -n " $part"
         case $fstype in
-            swap) part_swp=${part_swp:+"$part_swp "}$part ;;
-            *) if mount -r /dev/$part /mnt 2> /dev/null; then
-                   set -- /mnt/ISO/FuguIta-${osrel}-${osmac}-?????????.iso
-                   if [ -f /mnt/fuguita-${osrel}-${osmac}.ffsimg -o ! X"$1" = X"/mnt/ISO/FuguIta-${osrel}-${osmac}-?????????.iso" ]; then
-                       part_sys=${part_sys:+"$part_sys "}$part
-                   fi
-                   if [ -d /mnt/livecd-config ]; then
-                       part_sto=${part_sto:+"$part_sto "}$part
-                   fi
-                   if [ -f /mnt/noasks ]; then
-                       part_noask=${part_noask:+"$part_noask "}$part
-                   fi
-                   umount /dev/$part
-               fi
-            ;;
+            swap)
+                part_swp=${part_swp:+"$part_swp "}$part
+                ;;
+            RAID)
+                # search string 'SR CRYPTO' at head of partition
+                # We cannot use "fgrep -q" because bin dirs not mounted yet.
+                #
+                if [ "`dd if=/dev/r$part bs=1k skip=8 count=1 2>/dev/null | /boottmp/sed -e '/SR CRYPTO/!d; s/.*SR CRYPTO.*/FOUND/'`" \
+                     = 'FOUND' ]; then
+                    part_enc=${part_enc:+"$part_enc "}$part
+                fi
+                ;;
+            *)
+                if mount -r /dev/$part /mnt 2> /dev/null; then
+                    set -- /mnt/ISO/FuguIta-${osrel}-${osmac}-?????????.iso
+                    if [ -f /mnt/fuguita-${osrel}-${osmac}.ffsimg -o ! X"$1" = X"/mnt/ISO/FuguIta-${osrel}-${osmac}-?????????.iso" ]; then
+                        part_sys=${part_sys:+"$part_sys "}$part
+                    fi
+                    if [ -d /mnt/livecd-config ]; then
+                        part_sto=${part_sto:+"$part_sto "}$part
+                    fi
+                    if [ -f /mnt/noasks ]; then
+                        part_noask=${part_noask:+"$part_noask "}$part
+                    fi
+                    umount /dev/$part
+                fi
+                ;;
         esac
     done < /boottmp/boot_partitions
     echo
@@ -346,6 +358,7 @@ while :; do
     echo "  1: fresh boot - less memory, faster boot (/usr is non-writable, can't pkg_add)"
     echo '  2: fresh boot - works using only RAM (about 1GB or more of RAM required)'
     echo '  3: boot with retrieving saved files from storage device'
+    echo '     or enter passphrase for an encrypted volume'
     echo '  4: boot with retrieving saved files from floppy disk'
     echo '  5: interactive shell for debugging'
     echo -n '->'
@@ -575,24 +588,41 @@ while :; do
         #-------------------------------
         # ask user for FuguIta's operating device
         #
-        if [ X"$part_sto" = X ]; then
+        if [ X"${part_sto}${part_enc}" = X ]; then
             echo "Warning: None of FuguIta's storage device(s) found."
             continue
         else
-            echo "FuguIta's storage device(s): ${part_sto}."
-            set -- $part_sto
-            if [ $# -eq 1 ]; then
-                def_sdev="$1"
-            else
-                unset def_sdev
-            fi
+	    # display concerning devices
+	    echo "Device(s) found:"
+            if [ -n "${part_sto}" ]; then
+		echo "  loadable from: ${part_sto}"
+		set -- $part_sto
+		if [ $# -eq 1 ]; then
+                    def_sdev="$1"  # single device only ... set default
+		else
+                    unset def_sdev
+		fi
+	    fi
+            if [ -n "${part_enc}" ]; then
+		echo "      encrypted: ${part_enc}"
+	    fi
         fi
 
         if [ X = X"$noask_confdev" ]; then
             while :; do
                 echo -n "Which is FuguIta's storage device? ${def_sdev:+[default: ${def_sdev}] }-> "
                 read sdev
-                [ -n "${def_sdev}${sdev}" ] && break
+
+		# Is crypto volume selected?
+		if [ 0 - lt `expr " ${part_enc} " : ".* $sdev "` ]; then
+		    if bioctl -c C -l /dev/$sdev softraid0; then
+			sleep 3  # wait for kernel messages printed
+			echo "Passphrase successful: Select boot mode again..."
+		    fi
+		    continue 2  # return to boot mode menu
+		else
+                    [ -n "${def_sdev}${sdev}" ] && break
+		fi
             done
             [ -z "${sdev}" ] && sdev="$def_sdev"
         else

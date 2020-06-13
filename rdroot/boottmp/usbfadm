@@ -51,6 +51,7 @@ function clear_exit {
     if mount | grep -q "^$devname on /mnt" ;then
         umount $devname
     fi
+    rm -f $enc_ppfile
     rm -rf $lockdir
     exit $1
 }
@@ -233,7 +234,7 @@ function rl_wread {
 }
 
 function notice {
-    echo ''
+    echo
     echo ========================================
     echo = "$@"
     echo =
@@ -348,12 +349,12 @@ function showparams {
     # 
     # global parameters
     #    bootmode   : initial boot mode - e.g. 'usbflash'
-    #    devname    : path of target device for sync - e.g. 'sd0d'
-    #    devnames   : all disk names attached to this machine
-    #    uconf      : name of configuration - e.g. 'nimbus12-userdemo'
+    #    devname    : path of target device for sync - e.g. '/dev/sd0d'
+    #    devnames   : all disk names attached to this machine - e.g. ' sd1d sd2d'
+    #    uconf      : name of configuration - e.g. 'userdemo'
     # 
-    # constatns
-    #    fuguita_sys_mb : system size of FuguIta in MB, normaly 700
+    # constants
+    #    fuguita_sys_mb : system size of FuguIta in MB
     #    fuguita_uefi_kb: Partition size for EFI Sys
     #    osrel      : OpenBSD's release - e.g. '6.4'
     #    hwmac      : name of the platform - e.g. 'amd64'
@@ -382,6 +383,12 @@ function showparams {
     #    ps_fidat: sectors for FuguIta's Data Store (partition d)
     #    ps_fat  : sectors for Data Exchange (partition i or j)
     #    ps_tgap : tail gap (for GPT)
+    #
+    # crypto stuffs
+    #    enc_fidat : Is FuguIta's Data Store encrypted?
+    #    enc_pp1   : Primary entered passphrase
+    #    enc_pp2   : Secondary entered passphrase (cleared after check)
+    #    enc_ppfile: file containing passphrase
     # 
     # vnode devices
     #
@@ -542,15 +549,19 @@ function setup_fs {
     #
     local disklabel_input='' part
 
-    # commands to delete existing FFS/swap partitions
-    for part in `disklabel -c $scandev | awk '/^  [a-p]: .*  (4\.2BSD|swap)/{print $1}' | tr -d :`; do
+    # commands to delete existing FFS/RAID/swap partitions
+    for part in `disklabel -c $scandev | awk '/^  [a-p]: .*  (4\.2BSD|RAID|swap)/{print $1}' | tr -d :`; do
         disklabel_input="${disklabel_input}d $part\n"
     done
 
     # commands to create new FFS partitions
     [ 0 -lt $ps_fisys ] && disklabel_input="${disklabel_input}a a\n$((ps_hgap+ps_uefi))\n${ps_fisys}\n4.2BSD\n"
     [ 0 -lt $ps_fiswp ] && disklabel_input="${disklabel_input}a b\n$((ps_hgap+ps_uefi+ps_fisys))\n${ps_fiswp}\nSWAP\n"
-    [ 0 -lt $ps_fidat ] && disklabel_input="${disklabel_input}a d\n$((ps_hgap+ps_uefi+ps_fisys+ps_fiswp))\n*\n4.2BSD\n"
+    if [ 0 -lt $ps_fidat ]; then
+        local fstype='4.2BSD'
+        [ "$enc_fidat" = 'yes' ] && fstype='RAID'
+        disklabel_input="${disklabel_input}a d\n$((ps_hgap+ps_uefi+ps_fisys+ps_fiswp))\n*\n${fstype}\n"
+    fi
     disklabel_input="${disklabel_input}q\ny\n"
 
     # invoke disklabel
@@ -616,17 +627,62 @@ function setup_fs {
         fsck -fy /dev/r${scandev}a
     fi
 
-    if echo "$disklabel" | grep -q 'd:.*4\.2BSD'; then
+    local datdev=$scandev  # datdev will be decrypted device if encryption specified
+
+    # setup crypto partition
+    #
+    if echo "$disklabel" | grep -q 'd:.*RAID'; then
+        notice 'Setting up for data store encryption'
+
+        dd if=/dev/zero of=/dev/r${scandev}d bs=1m count=1 2>/dev/null
+
+        # setup passphrase file
+        #
+        rm -f $enc_ppfile
+        local def_umask=`umask`
+        umask 077
+        echo "$enc_pp1" > $enc_ppfile
+        chmod 0600 $enc_ppfile
+        umask $def_umask
+        unset enc_pp1
+
+        # create a crypto volume
+        #
+        bioctl -p $enc_ppfile -c C -l /dev/${scandev}d softraid0
+        rm -f $enc_ppfile
+
+        # check and get created device
+        #
+        datdev=$(bioctl -i softraid0 \
+                | awk "/^softraid.*CRYPTO\$/ { dev=\$(NF-1) }
+                       /<${scandev}d>\$/     { datdev=dev }
+                       END                   { print datdev }")
+
+        # create a FFS partition in the crypto volume
+        #
+        if [ 0 -lt `expr "$datdev" : '^sd[0-9]'` ]; then
+            fdisk -iy $datdev
+            echo "a d\n\n*\n4.2BSD\nw\nq\n" | disklabel -c -E $datdev
+        else
+            return  # crypto volume not found
+        fi
+    fi
+
+    # setup data store device
+    #   datdev is decrypted device if encryption specified
+    #   otherwise same as scandev
+    #
+    if disklabel -c $datdev | grep -q 'd:.*4\.2BSD'; then
         notice "Setting up a partition for user's data"
         if [ $ps_fidat -le `byte2sect 2G` ]; then
             # adjust inode density for little space
             # because too many symlinks when booted mode 0
-            newfs -m0 -o space -i1024 -b4096 -f512 ${scandev}d
+            newfs -m0 -o space -i1024 -b4096 -f512 ${datdev}d
         else
-            newfs -m0 ${scandev}d
+            newfs -m0 ${datdev}d
         fi
 
-        mount -o async /dev/${scandev}d /mnt
+        mount -o async /dev/${datdev}d /mnt
         mkdir /mnt/livecd-config
         cat <<EOT >/mnt/noasks
 #
@@ -646,14 +702,21 @@ function setup_fs {
 #noask_setup_rw_mode='3'
 #
 # storage device
-#noask_confdev='${scandev}d'
+#noask_confdev='${datdev}d'
 #
 # data set name in USB flash drive
 #noask_confdir=`hostname -s`
 EOT
         umount /mnt
 
-        fsck -fy /dev/r${scandev}d
+        fsck -fy /dev/r${datdev}d
+    fi
+
+    # delete crypto volume
+    #
+    if echo "$disklabel" | grep -q 'd:.*RAID'; then
+        # detach the device
+        bioctl -d ${datdev}
     fi
 }
 
@@ -711,7 +774,7 @@ if ! pwd >/dev/null 2>&1; then
     cd /
 fi
 if [ 1 -le $(expr X"$(pwd)" : X/mnt) ]; then
-    echo ''
+    echo
     echo 'You are under /mnt. Please move to other directory.'
     exit 1
 fi
@@ -740,6 +803,7 @@ trap 'echo $0: interrupted. >&2; clear_exit 1' INT
   disk_head_gap=64
  fuguita_sys_mb=946
 fuguita_uefi_kb=512
+     enc_ppfile='/tmp/usbfadm_pp'
 #
 # overwrite defaults
 #
@@ -825,7 +889,7 @@ while :; do
     #
     d="${devname#/dev/}" ; [ -z "$devname" ] && d='?'
     u="$uconf"           ; [ -z "$uconf" ]   && u='?'
-    echo ''
+    echo
     cmd=`rl_wread "$d : $u " '' quit bye exit sync info saveas target newdrive help ?`
 
     set X $cmd
@@ -838,17 +902,17 @@ while :; do
         # finish all
         #
         Xq|Xquit|Xbye|Xexit|XEOF|XRL_ERR)
-        echo ''
+        echo
         echo 'Bye bye...'
         break;
         ;;
 
         #-------------------
         # write back memory file system
-        # to USB flash drive
+        # to the storage device
         #
         Xsync)
-        echo ''
+        echo
         if [ X"$devname" = X ]; then
             echo "Name of device not set. Use 'target' to perform it."
             continue
@@ -860,31 +924,37 @@ while :; do
 
         if [ 1 = `ask_yn "Sync current tmpfs as \\\`\\\`$uconf'' , OK?" n` ]; then
             if mount -o softdep,noatime $devname /mnt; then
-
-                echo ''
-                if [ -d /mnt/livecd-config/$verarch/$uconf ]; then
-                    rsync -v -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+                echo
+                if [ -d /mnt/livecd-config ]; then
+                    if [ -d /mnt/livecd-config/$verarch/$uconf ]; then
+                        # previous backup exists ... do differencial copy
+                        rsync -v -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+                    else
+                        # first backup ... use cpio
+                        mkdir -p /mnt/livecd-config/$verarch/$uconf
+                        copydirs /ram /mnt/livecd-config/$verarch/$uconf
+                        rm -rf /mnt/livecd-config/$verarch/$uconf/tmp/{.??*,*}
+                    fi
+                    echo "$devname" > /boottmp/boot_restore_devname
+                    echo "$uconf"   > /boottmp/boot_user_config
+                    sync
+                    sleep 5
                 else
-                    mkdir -p /mnt/livecd-config/$verarch/$uconf
-                    copydirs /ram /mnt/livecd-config/$verarch/$uconf
+                    echo
+                    echo "$devname isn't for FuguIta's backup."
+                    echo "(Directory /livecd-config doesn't exists)"
                 fi
-                # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
-                rm -rf /mnt/livecd-config/$verarch/$uconf/tmp/{.??*,*}
-                sync
-                sleep 5
                 umount $devname
-                echo "$devname" > /boottmp/boot_restore_devname
-                echo "$uconf"   > /boottmp/boot_user_config
             fi
         fi
         ;;
 
         #-------------------
-        # show status of USB flash drive
+        # show status of storage device
         #
         Xinfo)
         if mount -r $devname /mnt; then
-            (cd /mnt/livecd-config && echo '' && df -hi /mnt && echo "\nscanning...\n" && du -sh [1-9].[0-9]/*/* [1-9].[0-9]-*-*) 2>/dev/null
+            (cd /mnt/livecd-config && echo && df -hi /mnt && echo "\nscanning...\n" && du -sh [1-9].[0-9]/*/* [1-9].[0-9]-*-*) 2>/dev/null
             umount $devname
         fi
         ;;
@@ -902,7 +972,7 @@ while :; do
         [ X"$uconf" = X ] && uconf=`hostname -s`
         uconf=`rl_wread "Name of saved data" $uconf $confs`
         uconf=`echo $uconf | tr -cd 0-9A-Za-z.,_-+=:%@`  # strip invalid chars
-        echo ''
+        echo
         if [ X"$uconf" = X ]; then
             echo "Unset the name of saving data"
         else
@@ -911,57 +981,92 @@ while :; do
         ;;
 
         #-------------------
-        # search and set USB flash drive
+        # search and set storage device
         #
         Xtarget)
-        echo ''
-        echo 'Searching USB flash drives'
+        echo
+        echo 'Searching storage device'
         echo 'Please make sure the device inserted.'
         [ `wait_enter 'Then press ENTER'` -lt 1 ] && continue
 
         #-----------------------
         # search partitions for saved data
         #
-        devname=''
-        devnames=''
-        for rdev in `sysctl -n hw.disknames | sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'`; do
-            case $rdev in
-                [csw]d[0-9]*)
-                    for rdevp in `disklabel -c -pm $rdev 2>/dev/null \
-                                  | sed -E -e '/^  [abd-p]: /!d; s/^  (.):/'$rdev'\1/' \
-                                  | cut -d' ' -f1`; do
-                        if mount -r /dev/$rdevp /mnt 2>/dev/null ; then
-                            if [ -d /mnt/livecd-config ]; then
-                                devname=${rdevp#/dev/}
-                                devnames="$devnames $devname"
-                                echo -n "+$rdevp "
+        while :; do
+            devname=''
+            devs_normal=' '
+            devs_crypto=' '
+            # listing storage devices with investigation
+            for rdev in `sysctl -n hw.disknames \
+                         | sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'`; do
+                [ 0 -eq `expr "$rdev" : '^[sw]d[0-9]'` ] && continue
+                # $rdev is detected storage name - e.g. "sd2"
+                for ptfs in `disklabel -c "$rdev" 2>/dev/null \
+                             | awk '/^  [abd-p]:/ { print $1 $4 }'`; do
+                    # $ptfs is "partition:fstype" - e.g. "d:4.2BSD"
+                    dev="$rdev"${ptfs%:*}
+                    fs=${ptfs#*:}
+                    case "$fs" in
+                        RAID)
+                            # check this RAID partition is crypto
+                            if dd if=/dev/r$dev bs=1k count=9 2>/dev/null \
+                               | fgrep -q 'SR CRYPTO'; then
+                                devs_crypto="$devs_crypto$dev "
+                                echo -n "?$dev "
                             else
-                                echo -n "$rdevp "
+                                echo -n "$dev "
                             fi
-                            umount /mnt
-                        else
-                            echo -n "$rdevp "
-                        fi
-                    done
-                    ;;
-            esac
-        done
-        echo ''
-        echo ''
+                            ;;
+                        4.2BSD)
+                            # check this FFS partition is for FuguIta's storage
+                            if mount -r /dev/$dev /mnt 2>/dev/null; then
+                                if [ -d /mnt/livecd-config ]; then
+                                    devs_normal="$devs_normal$dev "
+                                    def_dev="$dev"
+                                    echo -n "+$dev "
+                                else
+                                    echo -n "$dev "
+                                fi
+                                umount /mnt
+                            else
+                                echo -n "$dev "
+                            fi
+                            ;;
+                    esac
+                done
+            done
 
-        if [ X"$devnames" = X ]; then
-            echo 'No device available for saving data'
-        else
-            devname=/dev/`rl_wread "target device" $devname $devnames`
-        fi
+            # show result of scanning
+            # then prompt to user
+            #
+            if [ "${devs_normal}${devs_crypto}" = '  ' ]; then
+                echo
+                echo 'No device available for saving data'
+                break
+            else
+                echo
+                dev=`rl_wread "target device" "$def_dev" ${devs_normal}${devs_crypto}`
+                if [ 0 -lt `expr "$devs_normal" : ".* $dev "` ]; then
+                    devname=/dev/$dev
+                    set -- ${devs_normal}${devs_crypto}
+                    devnames="$@"  # trim heading/trailing spaces
+                    break
+                elif [ 0 -lt `expr "$devs_crypto" : ".* $dev "` ]; then
+                    bioctl -c C -l /dev/$dev softraid0
+                    sleep 2  # wait for kernel message displayed
+                else
+                    break
+                fi
+            fi
+        done
         ;;
 
         #-------------------
-        # make new FuguIta USB flash drive
+        # make new FuguIta storage device
         #
         Xnewdrive)
 
-        echo ''
+        echo
         if mount | grep -q '^\/dev\/[0-9a-z][0-9a-z]* on \/sysmedia type '
         then
             echo 'Please make sure the device inserted.'
@@ -971,25 +1076,25 @@ while :; do
             continue
         fi
 
-        echo ''
+        echo
         echo '==== disk(s) and vnode devices  ============================'
         dmesg | sed -e '/^[sw]d[0-9][0-9]*[ :]/!d; s/> .*/>/'
         vnconfig -l
         echo '============================================================'
         newdev=`rl_wread "Enter the name of device which FuguIta will be installed" "" \`sysctl -n hw.disknames|tr :, \\\\\012|grep '^[s]d[0-9]$'\``
         if [ -z "$newdev" ]; then
-            echo ''
+            echo
             echo "newdrive: no device name"
             continue
         elif [ 0 -eq `expr "$newdev" : '^[sw]d[0-9]$'` ] && \
            [ 0 -eq `expr "$newdev" : '^vnd[0-9]*$'` ]; then
-            echo ''
+            echo
             echo "newdrive: device $newdev is not supported."
             continue
         fi
 
         if mount | grep -q "^/dev/$newdev"; then
-            echo ''
+            echo
             echo "newdrive: $newdev is already mounted."
             continue
         fi
@@ -999,7 +1104,7 @@ while :; do
         case "$newdev" in
             vnd[0-3])
                 if ! vnconfig -l | grep -q "^$newdev: not in use"; then
-                    echo ''
+                    echo
                     echo "newdrive: vnode device $newdev is already used."
                     continue
                 fi
@@ -1038,14 +1143,14 @@ while :; do
                 ;;
         esac
 
-        echo ''
+        echo
         if ! fdisk $newdev; then
             clear_vn $newdev $vnfile
             continue
         fi
 
         if [ `fdisk $newdev | grep -c ' unused      $'` != 4 ]; then
-            echo ''
+            echo
             echo 'This disk seems to have been partitioned already.'
             if [ `ask_yn "Continue anyway?" n` -lt 1 ]; then
                 clear_vn $newdev $vnfile
@@ -1078,10 +1183,10 @@ while :; do
         # ask boot method and partition type
         #
         if [ $sects_total -lt `byte2sect 2T` ]; then
-            echo ''
+            echo
             instsys=`ask_which "Select boot method:" 'Legacy BIOS' "$legacyitem" "$uefiitem" 'none (only for save data)' "$hybriditem"`
 
-            echo ''
+            echo
             case $instsys in
                 Legacy)
                     parttype=MBR
@@ -1137,7 +1242,7 @@ EOT
                 continue
             fi
         else
-            echo ''
+            echo
             instsys=`ask_which "Select boot method:" '' "$uefiitem" 'none (only for save data)'`
             parttype=GPT
         fi
@@ -1225,10 +1330,6 @@ EOT
                     fi
                 else
                     ps_free=$((ps_free-ps_fidat))
-                    if [ 1 -le `ask_yn "Create an extra FAT partition?" r` ]; then
-                        ps_fat=$ps_free
-                        ps_free=0
-                    fi
                 fi
                 break
             elif [ "X$ans" = 'X*' ]; then
@@ -1240,6 +1341,47 @@ EOT
                 continue
             fi
         done
+
+        #  Is FuguIta's Data Store encrypted?
+        #
+        if [ 0 -lt $ps_fidat ]; then
+            if [ 1 -le `ask_yn "user data encryption?" n` ]; then
+                enc_fidat='yes'
+                cat <<EOT
+
+Enter passphrase twice. They'll be not echoed.
+
+//// CAUTION ////////////////////////////
+////   If you lost this passphrase,
+////   you'll never access ${scandev}d.
+/////////////////////////////////////////
+
+EOT
+                stty -echo; 
+                echo -n 'Passphrase:'; read enc_pp1; echo
+                echo -n 'Passphrase:'; read enc_pp2; echo
+                stty echo
+                if [ ! "$enc_pp1" = "$enc_pp2" ]; then
+                    echo 'passphrase not mathed'
+                    clear_vn $newdev $vnfile
+                    unset enc_pp1 enc_pp2
+                    continue;
+                fi
+                unset enc_pp2
+            else
+                enc_fidat='no'
+            fi
+        fi
+
+        # set unused area to FAT?
+        #
+        if [ 0 -lt $ps_free ]; then
+            echo
+            if [ 1 -le `ask_yn "Create an extra FAT partition?" r` ]; then
+                ps_fat=$ps_free
+                ps_free=0
+            fi
+        fi
 
         echo
         showparams
@@ -1324,14 +1466,14 @@ EOT
         # then for help message
         #
         *)
-        echo ''
+        echo
         cat<<EOT
 Interactive commands are;
-    target    -  set USB device for sync and info
+    target    -  set storage device for sync and info
     saveas    -  set name of saving data
     sync      -  sync current tmpfs to the target device
     info      -  Show info on the target device
-    newdrive  -  make new FuguIta USB flash drive
+    newdrive  -  make new FuguIta device
     bye, exit, quit
               - end of this utility
 

@@ -614,7 +614,7 @@ while :; do
                 read sdev
 
 		# Is crypto volume selected?
-		if [ 0 - lt `expr " ${part_enc} " : ".* $sdev "` ]; then
+		if [ 0 -lt `expr " ${part_enc} " : ".* $sdev "` ]; then
 		    if bioctl -c C -l /dev/$sdev softraid0; then
 			sleep 3  # wait for kernel messages printed
 			echo "Passphrase successful: Select boot mode again..."

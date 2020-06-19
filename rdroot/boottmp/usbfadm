@@ -634,8 +634,6 @@ function setup_fs {
     if echo "$disklabel" | grep -q 'd:.*RAID'; then
         notice 'Setting up for data store encryption'
 
-        dd if=/dev/zero of=/dev/r${scandev}d bs=1m count=1 2>/dev/null
-
         # setup passphrase file
         #
         rm -f $enc_ppfile

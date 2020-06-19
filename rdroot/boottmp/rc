@@ -588,52 +588,57 @@ while :; do
         #-------------------------------
         # ask user for FuguIta's operating device
         #
-        if [ X"${part_sto}${part_enc}" = X ]; then
+        if [ -z "${part_sto}${part_enc}" ]; then
             echo "Warning: None of FuguIta's storage device(s) found."
             continue
         else
-	    # display concerning devices
-	    echo "Device(s) found:"
+            # display concerning devices
+            echo "Device(s) found:"
             if [ -n "${part_sto}" ]; then
-		echo "  loadable from: ${part_sto}"
-		set -- $part_sto
-		if [ $# -eq 1 ]; then
+                echo "  loadable from: ${part_sto}"
+                set -- $part_sto
+                if [ $# -eq 1 ]; then
                     def_sdev="$1"  # single device only ... set default
-		else
+                else
                     unset def_sdev
-		fi
-	    fi
+                fi
+            fi
             if [ -n "${part_enc}" ]; then
-		echo "      encrypted: ${part_enc}"
-	    fi
+                echo "      encrypted: ${part_enc}"
+            fi
         fi
 
-        if [ X = X"$noask_confdev" ]; then
-            while :; do
-                echo -n "Which is FuguIta's storage device? ${def_sdev:+[default: ${def_sdev}] }-> "
-                read sdev
+        if [ -z "$noask_confdev" ]; then
+            # manual input
+            #
+            echo -n "Which is FuguIta's storage device? ${def_sdev:+[default: ${def_sdev}] }-> "
+            read sdev
 
-		# Is crypto volume selected?
-		if [ 0 -lt `expr " ${part_enc} " : ".* $sdev "` ]; then
-		    if bioctl -c C -l /dev/$sdev softraid0; then
-			sleep 3  # wait for kernel messages printed
-			echo "Passphrase successful: Select boot mode again..."
-		    fi
-		    continue 2  # return to boot mode menu
-		else
-                    [ -n "${def_sdev}${sdev}" ] && break
-		fi
-            done
-            [ -z "${sdev}" ] && sdev="$def_sdev"
+            if [ -z "$sdev" ]; then
+                if [ -n "$def_sdev" ]; then
+                    sdev="$def_sdev"
+                else
+                    continue  # not input / no default ... return to boot menu
+                fi
+            fi
+
+            # Is crypto volume selected?
+            if [ 0 -lt `expr " ${part_enc} " : ".* $sdev "` ]; then
+                if bioctl -c C -l /dev/$sdev softraid0; then
+                    sleep 1  # wait for kernel messages printed
+                    echo "Passphrase successful: Select boot mode again..."
+                fi
+                continue  # return to boot mode menu
+            elif [ 0 -eq `expr " ${part_sto} " : ".* $sdev "` ]; then
+                echo "$sdev is not loadable"
+                continue  # return to boot mode menu
+            fi
         else
+            # input from noasks
+            #
             echo "Which is FuguIta's storage device? -> $noask_confdev"
             sdev="$noask_confdev"
             noask_confdev=''
-        fi
-
-        if [ X"$sdev" = X ]; then
-            echo 'no device specified'
-            continue
         fi
 
         usb_devname=/dev/${sdev}

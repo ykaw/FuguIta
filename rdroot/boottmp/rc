@@ -49,6 +49,7 @@ osmac=`sysctl -n hw.machine`
 # make a list of all partitions
 #
 scan_disks () {
+
     #-------------------------------
     # make a list of all partitions
     #
@@ -95,8 +96,16 @@ scan_disks () {
                     if [ -d /mnt/livecd-config ]; then
                         part_sto=${part_sto:+"$part_sto "}$part
                     fi
-                    if [ -f /mnt/noasks ]; then
-                        part_noask=${part_noask:+"$part_noask "}$part
+                    if [ -r /mnt/noasks ]; then
+                        # set local parameters to null
+                        local noask_rdev noask_umem noask_setup_rw_mode noask_confdev noask_confdir  # define local parameters
+                        unset noask_rdev noask_umem noask_setup_rw_mode noask_confdev noask_confdir  # after unset, they become global
+                        local noask_rdev noask_umem noask_setup_rw_mode noask_confdev noask_confdir  # so redefine them as local
+                        . /mnt/noasks
+                        if [ "X${noask_rdev}${noask_umem}${noask_setup_rw_mode}${noask_confdev}${noask_confdir}" != X ]; then
+                            # any of noask parameters is set
+                            part_noask=${part_noask:+"$part_noask "}$part
+                        fi
                     fi
                     umount /dev/$part
                 fi
@@ -104,6 +113,44 @@ scan_disks () {
         esac
     done < /boottmp/boot_partitions
     echo
+}
+
+#-------------------------------
+# duid2dev  -  convert DUID.partition expression to DEVpartition
+#     e.g. 7df1e3007af31be5.a -> sd0a
+#                        sd0a -> sd0a
+#               anything else -> NULL STRING
+#
+function duid2dev {
+    devpart="$1"
+    case X"$devpart"X in
+        X[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].[ad-p]X)
+        # DUID expression - convert
+            duid=${devpart%??}
+            part=${devpart#?????????????????}
+
+            OIFS="$IFS"
+            IFS=','
+            for dkname in `sysctl -n hw.disknames`;
+            do
+                dev=${dkname%:*}
+                id=${dkname#*:}
+                if [ "$duid" = "$id" ]; then
+                    echo "$dev$part"
+                fi
+            done
+            IFS="$OIFS"
+            ;;
+        X[cws]d[0-9][ad-p]X|X[cws]d[1-9][0-9][ad-p]X)
+        # DEV expression - no convert
+            echo "$devpart"
+            exit
+            ;;
+        *)
+        # ILLEGAL expression
+            exit
+            ;;
+    esac
 }
 
 #-------------------------------
@@ -219,6 +266,7 @@ else
     fi
 fi
 
+noask_rdev=`duid2dev $noask_rdev`
 if [ X = X"$noask_rdev" ]; then
     while :; do
         echo -n "Which is FuguIta's operating device? ${def_rdev:+[default: ${def_rdev}] }-> "
@@ -608,6 +656,7 @@ while :; do
             fi
         fi
 
+        noask_confdev=`duid2dev $noask_confdev`
         if [ -z "$noask_confdev" ]; then
             # manual input
             #

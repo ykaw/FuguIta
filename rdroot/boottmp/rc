@@ -129,26 +129,45 @@ function duid2dev {
             duid=${devpart%??}
             part=${devpart#?????????????????}
 
+            local seendevs ddev matchdev
+
             OIFS="$IFS"
             IFS=','
             for dkname in `sysctl -n hw.disknames`;
             do
                 dev=${dkname%:*}
                 id=${dkname#*:}
+
+                # warn DUID duplication
+                #
+                if [[ -n "$seendevs" &&
+                          -n "$id" &&
+                          "$seendevs" = *":$id"* ]]; then
+                    ddev=${seendevs%%:${id}*}
+                    ddev=${ddev##* }
+                    echo "Warning: $ddev and $dev have the same DUID - $id" >&2
+                fi
+                seendevs=${seendevs:+"$seendevs "}"$dev:$id"
+
+                # DUID matched - emit devname
+                #
                 if [ "$duid" = "$id" ]; then
-                    echo "$dev$part"
+                    matchdev="$dev$part"
                 fi
             done
             IFS="$OIFS"
+
+            [ -z "$ddev" ] && echo "$matchdev"
             ;;
         X[cws]d[0-9][ad-p]X|X[cws]d[1-9][0-9][ad-p]X)
         # DEV expression - no convert
             echo "$devpart"
-            exit
+            ;;
+        XX)
             ;;
         *)
         # ILLEGAL expression
-            exit
+            echo "Warning: Illegal format for a disk partition - \"$devpart\"" >&2
             ;;
     esac
 }
@@ -676,6 +695,7 @@ while :; do
                 if bioctl -c C -l /dev/$sdev softraid0; then
                     sleep 1  # wait for kernel messages printed
                     echo "Passphrase successful: Select boot mode again..."
+                    sleep 1
                 fi
                 continue  # return to boot mode menu
             elif [ 0 -eq `expr " ${part_sto} " : ".* $sdev "` ]; then
@@ -891,15 +911,34 @@ if [ -d /ram/usr -a ! -L /ram/usr/fuguita/version ]; then
               system("swapctl -d " $1)
               printf("\n") }'
 
+    # delete encrypted volume if any
+    #
+    bioctl softraid0 \
+    | awk '/^softraid0 .* sd[0-9]/ {
+              printf("delete encrypted volume: %s ", $5)
+              system("bioctl -d " $5)
+              printf("\n") }'
+
     # check and report
     #   - umount all fs except RAM fs
     #   - all swap partitions deactivated
+    #   - delete encrypted volumes
     #
+    echo 'on-memory operation:'
     if ! mount | egrep -v ' on (/ |/ram )' | grep -q '.' && \
-       swapctl -l 2>&1 | grep -q 'no swap devices configured'; then
-        echo 'on-memory operation: You can remove all storage device(s).'
+            swapctl -l 2>&1 | grep -q 'no swap devices configured'; then
+        # mount & swap purged
+        if [ -z "`bioctl softraid0`" ]; then
+            # no encrypted volumes reside
+            echo '    You can remove all storage device(s).'
+        else
+            echo "    encrypted volume not deleted yet."
+            sleep 5
+        fi
+        
     else
-        echo "on-memory operation: tmpfs paged out ... can't remove any storage device(s)."
+        echo "    tmpfs still paged out ... You can't remove any storage device(s)."
+        sleep 5
     fi
 fi
 

@@ -566,9 +566,17 @@ while :; do
         # keyboard type
         #
         if dmesg | grep -q '^.* at .*: console keyboard'; then
-            echo "Keyboard type;"
             while :; do
-                kbd -l | sed -e '1,3d; /^$/d' | sort | paste - - - -
+
+                # display list of kb encodings
+                #     (note that sed don't handle \n in replace string)
+                #
+                echo `kbd -l` | sed -e 's/tables available for \([^ ][^ ]*\) keyboard: encoding /\
+\
+\1 keyboard:\
+/g' | sed -e '1s/.*/\
+Enter keyboard type./'
+
                 echo -n '-> '; read kbtype
                 if kbd $kbtype; then
                     echo $kbtype > /etc/kbdtype
@@ -622,8 +630,8 @@ while :; do
         #
         case `uname -m` in
             i386|amd64)
-                echo 'Do you login with Console or X Window System?'
-                echo -n '[default: Console] -> '; read ans
+                echo 'Do you login with C)onsole or X) Window System?'
+                echo -n '[default: C] -> '; read ans
                 case "$ans" in
                     [Xx]*) echo 'xenodm_flags=' >> /etc/rc.conf.local
                     ;;

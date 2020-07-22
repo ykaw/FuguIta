@@ -577,7 +577,7 @@ while :; do
 /g' | sed -e '1s/.*/\
 Enter keyboard type./'
 
-                echo -n '-> '; read kbtype
+                echo -n 'keyboard type -> '; read kbtype
                 if kbd $kbtype; then
                     echo $kbtype > /etc/kbdtype
                     break

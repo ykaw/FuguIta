@@ -346,8 +346,8 @@ maxmem=`/fuguita/usr/sbin/chroot /fuguita /usr/bin/dc -e "$maxmem 1024 / 1024 / 
 defmem=0
 
 echo "  user memory: $maxmem MB"
-echo "Enter tmpfs size in MB. (0MB is auto)"
-echo -n "[default: ${defmem}MB] -> "
+echo "Enter tmpfs size in MB. (0 is auto)"
+echo -n "[default: ${defmem}] -> "
 if [ X = X"$noask_umem" ]; then
     read umem
 else

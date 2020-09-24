@@ -1,0 +1,283 @@
+#!/boottmp/sh
+
+#========================================
+#
+# fiupdate - live updater for FuguIta
+# KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
+# $Id: fiupdate,v 1.1 2020/09/24 16:19:50 kaw Exp $
+#
+#========================================
+
+# Copyright (c) 2020
+# Yoshihiro Kawamata
+#
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are
+# met:
+# 
+#   * Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+# 
+#   * Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in
+#     the documentation and/or other materials provided with the
+#     distribution.
+# 
+#   * Neither the name of Yoshihiro Kawamata nor the names of its
+#     contributors may be used to endorse or promote products derived
+#     from this software without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+#==================================
+# Utility functions and subcommands
+#==================================
+
+#-------------------
+# ask user yes or no
+# outputs answer to stdout
+#
+#     usage: ask_yn prompt yn
+#
+#       yn ... y: defaults to yes
+#              n: defaults to no
+#              r: no default ... ask again
+#              else: no default ... return -1 if answered not yn
+#
+#       output ... 1: yes, 0: no, -1: else yn, -2: error occured
+#
+function ask_yn {
+
+    if [ -z "$2" ]; then
+        echo -2 >&2
+        return
+    fi
+
+    local prompt="$1"; shift
+    local yn_default="$1"; shift
+    local yn_ans
+
+    case X"$yn_default"X in
+        X[Yy]X) yn_default=Y; prompt="$prompt [Y/n] -> " ;;
+        X[Nn]X) yn_default=N; prompt="$prompt [y/N] -> " ;;
+        X[Rr]X) yn_default=R; prompt="$prompt [y/n] -> " ;;
+        *)      yn_default=E; prompt="$prompt [y/n] -> " ;;
+    esac
+
+    while :; do
+        echo -n "$prompt" >&2; read yn_ans
+
+        case X"$yn_ans"X in
+            X[Yy]X) echo 1; return;;
+            X[Nn]X) echo 0; return;;
+            XX)
+                case X"$yn_default"X in
+                    XYX) echo 1;  return;;
+                    XNX) echo 0;  return;;
+                    XRX) continue;;
+                    *)   echo -1; return;;
+                esac;;
+            *)
+                continue;;
+        esac
+    done
+}
+
+#==================================
+# Active Code from HERE.
+#==================================
+
+# systemwide constants
+#
+rel=$(uname -r)
+arch=$(uname -m)
+
+cat <<EOT
+
+fiupdate - Live Updater for FuguIta LiveUSB
+  Version/Arch: $rel/$arch  (FuguIta-`cat /usr/fuguita/version`)
+
+Note:
+This sorftware is now under beta test.
+Please use this at YOUR OWN RISK.
+
+We recommend that you execute this command with fresh boot (boot mode 0 or 1).
+
+Or you should quit all application softwares and save all your data
+before you update this FuguIta device.
+
+EOT
+if [ 1 != `ask_yn "Are you sure?" n` ]; then
+    exit
+fi
+echo
+
+usage () {
+    cat <<EOT >&2
+Usage: $0 yyyymmddn
+
+You should locate FuguIta-${rel}-${arch}-yymmddn.iso.gz and MD5
+at current directory before invoke this.
+EOT
+} 
+
+if [ -z "$1" ]; then
+    usage
+    exit
+else
+    fi="FuguIta-${rel}-${arch}-${1}"
+fi
+
+# check environment
+#
+echo -n "Checking:\n     environment: " >&2
+if [ ! -e /usr/fuguita/version ]; then
+    echo "You are not running FuguIta." >&2
+    exit 1
+fi
+
+# check mount status
+#
+echo -n "ok\n          mounts: " >&2
+MOUNT=$(mount)  # cache mount's output
+if echo "$MOUNT" | grep -q '^/dev/.* on /sysmedia-iso type '; then
+    echo "cannot support 'sysmedia-iso' mount type" >&2
+    exit 1
+fi
+
+if echo "$MOUNT" | grep -q '^/dev/cd.* on /sysmedia type '; then
+    echo "cannot update LiveDVD. Burn another one to update." >&2
+    exit 1
+fi
+
+if ! echo "$MOUNT" | grep -q '^/dev/.* on /sysmedia type '; then
+    echo "system partition not mounted (boot mode 2?)" >&2
+    exit 1
+fi
+
+# check existing files
+#
+echo -n "ok\n  existing files: " >&2
+  ffsimg=/sysmedia/fuguita-${rel}-${arch}.ffsimg
+   bsdfi=/sysmedia/bsd-fi
+bsdfi_mp=/sysmedia/bsd-fi.mp
+
+if [ ! -f $ffsimg ]; then
+    echo "$ffsimg not found (other version/arch ?)" >&2
+    ls -l /sysmedia >&2
+    exit 1
+fi
+
+if [ ! -f $bsdfi ]; then
+    echo "$bsdfi not found (device for saving data only?)" >&2
+    ls -l /sysmedia >&2
+    exit 1
+fi
+
+if [ ! -f $bsdfi_mp ]; then
+    echo "$bsdfi_mp not found (device for saving data only?)" >&2
+    ls -l /sysmedia >&2
+    exit 1
+fi
+
+# check download file
+#
+echo -n "ok\n        checksum: " >&2
+if [ ! -e ${fi}.iso.gz -a -e ${fi}.img.gz ]; then
+    echo "You need a file ${fi}.iso.gz, NOT ${fi}.img.gz" >&2
+    exit 1
+else
+    md5 -C MD5 ${fi}.iso.gz || exit 1
+fi
+echo "all done, OK."
+
+# setup update environment
+#
+# extract ISO image
+#
+rm -f ${fi}.iso
+echo
+echo "extracting ${fi}.iso.gz..."
+pv ${fi}.iso.gz | gzip -d -o ${fi}.iso || exit 1
+
+# mount vnode device
+mkdir ${fi}
+vnconfig vnd0 ${fi}.iso
+mount -r /dev/vnd0a ${fi}
+
+# copy executables these are needed to overwrite filesystem image
+# to TMPFS
+#
+mkdir -p /ram/fiupdate.bin
+cp -p /bin/{cat,echo,rm,rmdir,sleep,sync} /sbin/{reboot,umount} /usr/local/bin/pv \
+      /ram/fiupdate.bin/.
+PATH=/ram/fiupdate.bin:/boottmp:$PATH
+export PATH
+
+# terminate session
+#
+cleanups () {
+    mount -ur /sysmedia
+    umount -f ${fi}
+    rmdir ${fi}
+    vnconfig -u vnd0
+    rm ${fi}.iso
+    rm -rf /ram/fiupdate.bin
+}
+
+# do update
+#
+cat <<EOT
+
+Now ready to update FuguIta-$(cat /usr/fuguita/version) to ${fi}.
+
+This machine will reboot immediately after update completed.
+
+EOT
+if [ 1 != `ask_yn "Do you proceed?" n` ]; then
+    cleanups
+    exit
+fi
+
+if ! mount -uw /sysmedia; then
+    cleanups
+    exit
+fi
+
+echo "stopping all daemons..." >&2
+for daemon in $(rcctl ls started); do
+    rcctl stop $daemon
+done
+
+echo "overwriting uniprocessor kernel..." >&2
+pv ${fi}/bsd-fi > $bsdfi
+
+echo "overwriting multiprocessor kernel..." >&2
+pv ${fi}/bsd-fi.mp > $bsdfi_mp
+
+echo "overwriting filesystem image..." >&2
+pv ${fi}/fuguita-${rel}-${arch}.ffsimg > $ffsimg
+
+echo
+echo "update completed. now rebooting..." >&2
+
+# not to perform usbfadm -r
+#
+if [ -f /etc/rc.shutdown ]; then
+    mv /etc/rc.shutdown /etc/DISABLED.rc.shutdown
+fi
+
+sync; sync; sync; sleep 5
+reboot

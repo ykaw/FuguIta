@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.1 2020/09/24 16:19:50 kaw Exp $
+# $Id: fiupdate,v 1.2 2020/09/26 03:03:31 kaw Exp $
 #
 #========================================
 
@@ -205,11 +205,11 @@ echo "all done, OK."
 
 # setup update environment
 #
-# extract ISO image
+# decompress ISO image
 #
 rm -f ${fi}.iso
 echo
-echo "extracting ${fi}.iso.gz..."
+echo "decompressing ${fi}.iso.gz..."
 pv ${fi}.iso.gz | gzip -d -o ${fi}.iso || exit 1
 
 # mount vnode device

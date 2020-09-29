@@ -1,21 +1,60 @@
 #!/bin/sh
 
-#========================================
-# gennetconfs - generate network files
-#========================================
+#==================================================
+# gennetconfs - generate network coniguration files
+#
+# $Id: gennetconfs,v 1.3 2020/09/29 19:15:21 kaw Exp $
+#==================================================
+
+# Copyright (c) 2006--2020
+# Yoshihiro Kawamata
+#
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are
+# met:
+#
+#   * Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#
+#   * Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in
+#     the documentation and/or other materials provided with the
+#     distribution.
+#
+#   * Neither the name of Yoshihiro Kawamata nor the names of its
+#     contributors may be used to endorse or promote products derived
+#     from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# addvar name [arg1 arg2 ...]
+#
+#    add trailing args 'arg1 arg2 ...'
+#    to variable 'name' followed by EoL
+#                       ~~~~~~~~~~~~~~~
+addvar () {
+    [ -z "$1" ] && return
+    local _name="$1"; shift;
+    eval "${_name}=\"\$${_name}\"\"$*\"\"\\n\""
+}
 
 #-----------------------
 # target directory - '/etc' as usual
 #
 if [ -n "$1" ]; then
-    basedir="$1"
-else
-    basedir='.'
-fi
-
-if ! [ -d $basedir ]; then
-    echo "$basedir: No such directory." >&2
-    exit 1
+    cd "$1" || exit;
 fi
 
 #-----------------------
@@ -25,7 +64,7 @@ echo -n 'host name (without domain) -> '; read myhost
 if [ X"$myhost" = X ]; then
     myhost=fuguita
 fi
-echo $myhost >${basedir}/myname
+addvar etc_myname "$myhost"
 
 # get net i/f's
 #
@@ -62,8 +101,8 @@ fi
 #-----------------------
 # loopback in any case
 #
-echo '127.0.0.1 localhost'  > ${basedir}/hosts
-echo '::1       localhost' >> ${basedir}/hosts
+addvar etc_hosts '127.0.0.1 localhost'
+addvar etc_hosts '::1       localhost'
 
 case X"$ipv" in
     #-----------------------
@@ -80,28 +119,13 @@ case X"$ipv" in
         fi
         
         #-----------------------
-        # setup hostname.* files
-        #
-        for hostname_if in ${basedir}/hostname.*; do
-            # comment out in unconfigured files
-            if [ $hostname_if != "${basedir}/hostname.*" ]; then
-                cp -p $hostname_if ${hostname_if}.orig
-                sed -e 's/^\([^#]\)/#\1/' ${hostname_if}.orig > $hostname_if \
-                    && rm -f ${hostname_if}.orig
-            fi
-        done
-        : >> ${basedir}/hostname.$mynic
-        chown root:wheel ${basedir}/hostname.$mynic
-        chmod 0640 ${basedir}/hostname.$mynic
-
-        #-----------------------
         # host names
         #
         echo -n "FQDN of this host -> ${myhost}."; read mydomain
-        if [ ! X"$mydomain" = X ]; then
+        if [ -n "$mydomain" ]; then
             myfqdn=${myhost}.${mydomain}
-            echo "search $mydomain" > ${basedir}/resolv.conf
-            echo $myfqdn > ${basedir}/myname
+            addvar etc_resolv_conf "search $mydomain"
+            etc_myname="$myfqdn\n"
         fi
 
         #-----------------------
@@ -123,7 +147,7 @@ case X"$ipv" in
                 fi
             fi
             if [ -n "$wlan" ]; then
-                echo "$wlan" >> "${basedir}/hostname.$mynic"
+                addvar etc_hostname_if "$wlan"
             fi
         fi
 
@@ -139,28 +163,29 @@ case X"$ipv" in
         mydns=`echo -n $mydns | tr -cs '0-9A-Za-z:.%' ' '`
 
         if [ X"$mydns" = X -o X"$mydns" = Xdhcp ]; then
-            ( echo "lookup file bind"
-              echo "$af"              ) >> ${basedir}/resolv.conf
-            mv ${basedir}/resolv.conf ${basedir}/resolv.conf.tail
+            addvar etc_resolv_conf 'lookup file bind'
+            addvar etc_resolv_conf "$af"
+            etc_resolv_conf_tail=$etc_resolv_conf
+            unset etc_resolv_conf
 
             #-----------------------
             # IPv4 configs
             #
             case X"$ipv" in
                 X*4*)
-                    echo "dhcp" >> ${basedir}/hostname.$mynic
+                    addvar etc_hostname_if 'dhcp'
                     ;;
             esac
         else
             if [ X"$mydns" == Xnone ]; then
-                echo "lookup file"      >> ${basedir}/resolv.conf
+                addvar etc_resolv_conf 'lookup file'
             else
-                ( echo "lookup file bind"
-                  echo "$af"
-                  set -- $mydns
-                  [ ! X"$1" = X ] && echo "nameserver $1"
-                  [ ! X"$2" = X ] && shift && echo "nameserver $1"
-                  [ ! X"$2" = X ] && shift && echo "nameserver $1" ) >> ${basedir}/resolv.conf
+                addvar etc_resolv_conf "lookup file bind"
+                addvar etc_resolv_conf "$af"
+                set -- $mydns
+                [ -n "$1" ] && addvar etc_resolv_conf "nameserver $1"
+                [ -n "$2" ] && addvar etc_resolv_conf "nameserver $2"
+                [ -n "$3" ] && addvar etc_resolv_conf "nameserver $3"
             fi
 
             #-----------------------
@@ -172,9 +197,9 @@ case X"$ipv" in
                     echo -n 'netmask                -> '; read mynetmask
                     echo -n 'default route          -> '; read mygw
 
-                    echo "inet $myv4addr $mynetmask NONE" >> ${basedir}/hostname.$mynic
-                    echo "$mygw" > ${basedir}/mygate
-                    echo "$myv4addr $myfqdn ${myfqdn%%.*}" >> ${basedir}/hosts
+                    addvar etc_hostname_if "inet $myv4addr $mynetmask NONE"
+                    addvar etc_mygate "$mygw"
+                    addvar etc_hosts "$myv4addr $myfqdn ${myfqdn%%.*}"
                     ;;
             esac
         fi
@@ -184,21 +209,116 @@ case X"$ipv" in
         #
         case X"$ipv" in
             X*6*)
-                echo 'inet6 autoconf' >> ${basedir}/hostname.$mynic
-                echo 'net.inet6.ip6.forwarding=0'   >> ${basedir}/sysctl.conf
-                echo 'net.inet6.ip6.mforwarding=0'  >> ${basedir}/sysctl.conf
+                addvar etc_hostname_if 'inet6 autoconf'
                 ;;
         esac
         ;;
 esac
 
+#-----------------------
 #  resolving myhost
 #    This is for smtpd
 #
-if grep -q $myhost ${basedir}/hosts
+if ! echo $etc_hosts | grep -q "$myhost"
 then
-    :
-else
-    echo "127.0.0.1 $myhost" >> ${basedir}/hosts
-    echo "::1       $myhost" >> ${basedir}/hosts
+    addvar etc_hosts "127.0.0.1 $myhost"
+    addvar etc_hosts "::1       $myhost"
 fi
+
+#-----------------------
+# all config for forwarding are fixed
+#
+etc_sysctl_conf=$(cat<<EOT
+net.inet.ip.forwarding=0
+net.inet.ip.mforwarding=0
+net.inet6.ip6.forwarding=0
+net.inet6.ip6.mforwarding=0
+EOT
+               )
+
+#-----------------------
+# emit config files
+#
+#  files to configure:
+#    /etc/myname
+#    /etc/mygate
+#    /etc/hosts
+#    /etc/hostname.if
+#    /etc/resolv.conf
+#    /etc/resolv.conf.tail
+#    /etc/sysctl.conf
+#
+
+debug=0
+if [ 1 -le "$debug" ]; then
+    outbuf=$(cat<<EOT
+======etc_myname=================
+$etc_myname
+======etc_mygate=================
+$etc_mygate
+======etc_hosts==================
+$etc_hosts
+======etc_hostname_if============
+$etc_hostname_if
+======etc_resolv_conf============
+$etc_resolv_conf
+======etc_resolv_conf_tail=======
+$etc_resolv_conf_tail
+======etc_sysctl_conf============
+$etc_sysctl_conf
+=================================
+
+EOT
+          )
+    echo "$outbuf"
+fi
+
+# -- file modifications-------------------------------------------------
+#
+
+# /etc/myname
+echo -n "$etc_myname" > myname
+
+# /etc/mygate
+if [ -n "$etc_mygate" ];then
+    echo -n "$etc_mygate" > mygate
+else
+    rm -f mygate
+fi
+echo -n "$etc_hosts" > hosts
+
+# /etc/hostname.if
+pid=$$
+
+# rename stale hostname_if to disable it
+#
+for hostname_if in $(ls -1d * | egrep '^hostname\.[a-z]+[0-9]+'); do
+    mv "$hostname_if" "DISABLED.${pid}.${hostname_if}"
+    chmod 0640 "DISABLED.${pid}.${hostname_if}"
+done
+
+if [ -n "$mynic" ]; then
+    echo -n "$etc_hostname_if" > "hostname.${mynic}"
+    chmod 0640 "hostname.${mynic}"
+fi
+
+# resolv.conf
+echo -n "$etc_resolv_conf" > resolv.conf
+
+# resolv.conf.tail
+if [ -n "$etc_resolv_conf_tail" ];then
+    echo -n "$etc_resolv_conf_tail" > resolv.conf.tail
+else
+    rm -f resolv.conf.tail
+fi
+
+if [ -f sysctl.conf ]; then
+    mv sysctl.conf DISABLED.${pid}.sysctl.conf
+    sed -e '/^net\.inet6*\.ip6*\.m*forwarding=/d' DISABLED.${pid}.sysctl.conf > sysctl.conf
+fi
+
+# sysctl.conf
+echo "$etc_sysctl_conf" >> sysctl.conf  # note that no "-n"
+
+#
+# -- end of file modifications------------------------------------------

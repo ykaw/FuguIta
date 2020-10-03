@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.2 2020/09/26 03:03:31 kaw Exp $
+# $Id: fiupdate,v 1.3 2020/10/03 05:27:50 kaw Exp $
 #
 #========================================
 
@@ -95,23 +95,165 @@ function ask_yn {
     done
 }
 
+# display usage
+#
+usage () {
+    cat <<EOT >&2
+Usage: ${PROGNAME} yyyymmddn
+
+You should locate FuguIta-${REL}-${ARCH}-yyyymmddn.iso.gz and MD5
+at current directory before invoke this.
+EOT
+}
+
+# echo to stderr
+#
+echo2 () {
+    echo "$@" >&2
+}
+
+# check existing kernels/ffsimg
+#
+check_kern_ffsimg () {
+    ffsimg=/sysmedia/fuguita-${REL}-${ARCH}.ffsimg
+    bsdfi=/sysmedia/bsd-fi
+    bsdfi_mp=/sysmedia/bsd-fi.mp
+
+    if [ ! -f $ffsimg ]; then
+        echo2 "$ffsimg not found (other version/arch ?)"
+        ls -l /sysmedia >&2
+        exit 1
+    fi
+
+    if [ ! -f $bsdfi ]; then
+        echo2 "$bsdfi not found (device for saving data only?)"
+        ls -l /sysmedia >&2
+        exit 1
+    fi
+
+    if [ ! -f $bsdfi_mp ]; then
+        echo2 "$bsdfi_mp not found (device for saving data only?)"
+        ls -l /sysmedia >&2
+        exit 1
+    fi
+}
+
+# check mount status
+#
+check_mnttype () {
+    local mount_out=$(mount)  # cache mount's output
+    local mnttype
+
+    if echo "$mount_out" | grep -q '^/dev/.* on /sysmedia-iso type '; then
+        echo2 "cannot support 'sysmedia-iso' mount type"
+        exit 1
+        mnttype=sys-iso
+    elif echo "$mount_out" | grep -q '^/dev/cd.* on /sysmedia type '; then
+        echo2 "cannot update LiveDVD. Burn another one to update."
+        exit 1
+    elif ! echo "$mount_out" | grep -q '^/dev/.* on /sysmedia type '; then
+        echo2 "system partition not mounted (boot mode 2?)"
+        exit 1
+        mnttype=mode2
+    else
+        mnttype=liveusb
+    fi
+
+    echo $mnttype
+}
+
+# setup update environment
+#    - decompress ISO image
+#    - mount it as a vnode device
+#
+setup_iso_content () {
+    rm -f ${FI}.iso
+    echo
+    echo "decompressing ${FI}.iso.gz..."
+    pv ${FI}.iso.gz | gzip -d -o ${FI}.iso || exit 1
+    
+    # mount vnode device
+    mkdir ${FI}
+    vnconfig vnd0 ${FI}.iso
+    mount -r /dev/vnd0a ${FI}
+}
+
+# copy executables these are needed to overwrite filesystem image
+# to TMPFS
+#
+setup_rampath () {
+    mkdir -p /ram/fiupdate.bin
+    cp -p /bin/{cat,echo,rm,rmdir,sleep,sync} /sbin/{reboot,umount} /usr/local/bin/pv \
+       /ram/fiupdate.bin/.
+    PATH=/ram/fiupdate.bin:/boottmp:$PATH
+    export PATH
+}
+
+# comfirm update to an user
+#
+confirm_exec () {
+    cat <<EOT
+
+Now ready to update FuguIta-$(cat /usr/fuguita/version) to ${FI}.
+
+This machine will reboot immediately after update completed.
+
+EOT
+    if [ 1 != `ask_yn "Do you proceed?" n` ]; then
+        cleanups
+        exit
+    fi
+}
+
+stop_all_srv () {
+    echo2 "stopping all daemons..."
+    for daemon in $(rcctl ls started); do
+        rcctl stop $daemon
+    done
+}
+
+update_liveusb () {
+    echo2 "overwriting uniprocessor kernel..."
+    pv ${FI}/bsd-fi > $bsdfi
+
+    echo2 "overwriting multiprocessor kernel..."
+    pv ${FI}/bsd-fi.mp > $bsdfi_mp
+
+    echo2 "overwriting filesystem image..."
+    pv ${FI}/fuguita-${REL}-${ARCH}.ffsimg > $ffsimg
+
+    echo
+    echo2 "update completed. now rebooting..."
+}
+
 #==================================
 # Active Code from HERE.
 #==================================
 
 # systemwide constants
 #
-rel=$(uname -r)
-arch=$(uname -m)
+PROGNAME=${0##*/}
+REL=$(uname -r)
+ARCH=$(uname -m)
 
 cat <<EOT
 
 fiupdate - Live Updater for FuguIta LiveUSB
-  Version/Arch: $rel/$arch  (FuguIta-`cat /usr/fuguita/version`)
+  Version/Arch: $REL/$ARCH  (FuguIta-`cat /usr/fuguita/version`)
 
-Note:
-This sorftware is now under beta test.
-Please use this at YOUR OWN RISK.
+EOT
+
+if [ -z "$1" ]; then
+    echo2 "$PROGNAME: version string not specified\n"
+    usage
+    exit
+else
+    FI="FuguIta-${REL}-${ARCH}-${1}"
+fi
+
+cat <<EOT
+Note: This sorftware is now under beta test.
+      Please use this at YOUR OWN RISK.
 
 We recommend that you execute this command with fresh boot (boot mode 0 or 1).
 
@@ -119,159 +261,74 @@ Or you should quit all application softwares and save all your data
 before you update this FuguIta device.
 
 EOT
+
 if [ 1 != `ask_yn "Are you sure?" n` ]; then
     exit
 fi
 echo
 
-usage () {
-    cat <<EOT >&2
-Usage: $0 yyyymmddn
-
-You should locate FuguIta-${rel}-${arch}-yymmddn.iso.gz and MD5
-at current directory before invoke this.
-EOT
-} 
-
-if [ -z "$1" ]; then
-    usage
-    exit
-else
-    fi="FuguIta-${rel}-${arch}-${1}"
-fi
-
 # check environment
 #
-echo -n "Checking:\n     environment: " >&2
+echo2 -n "Checking:\n     environment: "
+if [ ! "$(id -un)" = root ]; then
+    echo2 "You are not root."
+    exit 1
+fi
 if [ ! -e /usr/fuguita/version ]; then
-    echo "You are not running FuguIta." >&2
+    echo2 "You are not running FuguIta."
     exit 1
 fi
-
-# check mount status
-#
-echo -n "ok\n          mounts: " >&2
-MOUNT=$(mount)  # cache mount's output
-if echo "$MOUNT" | grep -q '^/dev/.* on /sysmedia-iso type '; then
-    echo "cannot support 'sysmedia-iso' mount type" >&2
-    exit 1
-fi
-
-if echo "$MOUNT" | grep -q '^/dev/cd.* on /sysmedia type '; then
-    echo "cannot update LiveDVD. Burn another one to update." >&2
-    exit 1
-fi
-
-if ! echo "$MOUNT" | grep -q '^/dev/.* on /sysmedia type '; then
-    echo "system partition not mounted (boot mode 2?)" >&2
-    exit 1
-fi
-
-# check existing files
-#
-echo -n "ok\n  existing files: " >&2
-  ffsimg=/sysmedia/fuguita-${rel}-${arch}.ffsimg
-   bsdfi=/sysmedia/bsd-fi
-bsdfi_mp=/sysmedia/bsd-fi.mp
-
-if [ ! -f $ffsimg ]; then
-    echo "$ffsimg not found (other version/arch ?)" >&2
-    ls -l /sysmedia >&2
-    exit 1
-fi
-
-if [ ! -f $bsdfi ]; then
-    echo "$bsdfi not found (device for saving data only?)" >&2
-    ls -l /sysmedia >&2
-    exit 1
-fi
-
-if [ ! -f $bsdfi_mp ]; then
-    echo "$bsdfi_mp not found (device for saving data only?)" >&2
-    ls -l /sysmedia >&2
-    exit 1
-fi
+echo2 "ok"
 
 # check download file
 #
-echo -n "ok\n        checksum: " >&2
-if [ ! -e ${fi}.iso.gz -a -e ${fi}.img.gz ]; then
-    echo "You need a file ${fi}.iso.gz, NOT ${fi}.img.gz" >&2
+echo2 -n "        checksum: "
+if [ ! -e ${FI}.iso.gz -a -e ${FI}.img.gz ]; then
+    echo2 "You need a file ${FI}.iso.gz, NOT ${FI}.img.gz"
     exit 1
 else
-    md5 -C MD5 ${fi}.iso.gz || exit 1
-fi
-echo "all done, OK."
-
-# setup update environment
-#
-# decompress ISO image
-#
-rm -f ${fi}.iso
-echo
-echo "decompressing ${fi}.iso.gz..."
-pv ${fi}.iso.gz | gzip -d -o ${fi}.iso || exit 1
-
-# mount vnode device
-mkdir ${fi}
-vnconfig vnd0 ${fi}.iso
-mount -r /dev/vnd0a ${fi}
-
-# copy executables these are needed to overwrite filesystem image
-# to TMPFS
-#
-mkdir -p /ram/fiupdate.bin
-cp -p /bin/{cat,echo,rm,rmdir,sleep,sync} /sbin/{reboot,umount} /usr/local/bin/pv \
-      /ram/fiupdate.bin/.
-PATH=/ram/fiupdate.bin:/boottmp:$PATH
-export PATH
-
-# terminate session
-#
-cleanups () {
-    mount -ur /sysmedia
-    umount -f ${fi}
-    rmdir ${fi}
-    vnconfig -u vnd0
-    rm ${fi}.iso
-    rm -rf /ram/fiupdate.bin
-}
-
-# do update
-#
-cat <<EOT
-
-Now ready to update FuguIta-$(cat /usr/fuguita/version) to ${fi}.
-
-This machine will reboot immediately after update completed.
-
-EOT
-if [ 1 != `ask_yn "Do you proceed?" n` ]; then
-    cleanups
-    exit
+    md5 -C MD5 ${FI}.iso.gz || exit 1
 fi
 
-if ! mount -uw /sysmedia; then
-    cleanups
-    exit
-fi
+echo2 -n "          mounts: "
+MNTTYPE=$(check_mnttype)
+echo2 "ok"
 
-echo "stopping all daemons..." >&2
-for daemon in $(rcctl ls started); do
-    rcctl stop $daemon
-done
+echo2 -n "  existing files: "
+check_kern_ffsimg
+echo2 "ok"
 
-echo "overwriting uniprocessor kernel..." >&2
-pv ${fi}/bsd-fi > $bsdfi
+setup_iso_content
 
-echo "overwriting multiprocessor kernel..." >&2
-pv ${fi}/bsd-fi.mp > $bsdfi_mp
+case $MNTTYPE in
+    liveusb)
+        # define terminate session
+        #
+        cleanups () {
+            mount -ur /sysmedia
+            umount -f ${FI}
+            rmdir ${FI}
+            vnconfig -u vnd0
+            rm ${FI}.iso
+            rm -rf /ram/fiupdate.bin
+        }
+        setup_rampath
+        confirm_exec
+        
+        if ! mount -uw /sysmedia; then
+            cleanups
+            exit 1
+        fi
+        stop_all_srv
+        update_liveusb
 
-echo "overwriting filesystem image..." >&2
-pv ${fi}/fuguita-${rel}-${arch}.ffsimg > $ffsimg
-
-echo
-echo "update completed. now rebooting..." >&2
+        # detach devices
+        #
+        umount -f /dev/vnd5a  # vnd5 is /sysmedia/fuguita-*.ffsimg
+        vnconfig -u vnd5      # which is mounted on /fuguita
+        umount -f /sysmedia
+        ;;
+esac
 
 # not to perform usbfadm -r
 #

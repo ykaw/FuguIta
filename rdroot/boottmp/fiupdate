@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.5 2020/10/04 16:16:36 kaw Exp $
+# $Id: fiupdate,v 1.6 2020/10/04 19:22:18 kaw Exp $
 #
 #========================================
 
@@ -259,8 +259,7 @@ check_mnttype () {
     elif echo "$mount_out" | grep -q '^/dev/cd.* on /sysmedia type '; then
         echo2 "cannot update LiveDVD. Burn another one to update."
     elif ! echo "$mount_out" | grep -q '^/dev/.* on /sysmedia type '; then
-        echo2 "system partition not mounted (boot mode 2?)"
-        mnttype=mode2
+        mnttype=on-memory
     else
         mnttype=liveusb
     fi
@@ -440,6 +439,38 @@ update_sys_iso () {
     echo2 "update completed. now rebooting..."
 }
 
+# rewrite kernels and ffsimg
+# used for boot
+#
+update_boot_dev () {
+    # update kernel and ffsimg at boot device
+    #
+    if mount /dev/$BOOTDEV /mnt; then
+        if [ -f /mnt/bsd-fi ]; then
+            echo2 "overwriting uniprocessor kernel..."
+            pv ${FI}/bsd-fi > /mnt/bsd-fi
+        fi
+
+        if [ -f /mnt/bsd-fi.mp ]; then
+            echo2 "overwriting multiprocessor kernel..."
+            pv ${FI}/bsd-fi.mp > /mnt/bsd-fi.mp
+        fi
+
+        if [ -f /mnt/fuguita-${REL}-${ARCH}.ffsimg ]; then
+            echo2 "overwriting filesystem image..."
+            pv ${FI}/fuguita-${REL}-${ARCH}.ffsimg > /mnt/fuguita-${REL}-${ARCH}.ffsimg
+        fi
+
+        umount /mnt
+    else
+        cleanups
+        exit 1
+    fi
+
+    echo
+    echo2 "update completed. now rebooting..."
+}
+
 #==================================
 # Active Code from HERE.
 #==================================
@@ -519,7 +550,7 @@ else
     md5 -C MD5 ${FI}.iso.gz || exit 1
 fi
 
-echo2 -n "      type of FS: "
+echo2 -n "     file layout: "
 MNTTYPE=$(check_mnttype)
 echo2 $MNTTYPE
 
@@ -562,6 +593,9 @@ case $MNTTYPE in
         # define terminate session
         #
         cleanups () { mount -ur /sysmedia-iso
+                      umount -f ${FI}
+                      rmdir ${FI}
+                      vnconfig -u vnd0
                       rm ${FI}.iso
                       rm -rf /ram/fiupdate.bin; }
 
@@ -592,18 +626,32 @@ case $MNTTYPE in
         umount -f /sysmedia-iso
         ;;
     sys-iso-ntfs)
-        cleanups () { rm -rf /ram/fiupdate.bin; }
+        cat <<EOT >&2
 
-	echo2 "We can't update because NTFS is mounted on /sysmedia-iso with read only."
-	echo2 "Please locate the ISO file to \\ISO\\${FI}.iso on running Windows OS."
-	echo2 "Sorry for inconvenience."
-
-        cleanups
+We can't update because NTFS is mounted on /sysmedia-iso with read only.
+Please locate the ISO file to \\ISO\\${FI}.iso on running Windows OS.
+Sorry for inconvenience.
+EOT
 	exit 1
 	;;
-    mode2)
-	exit 1
-	;;
+    on-memory)
+        # define terminate session
+        #
+        cleanups () { umount -f ${FI}
+                      rmdir ${FI}
+                      vnconfig -u vnd0
+                      rm ${FI}.iso; }
+
+        echo2 -n "     boot device: "
+        check_boot_fisys
+        echo2 "ok"
+
+        decompress_iso
+        setup_iso_content
+        confirm_exec
+        
+        update_boot_dev
+        ;;
     *)
 	exit 1
 	;;

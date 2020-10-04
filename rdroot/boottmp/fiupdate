@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.3 2020/10/03 05:27:50 kaw Exp $
+# $Id: fiupdate,v 1.4 2020/10/04 07:09:14 kaw Exp $
 #
 #========================================
 
@@ -41,9 +41,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#==================================
-# Utility functions and subcommands
-#==================================
+#===================
+# Utility functions
+#===================
 
 #-------------------
 # ask user yes or no
@@ -95,6 +95,112 @@ function ask_yn {
     done
 }
 
+#-------------------
+# read user's input with readline functionality
+# outputs echoed to stdout
+#
+#     usage: rl_wread prompt-str default-str [completion words ....]
+#
+function rl_wread {
+    local prompt="$1";  shift
+    local default="$1"; shift
+    local rl_words=$(mktemp)
+    local w
+
+    if [ -x /usr/local/bin/rlwrap ]; then
+        echo "$@" > $rl_words
+        rlwrap -b '' \
+               -f $rl_words \
+               -P "$default" \
+               sh -f -c 'echo -n "'"$prompt"'->" >&2 ; read w || echo EOF; echo $w' || echo RL_ERR
+    else
+        #-------------------
+        # fallback to dumb input
+        #
+        if [ X"$default" = X ]; then
+            echo -n "${prompt}->" >&2
+            read w
+        else
+            echo -n "$prompt [$default] -> " >&2
+            read w
+            if [ X"$w" = X ]; then
+              w="$default"
+            fi
+        fi
+        echo $w
+    fi
+}
+
+#-------------------
+# ask selection out of multiple items
+# outputs answer to stdout
+#
+#     usage: ask_which prompt default item1 item2 ...
+#
+#       Note: although user's choice is one originated
+#             default is zero originated
+#
+#       output: first word of selected item
+#               returns empty line unless selected normally
+#
+function ask_which {
+    if [ $# -lt 3 ]; then
+        return
+    fi
+
+    local prompt="$1";  shift
+    local default="$1"; shift
+    local i item val
+
+    # skip null item
+    #
+    i=0
+    for val in "$@"; do
+        if [ -n "$val" ]; then
+           item[$i]="$val"
+           i=$((i+1))
+        fi
+    done
+
+    # only one item is default itself
+    #
+    [ "${#item[@]}" = 1 ] && default=${item[0]}
+
+    i=0
+    while [ -n "${item[$i]}" ]; do
+        if [ "$default" = "${item[$i]}" ]; then
+            OIFS="$IFS"
+            IFS= prompt="$prompt\n"`printf '%3d: [%s]' $((i+1)) ${item[$i]}`
+            IFS="$OIFS"
+        else
+            OIFS="$IFS"
+            IFS= prompt="$prompt\n"`printf '%3d:  %s' $((i+1)) ${item[$i]}`
+            IFS="$OIFS"
+        fi
+        i=$((i+1))
+    done
+    echo "$prompt" >&2
+
+    local ans
+    ans=`rl_wread '' ''`
+
+    # take first argument
+    #
+    set -- $ans
+    ans=$1
+    
+    # return selected item
+    #
+    if expr "$ans" : '^[0-9][0-9]*$' >/dev/null && \
+       [ "$ans" -le ${#item[@]} ]; then
+        set -- ${item[$((ans-1))]}
+        echo $1
+    elif [ -n "$default" -a -z "$ans" ]; then
+        set -- $default
+        echo $1
+    fi
+}
+
 # display usage
 #
 usage () {
@@ -115,24 +221,24 @@ echo2 () {
 # check existing kernels/ffsimg
 #
 check_kern_ffsimg () {
-    ffsimg=/sysmedia/fuguita-${REL}-${ARCH}.ffsimg
-    bsdfi=/sysmedia/bsd-fi
-    bsdfi_mp=/sysmedia/bsd-fi.mp
+    readonly FFSIMG=/sysmedia/fuguita-${REL}-${ARCH}.ffsimg
+    readonly BSDFI=/sysmedia/bsd-fi
+    readonly BSDFI_MP=/sysmedia/bsd-fi.mp
 
-    if [ ! -f $ffsimg ]; then
-        echo2 "$ffsimg not found (other version/arch ?)"
+    if [ ! -f $FFSIMG ]; then
+        echo2 "$FFSIMG not found (other version/arch ?)"
         ls -l /sysmedia >&2
         exit 1
     fi
 
-    if [ ! -f $bsdfi ]; then
-        echo2 "$bsdfi not found (device for saving data only?)"
+    if [ ! -f $BSDFI ]; then
+        echo2 "$BSDFI not found (device for saving data only?)"
         ls -l /sysmedia >&2
         exit 1
     fi
 
-    if [ ! -f $bsdfi_mp ]; then
-        echo2 "$bsdfi_mp not found (device for saving data only?)"
+    if [ ! -f $BSDFI_MP ]; then
+        echo2 "$BSDFI_MP not found (device for saving data only?)"
         ls -l /sysmedia >&2
         exit 1
     fi
@@ -142,18 +248,18 @@ check_kern_ffsimg () {
 #
 check_mnttype () {
     local mount_out=$(mount)  # cache mount's output
-    local mnttype
+    local mnttype=unknown
 
     if echo "$mount_out" | grep -q '^/dev/.* on /sysmedia-iso type '; then
-        echo2 "cannot support 'sysmedia-iso' mount type"
-        exit 1
-        mnttype=sys-iso
+	if echo "$mount_out" | grep -q '/sysmedia-iso type ntfs'; then
+            mnttype=sys-iso-ntfs  # NTFS with only R/O, can't update
+	else
+            mnttype=sys-iso
+	fi
     elif echo "$mount_out" | grep -q '^/dev/cd.* on /sysmedia type '; then
         echo2 "cannot update LiveDVD. Burn another one to update."
-        exit 1
     elif ! echo "$mount_out" | grep -q '^/dev/.* on /sysmedia type '; then
         echo2 "system partition not mounted (boot mode 2?)"
-        exit 1
         mnttype=mode2
     else
         mnttype=liveusb
@@ -162,16 +268,19 @@ check_mnttype () {
     echo $mnttype
 }
 
-# setup update environment
-#    - decompress ISO image
-#    - mount it as a vnode device
+# decompress ISO image
 #
-setup_iso_content () {
+decompress_iso () {
     rm -f ${FI}.iso
     echo
     echo "decompressing ${FI}.iso.gz..."
     pv ${FI}.iso.gz | gzip -d -o ${FI}.iso || exit 1
-    
+}
+
+# setup update environment
+#   mount *.ISO as a vnode device
+#
+setup_iso_content () {
     # mount vnode device
     mkdir ${FI}
     vnconfig vnd0 ${FI}.iso
@@ -183,7 +292,7 @@ setup_iso_content () {
 #
 setup_rampath () {
     mkdir -p /ram/fiupdate.bin
-    cp -p /bin/{cat,echo,rm,rmdir,sleep,sync} /sbin/{reboot,umount} /usr/local/bin/pv \
+    cp -p /bin/{cat,echo,rm,rmdir,sleep,sync} /sbin/reboot /usr/local/bin/pv \
        /ram/fiupdate.bin/.
     PATH=/ram/fiupdate.bin:/boottmp:$PATH
     export PATH
@@ -205,8 +314,11 @@ EOT
     fi
 }
 
-stop_all_srv () {
-    echo2 "stopping all daemons..."
+# stop all daemons
+#
+stop_srvs () {
+    local daemon
+    echo2 "stopping daemons..."
     for daemon in $(rcctl ls started); do
         rcctl stop $daemon
     done
@@ -214,16 +326,65 @@ stop_all_srv () {
 
 update_liveusb () {
     echo2 "overwriting uniprocessor kernel..."
-    pv ${FI}/bsd-fi > $bsdfi
+    pv ${FI}/bsd-fi > $BSDFI
 
     echo2 "overwriting multiprocessor kernel..."
-    pv ${FI}/bsd-fi.mp > $bsdfi_mp
+    pv ${FI}/bsd-fi.mp > $BSDFI_MP
 
     echo2 "overwriting filesystem image..."
-    pv ${FI}/fuguita-${REL}-${ARCH}.ffsimg > $ffsimg
+    pv ${FI}/fuguita-${REL}-${ARCH}.ffsimg > $FFSIMG
 
     echo
     echo2 "update completed. now rebooting..."
+}
+
+update_sys_iso () {
+    #==========================================
+    # Must be update kernels on boot device...
+    #==========================================
+    echo2 "overwriting /sysmedia-iso/ISO/${FI}.iso ..."
+    if ! pv ${FI}.iso > /sysmedia-iso/ISO/${FI}.iso; then
+        rm -f /sysmedia-iso/ISO/${FI}.iso
+        cleanups
+        exit 1
+    fi
+
+    echo
+    echo2 "update completed. now rebooting..."
+}
+
+# make disk/partition list, then echo to stdout
+#
+list_diskpart () {
+    local disk part part_list
+    for disk in $(sysctl -n hw.disknames|tr , ' '); do
+        for part in $(disklabel ${disk%:*} 2>/dev/null \
+                          | sed -e "/^  [ad-p]: /!d; s/^  \\([ad-p]\\):.*/${disk%:*}\1/"); do
+            part_list="${part_list:+$part_list }$part"
+        done
+    done
+    echo $part_list
+}
+
+# scan disk/partition for some handlings
+#
+scan_disks () {
+    local part
+    for part in $(list_diskpart); do
+        echo -n "$part: "
+        case "$part" in
+            cd*|sd*|wd*)
+                if mount -r /dev/$part /mnt 2>/dev/null; then
+                    echo OK
+                    umount /dev/$part
+                else
+                    echo NG
+                fi
+                ;;
+            *)
+                echo UNMOUNTABLE
+        esac
+    done
 }
 
 #==================================
@@ -232,10 +393,12 @@ update_liveusb () {
 
 # systemwide constants
 #
-PROGNAME=${0##*/}
-REL=$(uname -r)
-ARCH=$(uname -m)
+readonly PROGNAME=${0##*/}
+readonly REL=$(uname -r)
+readonly ARCH=$(uname -m)
 
+# greetings and notices
+#
 cat <<EOT
 
 fiupdate - Live Updater for FuguIta LiveUSB
@@ -248,10 +411,35 @@ if [ -z "$1" ]; then
     usage
     exit
 else
-    FI="FuguIta-${REL}-${ARCH}-${1}"
+    readonly FI="FuguIta-${REL}-${ARCH}-${1}"
 fi
 
+# check environment
+#
+echo2 -n "Checking:\n     environment: "
+if [ ! "$(id -un)" = root ]; then
+    echo2 "You are not root."
+    exit 1
+elif [ ! -e /usr/fuguita/version ]; then
+    echo2 "You are not running FuguIta."
+    exit 1
+elif [ 0 -lt $(expr $(tty) : '/dev/ttyp[0-9]') ]; then
+    cat <<EOF >&2
+checked
+
+It seems you are running this script on X Window System,
+or via network.
+In this situation, during update, corresponding processes
+will be killed and then update will fail.
+
+Use direct console device to do this.
+EOF
+    exit 1
+fi
+echo2 "ok"
+
 cat <<EOT
+
 Note: This sorftware is now under beta test.
       Please use this at YOUR OWN RISK.
 
@@ -262,27 +450,14 @@ before you update this FuguIta device.
 
 EOT
 
-if [ 1 != `ask_yn "Are you sure?" n` ]; then
+if [ 1 != `ask_yn "Do you proceed?" n` ]; then
     exit
 fi
 echo
 
-# check environment
-#
-echo2 -n "Checking:\n     environment: "
-if [ ! "$(id -un)" = root ]; then
-    echo2 "You are not root."
-    exit 1
-fi
-if [ ! -e /usr/fuguita/version ]; then
-    echo2 "You are not running FuguIta."
-    exit 1
-fi
-echo2 "ok"
-
 # check download file
 #
-echo2 -n "        checksum: "
+echo2 -n "Checking:\n        checksum: "
 if [ ! -e ${FI}.iso.gz -a -e ${FI}.img.gz ]; then
     echo2 "You need a file ${FI}.iso.gz, NOT ${FI}.img.gz"
     exit 1
@@ -290,28 +465,27 @@ else
     md5 -C MD5 ${FI}.iso.gz || exit 1
 fi
 
-echo2 -n "          mounts: "
+echo2 -n "      type of FS: "
 MNTTYPE=$(check_mnttype)
-echo2 "ok"
-
-echo2 -n "  existing files: "
-check_kern_ffsimg
-echo2 "ok"
-
-setup_iso_content
+echo2 $MNTTYPE
 
 case $MNTTYPE in
     liveusb)
+        echo2 -n "  existing files: "
+        check_kern_ffsimg
+        echo2 "ok"
+
+        decompress_iso
+        setup_iso_content
+
         # define terminate session
         #
-        cleanups () {
-            mount -ur /sysmedia
-            umount -f ${FI}
-            rmdir ${FI}
-            vnconfig -u vnd0
-            rm ${FI}.iso
-            rm -rf /ram/fiupdate.bin
-        }
+        cleanups () { mount -ur /sysmedia
+                      umount -f ${FI}
+                      rmdir ${FI}
+                      vnconfig -u vnd0
+                      rm ${FI}.iso
+                      rm -rf /ram/fiupdate.bin; }
         setup_rampath
         confirm_exec
         
@@ -319,15 +493,59 @@ case $MNTTYPE in
             cleanups
             exit 1
         fi
-        stop_all_srv
+        stop_srvs
         update_liveusb
 
         # detach devices
         #
         umount -f /dev/vnd5a  # vnd5 is /sysmedia/fuguita-*.ffsimg
         vnconfig -u vnd5      # which is mounted on /fuguita
+
         umount -f /sysmedia
         ;;
+    sys-iso)
+        # define terminate session
+        #
+        cleanups () { mount -ur /sysmedia-iso
+                      rm ${FI}.iso
+                      rm -rf /ram/fiupdate.bin; }
+        decompress_iso
+        setup_rampath
+        confirm_exec
+        
+        if ! mount -uw /sysmedia-iso; then
+            cleanups
+            exit 1
+        fi
+        stop_srvs
+        update_sys_iso
+
+        # detach devices
+        #
+        umount -f /dev/vnd5a  # vnd5 is /sysmedia/fuguita-*.ffsimg
+        vnconfig -u vnd5      # which is mounted on /fuguita
+
+        umount -f /dev/vnd4a  # vnd4 is /sysmedia-iso/ISO/FuguIta-*-*.iso
+        vnconfig -u vnd4      # which is mounted on /sysmedia
+
+        umount -f /sysmedia-iso
+        ;;
+    sys-iso-ntfs)
+        cleanups () { rm -rf /ram/fiupdate.bin; }
+
+	echo2 "We can't update because NTFS is mounted on /sysmedia-iso with read only."
+	echo2 "Please locate the ISO file to \\ISO\\${FI}.iso on running Windows OS."
+	echo2 "Sorry for inconvenience."
+
+        cleanups
+	exit 1
+	;;
+    mode2)
+	exit 1
+	;;
+    *)
+	exit 1
+	;;
 esac
 
 # not to perform usbfadm -r

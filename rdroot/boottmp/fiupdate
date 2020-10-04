@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.4 2020/10/04 07:09:14 kaw Exp $
+# $Id: fiupdate,v 1.5 2020/10/04 16:16:36 kaw Exp $
 #
 #========================================
 
@@ -324,6 +324,8 @@ stop_srvs () {
     done
 }
 
+# rewrite kernels and ffsimg at mode 0 or 1
+#
 update_liveusb () {
     echo2 "overwriting uniprocessor kernel..."
     pv ${FI}/bsd-fi > $BSDFI
@@ -333,21 +335,6 @@ update_liveusb () {
 
     echo2 "overwriting filesystem image..."
     pv ${FI}/fuguita-${REL}-${ARCH}.ffsimg > $FFSIMG
-
-    echo
-    echo2 "update completed. now rebooting..."
-}
-
-update_sys_iso () {
-    #==========================================
-    # Must be update kernels on boot device...
-    #==========================================
-    echo2 "overwriting /sysmedia-iso/ISO/${FI}.iso ..."
-    if ! pv ${FI}.iso > /sysmedia-iso/ISO/${FI}.iso; then
-        rm -f /sysmedia-iso/ISO/${FI}.iso
-        cleanups
-        exit 1
-    fi
 
     echo
     echo2 "update completed. now rebooting..."
@@ -366,25 +353,91 @@ list_diskpart () {
     echo $part_list
 }
 
-# scan disk/partition for some handlings
+# find UNMOUNTED FuguIta's system disk/partition
 #
-scan_disks () {
-    local part
+find_free_fisys () {
+    local part fisys
     for part in $(list_diskpart); do
-        echo -n "$part: "
         case "$part" in
-            cd*|sd*|wd*)
-                if mount -r /dev/$part /mnt 2>/dev/null; then
-                    echo OK
+            sd*|wd*)
+                if mount -r /dev/$part /mnt 2> /dev/null; then
+                    if [ -f /mnt/bsd-fi.mp ]; then
+                        fisys="${fisys:+$fisys }$part"
+                    fi
                     umount /dev/$part
-                else
-                    echo NG
                 fi
                 ;;
-            *)
-                echo UNMOUNTABLE
         esac
     done
+    echo $fisys
+}
+
+# check if single FuguIta's boot device attached
+# if success appropriate device set to gloobal
+# variable BOOTDEV
+#
+check_boot_fisys () {
+    set -- $(find_free_fisys)
+    if [ $# -le 0 ]; then
+        echo2 "No FuguIta boot device found"
+        echo2 "Please attach single FuguIta boot device."
+        exit 1
+    elif [ $# -eq 1 ]; then
+        BOOTDEV="$1"
+    elif [ $# -gt 1 ]; then
+	cat <<EOT >&2
+checked
+
+Multiple FuguIta boot devices found: $*
+Please attach single FuguIta boot device.
+EOT
+        exit 1
+    else
+        echo2 "Something wrong in scanning disks"
+        exit 1
+    fi
+}
+
+# rewrite running ISO image,
+# kernels used for boot and
+# correnponding ffsimg
+#
+update_sys_iso () {
+    # update ISO image file
+    #
+    echo2 "overwriting /sysmedia-iso/ISO/${FI}.iso ..."
+    if ! pv ${FI}.iso > /sysmedia-iso/ISO/${FI}.iso; then
+        rm -f /sysmedia-iso/ISO/${FI}.iso
+        cleanups
+        exit 1
+    fi
+
+    # update kernel and ffsimg at boot device
+    #
+    if mount /dev/$BOOTDEV /mnt; then
+        if [ -f /mnt/bsd-fi ]; then
+            echo2 "overwriting uniprocessor kernel..."
+            pv ${FI}/bsd-fi > /mnt/bsd-fi
+        fi
+
+        if [ -f /mnt/bsd-fi.mp ]; then
+            echo2 "overwriting multiprocessor kernel..."
+            pv ${FI}/bsd-fi.mp > /mnt/bsd-fi.mp
+        fi
+
+        if [ -f /mnt/fuguita-${REL}-${ARCH}.ffsimg ]; then
+            echo2 "overwriting filesystem image..."
+            pv ${FI}/fuguita-${REL}-${ARCH}.ffsimg > /mnt/fuguita-${REL}-${ARCH}.ffsimg
+        fi
+
+        umount /mnt
+    else
+        cleanups
+        exit 1
+    fi
+
+    echo
+    echo2 "update completed. now rebooting..."
 }
 
 #==================================
@@ -424,7 +477,7 @@ elif [ ! -e /usr/fuguita/version ]; then
     echo2 "You are not running FuguIta."
     exit 1
 elif [ 0 -lt $(expr $(tty) : '/dev/ttyp[0-9]') ]; then
-    cat <<EOF >&2
+    cat <<EOT >&2
 checked
 
 It seems you are running this script on X Window System,
@@ -432,11 +485,12 @@ or via network.
 In this situation, during update, corresponding processes
 will be killed and then update will fail.
 
-Use direct console device to do this.
-EOF
+Please do this on direct console device.
+EOT
     exit 1
+else
+    echo2 "ok"
 fi
-echo2 "ok"
 
 cat <<EOT
 
@@ -475,9 +529,6 @@ case $MNTTYPE in
         check_kern_ffsimg
         echo2 "ok"
 
-        decompress_iso
-        setup_iso_content
-
         # define terminate session
         #
         cleanups () { mount -ur /sysmedia
@@ -486,6 +537,10 @@ case $MNTTYPE in
                       vnconfig -u vnd0
                       rm ${FI}.iso
                       rm -rf /ram/fiupdate.bin; }
+
+        decompress_iso
+        setup_iso_content
+
         setup_rampath
         confirm_exec
         
@@ -509,7 +564,13 @@ case $MNTTYPE in
         cleanups () { mount -ur /sysmedia-iso
                       rm ${FI}.iso
                       rm -rf /ram/fiupdate.bin; }
+
+        echo2 -n "     boot device: "
+        check_boot_fisys
+        echo2 "ok"
+
         decompress_iso
+        setup_iso_content
         setup_rampath
         confirm_exec
         
@@ -554,5 +615,7 @@ if [ -f /etc/rc.shutdown ]; then
     mv /etc/rc.shutdown /etc/DISABLED.rc.shutdown
 fi
 
+# reboot ... this is it.
+#
 sync; sync; sync; sleep 5
 reboot

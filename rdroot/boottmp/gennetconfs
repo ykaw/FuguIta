@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.3 2020/09/29 19:15:21 kaw Exp $
+# $Id: gennetconfs,v 1.4 2020/10/04 07:09:36 kaw Exp $
 #==================================================
 
 # Copyright (c) 2006--2020
@@ -312,12 +312,12 @@ else
     rm -f resolv.conf.tail
 fi
 
+# sysctl.conf
 if [ -f sysctl.conf ]; then
     mv sysctl.conf DISABLED.${pid}.sysctl.conf
     sed -e '/^net\.inet6*\.ip6*\.m*forwarding=/d' DISABLED.${pid}.sysctl.conf > sysctl.conf
 fi
 
-# sysctl.conf
 echo "$etc_sysctl_conf" >> sysctl.conf  # note that no "-n"
 
 #

@@ -95,7 +95,7 @@ function wait_enter {
 function ask_yn {
 
     if [ -z "$2" ]; then
-        echo -2 >&2
+        echo -2
         return
     fi
 

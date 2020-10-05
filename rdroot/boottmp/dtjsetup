@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.10 2020/08/01 00:53:23 kaw Exp $
+# $Id: dtjsetup,v 1.11 2020/10/05 01:53:27 kaw Exp $
 #
 #========================================
 
@@ -89,7 +89,7 @@ function wait_enter {
 function ask_yn {
 
     if [ -z "$2" ]; then
-        echo -2 >&2
+        echo -2
         return
     fi
 

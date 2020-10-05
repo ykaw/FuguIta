@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.9 2020/10/05 03:44:45 kaw Exp $
+# $Id: fiupdate,v 1.10 2020/10/05 06:34:35 kaw Exp $
 #
 #========================================
 
@@ -57,14 +57,14 @@ echo2 () {
 #
 #     usage: ask_yn prompt yn
 #
-#       yn ... y: defaults to yes
-#              n: defaults to no
-#              r: no default ... ask again
+#       yn ...    y: default is yes
+#                 n: default is yes
+#                 r: no default ... ask again
 #              else: no default ... return -1 if answered not yn
 #
-#       output ... 1: yes, 0: no, -1: else yn, -2: error occured
+#   output ... 1: yes, 0: no, -1: else yn, -2: error occured
 #
-function ask_yn {
+ask_yn () {
 
     if [ -z "$2" ]; then
         echo -2
@@ -107,18 +107,19 @@ function ask_yn {
 #
 #     usage: rl_wread prompt-str default-str [completion words ....]
 #
-function rl_wread {
-    local prompt="$1";  shift
+rl_wread () {
+    local prompt="$1" ; shift
     local default="$1"; shift
-    local rl_words=$(mktemp)
     local w
 
     if [ -x /usr/local/bin/rlwrap ]; then
-        echo "$@" > $rl_words
+        local rl_words=$(mktemp)
+        echo "$@" >> $rl_words
         rlwrap -b '' \
                -f $rl_words \
                -P "$default" \
                sh -f -c 'echo -n "'"$prompt"'->" >&2 ; read w || echo EOF; echo $w' || echo RL_ERR
+        rm -f rl_words
     else
         #-------------------
         # fallback to dumb input
@@ -149,7 +150,7 @@ function rl_wread {
 #       output: first word of selected item
 #               returns empty line unless selected normally
 #
-function ask_which {
+ask_which () {
     if [ $# -lt 3 ]; then
         return
     fi
@@ -273,7 +274,10 @@ decompress_iso () {
     rm -f ${FI}.iso
     echo2
     echo2 "decompressing ${FI}.iso.gz..."
-    pv ${FI}.iso.gz | gzip -d -o ${FI}.iso || exit 1
+    if ! pv ${FI}.iso.gz | gzip -d -o ${FI}.iso; then
+        rm -f ${FI}.iso
+        exit 1
+    fi
 }
 
 # setup update environment
@@ -374,7 +378,7 @@ find_free_fisys () {
 }
 
 # check if single FuguIta's boot device attached
-# if success appropriate device set to gloobal
+# if success appropriate device set to global
 # variable BOOTDEV
 #
 check_boot_fisys () {
@@ -540,7 +544,7 @@ if [ 1 != $(ask_yn "Do you proceed?" n) ]; then
 fi
 echo
 
-# check download file
+# check downloaded file
 #
 echo2    "Checking..."
 echo2 -n "        checksum: "

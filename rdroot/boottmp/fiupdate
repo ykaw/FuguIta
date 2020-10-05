@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.6 2020/10/04 19:22:18 kaw Exp $
+# $Id: fiupdate,v 1.7 2020/10/05 01:48:15 kaw Exp $
 #
 #========================================
 
@@ -45,6 +45,12 @@
 # Utility functions
 #===================
 
+# echo to stderr
+#
+echo2 () {
+    echo "$@" >&2
+}
+
 #-------------------
 # ask user yes or no
 # outputs answer to stdout
@@ -61,7 +67,7 @@
 function ask_yn {
 
     if [ -z "$2" ]; then
-        echo -2 >&2
+        echo -2
         return
     fi
 
@@ -77,7 +83,7 @@ function ask_yn {
     esac
 
     while :; do
-        echo -n "$prompt" >&2; read yn_ans
+        echo2 -n "$prompt"; read yn_ans
 
         case X"$yn_ans"X in
             X[Yy]X) echo 1; return;;
@@ -118,10 +124,10 @@ function rl_wread {
         # fallback to dumb input
         #
         if [ X"$default" = X ]; then
-            echo -n "${prompt}->" >&2
+            echo2 -n "${prompt}->"
             read w
         else
-            echo -n "$prompt [$default] -> " >&2
+            echo2 -n "$prompt [$default] -> "
             read w
             if [ X"$w" = X ]; then
               w="$default"
@@ -170,19 +176,19 @@ function ask_which {
     while [ -n "${item[$i]}" ]; do
         if [ "$default" = "${item[$i]}" ]; then
             OIFS="$IFS"
-            IFS= prompt="$prompt\n"`printf '%3d: [%s]' $((i+1)) ${item[$i]}`
+            IFS= prompt="$prompt\n"$(printf '%3d: [%s]' $((i+1)) ${item[$i]})
             IFS="$OIFS"
         else
             OIFS="$IFS"
-            IFS= prompt="$prompt\n"`printf '%3d:  %s' $((i+1)) ${item[$i]}`
+            IFS= prompt="$prompt\n"$(printf '%3d:  %s' $((i+1)) ${item[$i]})
             IFS="$OIFS"
         fi
         i=$((i+1))
     done
-    echo "$prompt" >&2
+    echo2 "$prompt"
 
     local ans
-    ans=`rl_wread '' ''`
+    ans=$(rl_wread '' '')
 
     # take first argument
     #
@@ -210,12 +216,6 @@ Usage: ${PROGNAME} yyyymmddn
 You should locate FuguIta-${REL}-${ARCH}-yyyymmddn.iso.gz and MD5
 at current directory before invoke this.
 EOT
-}
-
-# echo to stderr
-#
-echo2 () {
-    echo "$@" >&2
 }
 
 # check existing kernels/ffsimg
@@ -271,8 +271,8 @@ check_mnttype () {
 #
 decompress_iso () {
     rm -f ${FI}.iso
-    echo
-    echo "decompressing ${FI}.iso.gz..."
+    echo2
+    echo2 "decompressing ${FI}.iso.gz..."
     pv ${FI}.iso.gz | gzip -d -o ${FI}.iso || exit 1
 }
 
@@ -307,7 +307,9 @@ Now ready to update FuguIta-$(cat /usr/fuguita/version) to ${FI}.
 This machine will reboot immediately after update completed.
 
 EOT
-    if [ 1 != `ask_yn "Do you proceed?" n` ]; then
+    if [ 1 = $(ask_yn "Do you proceed?" n) ]; then
+        trap "" INT QUIT  # We can't abort following process
+    else
         cleanups
         exit
     fi
@@ -315,9 +317,9 @@ EOT
 
 # stop all daemons
 #
-stop_srvs () {
+stop_all_srvs () {
     local daemon
-    echo2 "stopping daemons..."
+    echo2 "stopping all daemons..."
     for daemon in $(rcctl ls started); do
         rcctl stop $daemon
     done
@@ -334,9 +336,6 @@ update_liveusb () {
 
     echo2 "overwriting filesystem image..."
     pv ${FI}/fuguita-${REL}-${ARCH}.ffsimg > $FFSIMG
-
-    echo
-    echo2 "update completed. now rebooting..."
 }
 
 # make disk/partition list, then echo to stdout
@@ -392,7 +391,7 @@ Please attach single FuguIta boot device.
 EOT
         exit 1
     else
-        echo2 "Something wrong in scanning disks"
+        echo2 "can't happen in check_boot_fisys()"
         exit 1
     fi
 }
@@ -434,9 +433,6 @@ update_sys_iso () {
         cleanups
         exit 1
     fi
-
-    echo
-    echo2 "update completed. now rebooting..."
 }
 
 # rewrite kernels and ffsimg
@@ -447,17 +443,17 @@ update_boot_dev () {
     #
     if mount /dev/$BOOTDEV /mnt; then
         if [ -f /mnt/bsd-fi ]; then
-            echo2 "overwriting uniprocessor kernel..."
+            echo2 "overwriting uniprocessor kernel - ${BOOTDEV}:/bsd-fi ..."
             pv ${FI}/bsd-fi > /mnt/bsd-fi
         fi
 
         if [ -f /mnt/bsd-fi.mp ]; then
-            echo2 "overwriting multiprocessor kernel..."
+            echo2 "overwriting multiprocessor kernel - ${BOOTDEV}:/bsd-fi.mp ..."
             pv ${FI}/bsd-fi.mp > /mnt/bsd-fi.mp
         fi
 
         if [ -f /mnt/fuguita-${REL}-${ARCH}.ffsimg ]; then
-            echo2 "overwriting filesystem image..."
+            echo2 "overwriting filesystem image - ${BOOTDEV}:/fuguita-${REL}-${ARCH}.ffsimg ..."
             pv ${FI}/fuguita-${REL}-${ARCH}.ffsimg > /mnt/fuguita-${REL}-${ARCH}.ffsimg
         fi
 
@@ -466,9 +462,6 @@ update_boot_dev () {
         cleanups
         exit 1
     fi
-
-    echo
-    echo2 "update completed. now rebooting..."
 }
 
 #==================================
@@ -486,7 +479,7 @@ readonly ARCH=$(uname -m)
 cat <<EOT
 
 fiupdate - Live Updater for FuguIta LiveUSB
-  Version/Arch: $REL/$ARCH  (FuguIta-`cat /usr/fuguita/version`)
+  Version/Arch: $REL/$ARCH  (FuguIta-$(cat /usr/fuguita/version))
 
 EOT
 
@@ -528,21 +521,36 @@ cat <<EOT
 Note: This sorftware is now under beta test.
       Please use this at YOUR OWN RISK.
 
-We recommend that you execute this command with fresh boot (boot mode 0 or 1).
+      We recommend that you execute this command with fresh boot (boot
+      mode 0, 1 or 2).
+      Or you should quit all application softwares and save all your
+      data before you update this FuguIta device.
 
-Or you should quit all application softwares and save all your data
-before you update this FuguIta device.
+      Before update, all daemons will be stopped including xenodm.
+      Note that all X sessions will be aborted.
+
+Note: This software is currently in beta testing.
+      Use this at YOUR OWN RISK.
+
+      We recommend that you run this command in fresh boot (boot mode
+      0, 1, or 2).
+      Alternatively, you must quit all application software and save
+      all your data before updating this FuguIta device.
+
+      All daemons, including xenodm, will be stopped before the update.
+      Please note that all X sessions will be aborted.
 
 EOT
 
-if [ 1 != `ask_yn "Do you proceed?" n` ]; then
+if [ 1 != $(ask_yn "Do you proceed?" n) ]; then
     exit
 fi
 echo
 
 # check download file
 #
-echo2 -n "Checking:\n        checksum: "
+echo2 -n "Checking:"
+echo2 -n "        checksum: "
 if [ ! -e ${FI}.iso.gz -a -e ${FI}.img.gz ]; then
     echo2 "You need a file ${FI}.iso.gz, NOT ${FI}.img.gz"
     exit 1
@@ -550,10 +558,14 @@ else
     md5 -C MD5 ${FI}.iso.gz || exit 1
 fi
 
+# check file layout
+#
 echo2 -n "     file layout: "
 MNTTYPE=$(check_mnttype)
 echo2 $MNTTYPE
 
+# Do update by file layout
+#
 case $MNTTYPE in
     liveusb)
         echo2 -n "  existing files: "
@@ -579,7 +591,7 @@ case $MNTTYPE in
             cleanups
             exit 1
         fi
-        stop_srvs
+        stop_all_srvs
         update_liveusb
 
         # detach devices
@@ -612,7 +624,7 @@ case $MNTTYPE in
             cleanups
             exit 1
         fi
-        stop_srvs
+        stop_all_srvs
         update_sys_iso
 
         # detach devices
@@ -653,9 +665,12 @@ EOT
         update_boot_dev
         ;;
     *)
+        echo2 "unknown file layout - $MNTTYPE (internal inconsistency?)"
 	exit 1
 	;;
 esac
+echo
+echo2 "update completed."
 
 # not to perform usbfadm -r
 #
@@ -666,4 +681,5 @@ fi
 # reboot ... this is it.
 #
 sync; sync; sync; sleep 5
+echo2 "now rebooting..."
 reboot

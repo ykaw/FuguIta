@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.7 2020/10/05 01:48:15 kaw Exp $
+# $Id: fiupdate,v 1.8 2020/10/05 02:15:41 kaw Exp $
 #
 #========================================
 
@@ -517,17 +517,6 @@ else
 fi
 
 cat <<EOT
-
-Note: This sorftware is now under beta test.
-      Please use this at YOUR OWN RISK.
-
-      We recommend that you execute this command with fresh boot (boot
-      mode 0, 1 or 2).
-      Or you should quit all application softwares and save all your
-      data before you update this FuguIta device.
-
-      Before update, all daemons will be stopped including xenodm.
-      Note that all X sessions will be aborted.
 
 Note: This software is currently in beta testing.
       Use this at YOUR OWN RISK.

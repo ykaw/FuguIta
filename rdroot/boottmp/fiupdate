@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.8 2020/10/05 02:15:41 kaw Exp $
+# $Id: fiupdate,v 1.9 2020/10/05 03:44:45 kaw Exp $
 #
 #========================================
 
@@ -307,7 +307,9 @@ Now ready to update FuguIta-$(cat /usr/fuguita/version) to ${FI}.
 This machine will reboot immediately after update completed.
 
 EOT
-    if [ 1 = $(ask_yn "Do you proceed?" n) ]; then
+    local ans="$(ask_yn "Do you proceed?" n)"
+    echo2
+    if [ 1 -eq $ans ]; then
         trap "" INT QUIT  # We can't abort following process
     else
         cleanups
@@ -323,6 +325,7 @@ stop_all_srvs () {
     for daemon in $(rcctl ls started); do
         rcctl stop $daemon
     done
+    echo2
 }
 
 # rewrite kernels and ffsimg at mode 0 or 1
@@ -493,7 +496,8 @@ fi
 
 # check environment
 #
-echo2 -n "Checking:\n     environment: "
+echo2    "Checking..."
+echo2 -n "     environment: "
 if [ ! "$(id -un)" = root ]; then
     echo2 "You are not root."
     exit 1
@@ -505,9 +509,9 @@ elif [ 0 -lt $(expr $(tty) : '/dev/ttyp[0-9]') ]; then
 checked
 
 It seems you are running this script on X Window System,
-or via network.
+via network or something like this.
 In this situation, during update, corresponding processes
-will be killed and then update will fail.
+will be killed and then update may fail.
 
 Please do this on direct console device.
 EOT
@@ -538,7 +542,7 @@ echo
 
 # check download file
 #
-echo2 -n "Checking:"
+echo2    "Checking..."
 echo2 -n "        checksum: "
 if [ ! -e ${FI}.iso.gz -a -e ${FI}.img.gz ]; then
     echo2 "You need a file ${FI}.iso.gz, NOT ${FI}.img.gz"

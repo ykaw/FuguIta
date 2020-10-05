@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.10 2020/10/05 06:34:35 kaw Exp $
+# $Id: fiupdate,v 1.11 2020/10/05 16:03:28 kaw Exp $
 #
 #========================================
 
@@ -503,12 +503,46 @@ fi
 echo2    "Checking..."
 echo2 -n "     environment: "
 if [ ! "$(id -un)" = root ]; then
+    # user priviledge
     echo2 "You are not root."
     exit 1
 elif [ ! -e /usr/fuguita/version ]; then
+    # distro
     echo2 "You are not running FuguIta."
     exit 1
-elif [ 0 -lt $(expr $(tty) : '/dev/ttyp[0-9]') ]; then
+elif [ ! -e ${FI}.iso.gz ]; then  # symlink is OK
+    # downloaded file
+    echo2 -n "${FI}.iso.gz not found"
+    if [ -e ${FI}.img.gz ]; then
+        echo2 -n " (NOT ${FI}.img.gz !)"
+    fi
+    echo2
+    exit 1
+elif [ ! -e MD5 ]; then  # symlink is OK
+    # checksum file
+    echo2 "MD5 checksum not found"
+    exit 1
+fi
+
+# Can I create *.iso here?
+fs=$(fstat -p $$ | awk '$4=="wd" {print $5}')  # current file system
+case "$fs" in
+    /|/sysmedia*|/fuguita)
+        echo2 "You can't run $PROGNAME at $(pwd) . Please change CWD."
+        exit 1
+        ;;
+    *)
+        if mkdir ${PROGNAME}_$$ 2>/dev/null; then
+            rmdir ${PROGNAME}_$$
+        else
+            echo2 "You can't create a file at $(pwd) . Please change CWD."
+            exit 1
+        fi
+        ;;
+esac
+   
+# console devices
+if [ 0 -lt $(expr $(tty) : '/dev/ttyp[0-9]') ]; then
     cat <<EOT >&2
 checked
 
@@ -517,13 +551,17 @@ via network or something like this.
 In this situation, during update, corresponding processes
 will be killed and then update may fail.
 
-Please do this on direct console device.
+Running this on direct console device is highly recommended.
+
 EOT
-    exit 1
+
+    if [ 1 -ne $(ask_yn "Continue anyway?" n) ]; then
+       exit 1
+    fi
 else
     echo2 "ok"
+    echo2
 fi
-
 cat <<EOT
 
 Note: This software is currently in beta testing.
@@ -539,7 +577,7 @@ Note: This software is currently in beta testing.
 
 EOT
 
-if [ 1 != $(ask_yn "Do you proceed?" n) ]; then
+if [ 1 -ne $(ask_yn "Do you proceed?" n) ]; then
     exit
 fi
 echo
@@ -548,12 +586,7 @@ echo
 #
 echo2    "Checking..."
 echo2 -n "        checksum: "
-if [ ! -e ${FI}.iso.gz -a -e ${FI}.img.gz ]; then
-    echo2 "You need a file ${FI}.iso.gz, NOT ${FI}.img.gz"
-    exit 1
-else
-    md5 -C MD5 ${FI}.iso.gz || exit 1
-fi
+md5 -C MD5 ${FI}.iso.gz || exit 1
 
 # check file layout
 #
@@ -610,7 +643,7 @@ case $MNTTYPE in
 
         echo2 -n "     boot device: "
         check_boot_fisys
-        echo2 "ok"
+        echo2 "/dev/$BOOTDEV - ok"
 
         decompress_iso
         setup_iso_content
@@ -653,7 +686,7 @@ EOT
 
         echo2 -n "     boot device: "
         check_boot_fisys
-        echo2 "ok"
+        echo2 "/dev/$BOOTDEV - ok"
 
         decompress_iso
         setup_iso_content
@@ -666,7 +699,7 @@ EOT
 	exit 1
 	;;
 esac
-echo
+echo2
 echo2 "update completed."
 
 # not to perform usbfadm -r

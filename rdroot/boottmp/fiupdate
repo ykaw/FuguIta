@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.12 2020/10/07 05:21:47 kaw Exp $
+# $Id: fiupdate,v 1.13 2020/10/07 05:45:43 kaw Exp $
 #
 #========================================
 
@@ -632,8 +632,7 @@ case $MNTTYPE in
         umount -f /sysmedia
         ;;
     livedvd)
-        echo2
-        echo2 "cannot rewrite LiveDVD. Burn another one to update."
+        echo2 "      media type: We can't rewrite LiveDVD. Burn another one to update."
 	exit 1
         ;;
     sys-iso)

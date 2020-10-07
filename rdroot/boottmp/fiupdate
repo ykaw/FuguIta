@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.11 2020/10/05 16:03:28 kaw Exp $
+# $Id: fiupdate,v 1.12 2020/10/07 05:21:47 kaw Exp $
 #
 #========================================
 
@@ -258,7 +258,7 @@ check_mnttype () {
             mnttype=sys-iso
 	fi
     elif echo "$mount_out" | grep -q '^/dev/cd.* on /sysmedia type '; then
-        echo2 "cannot update LiveDVD. Burn another one to update."
+        mnttype=livedvd
     elif ! echo "$mount_out" | grep -q '^/dev/.* on /sysmedia type '; then
         mnttype=on-memory
     else
@@ -630,6 +630,11 @@ case $MNTTYPE in
         vnconfig -u vnd5      # which is mounted on /fuguita
 
         umount -f /sysmedia
+        ;;
+    livedvd)
+        echo2
+        echo2 "cannot rewrite LiveDVD. Burn another one to update."
+	exit 1
         ;;
     sys-iso)
         # define terminate session

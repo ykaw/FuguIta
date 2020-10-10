@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.11 2020/10/05 01:53:27 kaw Exp $
+# $Id: dtjsetup,v 1.12 2020/10/10 00:50:58 kaw Exp $
 #
 #========================================
 
@@ -546,7 +546,7 @@ if [ "$ja_env" = YES ]; then
         msg When you use this machine both running OpenBSD and Windows.
         msg You may set the hardware clock to JST instead  UTC.
         if [ $(ask_yn 'Set hardware clock to JST?' n) = 1 ]; then
-            root_cmd echo 'kern.utc_offset=-540' '>>' '/etc/sysctl.conf'
+            root_cmd echo 'kern.utc_offset=540' '>>' '/etc/sysctl.conf'
             msg This will take effect on the next boot.
         fi
     fi

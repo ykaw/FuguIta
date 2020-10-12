@@ -795,12 +795,16 @@ Enter keyboard type./'
             if [ "$pax_failed" = "yes" ]; then
                 if cd /mnt/livecd-config/$osrel/$osmac/$confdir 2> /dev/null || \
                    cd /mnt/livecd-config/$confdir; then
-                    echo "Copying to ram was partially failed, retrying..."
-                    /fuguita/usr/local/bin/rsync -rlptgovHS . /ram/.
-                    echo "done"
-                    cd /
+                    for i in 1 2 3; do  # retry 3 time max
+                        echo "Copying to ram was partially failed, retrying..."
+                        if /fuguita/usr/local/bin/rsync -rlptgovHS . /ram/.; then
+                            echo "done"
+                            break
+                        fi
+                    done
                 fi
             fi
+            cd /
             umount /mnt
 
             cp /boottmp/fstab /etc  # fix /etc/fstab

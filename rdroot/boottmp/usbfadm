@@ -799,7 +799,7 @@ trap 'echo $0: interrupted. >&2; clear_exit 1' INT
 # systemwide defaults
 #
   disk_head_gap=64
- fuguita_sys_mb=946
+ fuguita_sys_mb=1024
 fuguita_uefi_kb=512
      enc_ppfile='/tmp/usbfadm_pp'
 #

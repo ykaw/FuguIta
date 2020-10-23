@@ -583,7 +583,7 @@ function setup_fs {
 
     if echo "$disklabel" | grep -q 'a:.*4\.2BSD'; then
         # very few files ... make inode density low
-        newfs -m0 -i$((fuguita_sys_mb*1024*1024/100)) ${scandev}a
+        newfs -O 1 -m 0 -o space -i$((fuguita_sys_mb*1024*1024/100)) ${scandev}a
 
         notice "Copying FuguIta system files"
 
@@ -675,9 +675,9 @@ function setup_fs {
         if [ $ps_fidat -le `byte2sect 2G` ]; then
             # adjust inode density for little space
             # because too many symlinks when booted mode 0
-            newfs -m0 -o space -i1024 -b4096 -f512 ${datdev}d
+            newfs -O 1 -m 0 -o space -i1024 -b4096 -f512 ${datdev}d
         else
-            newfs -m0 ${datdev}d
+            newfs -O 1 -m 0 -o space ${datdev}d
         fi
 
         mount -o async /dev/${datdev}d /mnt

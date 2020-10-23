@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.488 2020/03/06 08:39:34 patrick Exp $
+#	$OpenBSD: GENERIC,v 1.493 2020/09/15 18:31:14 mglocker Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -117,6 +117,7 @@ pseudo-device	vether		# Virtual ethernet
 pseudo-device	vxlan		# Virtual extensible LAN
 pseudo-device	vlan		# IEEE 802.1Q VLAN
 pseudo-device	switch		# Switch
+pseudo-device	wg		# WireGuard
 
 pseudo-device	bio	1	# ioctl multiplexing device
 
@@ -186,9 +187,12 @@ glkgpio*	at acpi?
 sdhc*		at acpi?
 acpicbkbd*	at acpi?
 acpials*	at acpi?
+abl*		at acpi?	# Apple Backlight
+asmc*		at acpi?	# Apple SMC
 tpm*		at acpi?
 acpihve*	at acpi?
 acpisurface*	at acpi?
+acpihid*	at acpi?
 ipmi0		at acpi? disable
 ccpmic*		at iic?
 tipmic*		at iic?
@@ -249,7 +253,6 @@ lm*	at wbsio?
 uguru0	at isa? disable port 0xe0	# ABIT uGuru
 
 aps0	at isa? port 0x1600		# ThinkPad Active Protection System
-asmc0	at isa? port 0x300		# Apple SMC
 
 piixpm*	at pci?			# Intel PIIX PM
 iic*	at piixpm?
@@ -401,6 +404,7 @@ ucom*	at uslhcom?
 uhid*	at uhidev?		# USB generic HID support
 fido*	at uhidev?		# FIDO/U2F security key support
 upd*	at uhidev?		# USB Power Devices sensors
+umstc*	at uhidev?		# Microsoft Surface Type Cover
 aue*	at uhub?		# ADMtek AN986 Pegasus Ethernet
 atu*	at uhub?		# Atmel AT76c50x based 802.11b
 axe*	at uhub?		# ASIX Electronics AX88172 USB Ethernet

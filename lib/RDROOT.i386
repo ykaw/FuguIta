@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.850 2020/01/22 05:06:19 tedu Exp $
+#	$OpenBSD: GENERIC,v 1.853 2020/09/12 15:01:05 mglocker Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -117,6 +117,7 @@ pseudo-device	vether		# Virtual ethernet
 pseudo-device	vxlan		# Virtual extensible LAN
 pseudo-device	vlan		# IEEE 802.1Q VLAN
 pseudo-device	switch		# Switch
+pseudo-device	wg		# WireGuard
 
 pseudo-device	bio	1	# ioctl multiplexing device
 
@@ -180,6 +181,7 @@ acpivideo*	at acpi?
 acpivout*	at acpivideo?
 acpipwrres*	at acpi?
 aibs*		at acpi?
+asmc*		at acpi?	# Apple SMC
 
 option		PCIVERBOSE
 option		EISAVERBOSE
@@ -266,7 +268,6 @@ uguru0	at isa? disable port 0xe0	# ABIT uGuru
 fins0	at isa? port 0x4e		# Fintek F71805 Super I/O
 
 aps0	at isa? port 0x1600		# ThinkPad Active Protection System
-asmc0	at isa? port 0x300		# Apple SMC
 
 itherm*	at pci?				# Intel 3400 Thermal Sensor
 adc*	at iic?				# Analog Devices AD7416/AD7417/7418
@@ -586,6 +587,7 @@ uha*	at eisa?		# UltraStor 24f SCSI controllers
 wds0	at isa? disable port 0x350 irq 15 drq 6	# WD7000 and TMC-7000 controllers
 #wds1	at isa? port 0x358 irq 11 drq 5
 vmwpvs*	at pci?			# VMware ParaVirtual SCSI
+nvme*	at pci?			# NVMe controllers
 
 scsibus* at scsi?
 sd*	at scsibus?		# SCSI disk drives

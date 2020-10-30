@@ -1,0 +1,6 @@
+# for arm64 / Raspberry Pi 3
+#
+disable_legacyboot=Yes
+disk_head_gap=8192
+fuguita_uefi_kb=4096
+fuguita_sys_mb=827

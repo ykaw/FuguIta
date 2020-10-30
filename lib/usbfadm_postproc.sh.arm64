@@ -9,15 +9,23 @@ if [ "$instsys" = UEFI ]; then
 fi
 
 
-notice "Copying stuffs for non-interactive boot..."
-
 #  set source device of 'fuguita.templ' and 'fuguita.default'
 #
-if [ -n "$devname" ]; then
-    srcpart="${devname#/dev/}"
-else
-    srcpart='sd1d'  # since 6.7, sd0 is SD for boot.
+srcdev=$(mount | sed -e '/\/sysmedia/!d; s/^\/dev\/\([^ ]*\). .*/\1/')  # currently
+srcboot=${srcdev}i  # source of U-BOOT stuffs                          mounted
+srcpart=${srcdev}d  # source of non interactive boot stuffs               system device
+
+notice "Copying U-BOOT stuffs..."
+
+if mount -r /dev/${srcboot} /altroot; then
+    if mount /dev/${scandev}i /mnt; then
+        (cd /altroot && pax -rwvpe . /mnt/.)
+        umount /mnt
+    fi
+    umount /altroot
 fi
+
+notice "Copying stuffs for non-interactive boot..."
 
 if [ "${srcpart%?}" = "$scandev" ]; then
     echo "src and dest disk are identical."
@@ -50,7 +58,7 @@ else
 #
 #
 # FuguIta system device
-noask_rdev='sd1a'
+noask_rdev='sd0a'
 #
 # tmpfs size in MB
 noask_umem='0'
@@ -59,7 +67,7 @@ noask_umem='0'
 noask_setup_rw_mode='3'
 #
 # storage device
-noask_confdev='sd1d'
+noask_confdev='sd0d'
 #
 # data set name in USB flash drive
 noask_confdir='fuguita.default'

@@ -17,13 +17,7 @@ srcpart=${srcdev}d  # source of non interactive boot stuffs               system
 
 notice "Copying U-BOOT stuffs..."
 
-if mount -r /dev/${srcboot} /altroot; then
-    if mount /dev/${scandev}i /mnt; then
-        (cd /altroot && pax -rwvpe . /mnt/.)
-        umount /mnt
-    fi
-    umount /altroot
-fi
+dd if=/dev/r${srcboot} of=/dev/r${scandev}i bs=1m
 
 notice "Copying stuffs for non-interactive boot..."
 

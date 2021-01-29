@@ -3,10 +3,10 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.4 2020/10/04 07:09:36 kaw Exp $
+# $Id: gennetconfs,v 1.5 2021/01/29 04:34:00 kaw Exp $
 #==================================================
 
-# Copyright (c) 2006--2020
+# Copyright (c) 2006--2021
 # Yoshihiro Kawamata
 #
 # All rights reserved.

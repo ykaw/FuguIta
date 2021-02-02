@@ -672,12 +672,12 @@ function setup_fs {
     #
     if disklabel -c $datdev | grep -q 'd:.*4\.2BSD'; then
         notice "Setting up a partition for user's data"
-        if [ $ps_fidat -le `byte2sect 2G` ]; then
+        if [ $ps_fidat -lt `byte2sect 2G` ]; then
             # adjust inode density for little space
             # because too many symlinks when booted mode 0
             newfs -O 1 -m 0 -o space -i1024 -b4096 -f512 ${datdev}d
         else
-            newfs -O 1 -m 0 -o space ${datdev}d
+            newfs -O 2 -m 0 -o space ${datdev}d
         fi
 
         mount -o async /dev/${datdev}d /mnt

@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.13 2021/01/29 04:34:00 kaw Exp $
+# $Id: dtjsetup,v 1.14 2021/02/23 01:10:29 kaw Exp $
 #
 #========================================
 
@@ -234,6 +234,61 @@ function msg {
     echo '***' "$@" 1>&2
 }
 
+#-------------------
+# check if this account administrative
+#   if so, command with root privileges
+#   will be defined as function '_rootcmd'.
+#
+function check_rootcmd {
+    # check type of rootcmd
+    if [ "$(type _rootcmd)" = "_rootcmd is a function" ]; then
+        # _rootcmd already defined
+        return  # ok
+    elif [ "$(type _rootcmd)" != "_rootcmd not found" ]; then
+        # _rootcmd defined other than a function
+        msg "The name _rootcmd conflicts with something other than a function."
+        msg "will exit with error, sorry."
+        exit 1
+    fi
+
+    local TAB=$(echo -n "\t")  # to make tab visible in a source
+    local root
+    local wheel
+    echo
+    msg Checking your root authorization...
+    if id -p | grep -q "^uid${TAB}root$"; then
+        root=YES
+        function _rootcmd {
+            sh -c "$*"
+        }
+    elif id -p | egrep -q "^groups${TAB}(.*[0-9A-Za-z_] )?wheel( |\$)"; then
+        wheel=YES
+        if grep -q 'permit..*:wheel' /etc/doas.conf 2>/dev/null; then
+            function _rootcmd {
+                doas sh -c "$*"
+            }
+        else
+            function _rootcmd {
+                echo -n 'Root '  # to display "Root Password:"
+                su root -c "$*"
+            }
+        fi
+    else
+        msg "You aren't authorized to be root."
+        msg 'To install packages, you should be root or a member of wheel group.'
+        exit 1
+    fi
+
+    if [ "$root$wheel" = "" ]; then
+        echo
+        msg "It seems you don't seem to be able to get root privileges."
+        msg 'To install packages, you should be root or a member of wheel group.'
+        exit 1
+    fi
+
+    msg OK.
+}
+
 #=======================
 # Active code from here
 #=======================
@@ -345,40 +400,7 @@ fi
 if [ -n "$pkgs" ]; then
     # check if this account administrative
     #
-    TAB=$(echo -n "\t")  # to make tab visible
-    echo
-    msg Checking your root authorization...
-    if id -p | grep -q "^uid${TAB}root$"; then
-        root=YES
-        function root_cmd {
-            sh -c "$*"
-        }
-    elif id -p | egrep -q "^groups${TAB}(.*[0-9A-Za-z_] )?wheel( |\$)"; then
-        wheel=YES
-        if grep -q 'permit..*:wheel' /etc/doas.conf 2>/dev/null; then
-            function root_cmd {
-                doas sh -c "$*"
-            }
-        else
-            function root_cmd {
-                echo -n 'Root '  # to display "Root Password:"
-                su root -c "$*"
-            }
-        fi
-    else
-        msg "You aren't authorized to be root."
-        msg 'To install packages, you should be root or a member of wheel group.'
-        exit 1
-    fi
-
-    if [ "$root$wheel" = "" ]; then
-        echo
-        msg "It seems you don't seem to be able to get root privileges."
-        msg 'To install packages, you should be root or a member of wheel group.'
-        exit 1
-    fi
-
-    msg OK.
+    check_rootcmd
 
     # check install source
     #
@@ -411,7 +433,7 @@ if [ -n "$pkgs" ]; then
         exit
     fi
 
-    root_cmd pkg_add $pkgs
+    _rootcmd pkg_add $pkgs
     if [ $? -ne 0 ]; then
         msg "Installing package(s) failed."
         exit 1
@@ -529,7 +551,8 @@ EOF
 
 echo
 if [ $(ask_yn 'Copy this .xsession file to /etc/skel ?' n) -eq 1 ]; then
-    root_cmd cp $HOME/.xsession /etc/skel/.
+    check_rootcmd
+    _rootcmd cp $HOME/.xsession /etc/skel/.
 fi
 
 if [ "$ja_env" = YES ]; then
@@ -539,14 +562,16 @@ if [ "$ja_env" = YES ]; then
         msg Japanese environment and related software have been set up.
         msg However, the time zone has not yet been set to JST.
         if [ $(ask_yn 'Set timezone to JST?' y) = 1 ]; then
-           root_cmd ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+            check_rootcmd
+           _rootcmd ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
         fi
 
         echo
         msg When you use this machine both running OpenBSD and Windows.
         msg You may set the hardware clock to JST instead  UTC.
         if [ $(ask_yn 'Set hardware clock to JST?' n) = 1 ]; then
-            root_cmd echo 'kern.utc_offset=540' '>>' '/etc/sysctl.conf'
+            check_rootcmd
+            _rootcmd echo 'kern.utc_offset=540' '>>' '/etc/sysctl.conf'
             msg This will take effect on the next boot.
         fi
     fi

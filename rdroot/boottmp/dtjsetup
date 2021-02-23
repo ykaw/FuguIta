@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.14 2021/02/23 01:10:29 kaw Exp $
+# $Id: dtjsetup,v 1.15 2021/02/23 01:11:03 kaw Exp $
 #
 #========================================
 
@@ -324,22 +324,22 @@ while :; do
     dt=$(ask_which "Which desktop software will you install?" "rox-filer" "no desktop (wm only)" "rox-filer" "xfce" "mate" "lumina" "lxqt")
     case "$dt" in
         "")
-	    :   # do nothing
-	    ;;  # try again
+            :   # do nothing
+            ;;  # try again
         no)
-	    break
-	    ;;
+            break
+            ;;
         xfce|mate|lxqt)
-	    echo
-	    if [ 1 -eq $(ask_yn "Will you install extra packages of ${dt}?" n) ]; then
-		pkgs="$pkgs ${dt}-extras"
-	    else
-		pkgs="$pkgs $dt"
-	    fi
-	    break
-	    ;;
+            echo
+            if [ 1 -eq $(ask_yn "Will you install extra packages of ${dt}?" n) ]; then
+                pkgs="$pkgs ${dt}-extras"
+            else
+                pkgs="$pkgs $dt"
+            fi
+            break
+            ;;
         *) pkgs="$pkgs $dt"
-	   break;;
+           break;;
     esac
 done
 

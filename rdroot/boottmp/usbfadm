@@ -589,7 +589,7 @@ function setup_fs {
 
         mount -o async /dev/${scandev}a /mnt
         (cd /sysmedia
-         pax -rwvpe !(fuguita-${osrel}-${hwmac}.ffsimg) /mnt)
+         pax -rwvpe boot bsd-fi bsd-fi.mp boot.catalog cdboot cdbr etc /mnt)
 
         notice "Transferring filesystem image"
         if [ -r /sysmedia/fuguita-${osrel}-${hwmac}.ffsimg ]; then

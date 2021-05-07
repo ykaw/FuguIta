@@ -3,7 +3,7 @@
 #----------------------------------------
 # setup_fsimg.sh - setup file system image with specified size
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: setup_fsimg.sh,v 1.1 2021/03/29 00:22:30 kaw Exp $
+# $Id: setup_fsimg.sh,v 1.2 2021/05/07 00:03:02 kaw Exp $
 #----------------------------------------
 
 errmsg () {
@@ -11,7 +11,7 @@ errmsg () {
 }
 
 usage () {
-    echo "usage: $0 fs_img_mb [max_files_in_fs]" >&2
+    echo "usage: $0 img_file fs_img_mb [max_files_in_fs]" >&2
 }
 
 err_exit () {

@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.853 2020/09/12 15:01:05 mglocker Exp $
+#	$OpenBSD: GENERIC,v 1.855 2021/02/04 16:25:39 anton Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -95,6 +95,7 @@ pseudo-device	ksyms	1	# kernel symbols device
 # clonable devices
 pseudo-device	bpfilter	# packet filter
 pseudo-device	bridge		# network bridging support
+pseudo-device	veb		# virtual Ethernet bridge
 pseudo-device	carp		# CARP protocol support
 pseudo-device	etherip		# EtherIP (RFC 3378)
 pseudo-device	gif		# IPv[46] over IPv[46] tunnel (RFC1933)
@@ -139,7 +140,7 @@ option		RAMDISK_HOOKS
 option		MINIROOTSIZE=3800
 option		NKPTP=6
 config		bsd	root on rd0a
- 
+
 pseudo-device   rd              1       # ramdisk
 
 mainbus0 at root
@@ -403,6 +404,8 @@ uticom* at uhub?		# TI serial
 ucom*	at uticom?
 uhid*	at uhidev?		# USB generic HID support
 fido*	at uhidev?		# FIDO/U2F security key support
+ujoy*	at uhidev?		# USB joystick/gamecontroller support
+uhidpp*	at uhidev?		# Logitech HID++ Devices
 upd*	at uhidev?		# USB Power Devices sensors
 aue*	at uhub?		# ADMtek AN986 Pegasus Ethernet
 atu*	at uhub?		# Atmel AT76c50x based 802.11b

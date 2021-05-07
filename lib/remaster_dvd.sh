@@ -3,7 +3,7 @@
 #----------------------------------------
 # remaster_dvd.sh - Remastering FuguIta's LiveDVD
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: remaster_dvd.sh,v 1.1 2021/05/07 01:28:59 kaw Exp $
+# $Id: remaster_dvd.sh,v 1.2 2021/05/07 10:39:20 kaw Exp $
 #----------------------------------------
 
 # parameters
@@ -24,6 +24,7 @@ files=$(cat<<EOT
 ./cdboot
 ./cdbr
 ./etc/boot.conf
+./etc/random.seed
 ./$(echo ${projname} | tr A-Z a-z)-${version}-${arch}.ffsimg
 EOT)
 

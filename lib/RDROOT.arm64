@@ -1,4 +1,4 @@
-# $OpenBSD: GENERIC,v 1.173 2020/07/31 12:47:43 kettenis Exp $
+# $OpenBSD: GENERIC,v 1.194 2021/04/07 17:12:22 kettenis Exp $
 #
 # GENERIC machine description file
 #
@@ -104,6 +104,7 @@ pseudo-device	ksyms	1	# kernel symbols device
 # clonable devices
 pseudo-device	bpfilter	# packet filter
 pseudo-device	bridge		# network bridging support
+pseudo-device	veb		# virtual Ethernet bridge
 pseudo-device	carp		# CARP protocol support
 pseudo-device	etherip		# EtherIP (RFC 3378)
 pseudo-device	gif		# IPv[46] over IPv[46] tunnel (RFC1933)
@@ -150,6 +151,7 @@ config		bsd	root on rd0a
 
 pseudo-device   rd              1       # ramdisk
 
+
 # The main bus device
 mainbus0	at root
 cpu0		at mainbus?
@@ -159,16 +161,23 @@ smbios0		at efi?
 acpi0		at mainbus?
 acpibtn*	at acpi?
 acpiec*		at acpi?
+acpige*		at acpi?
 acpimcfg*	at acpi?
+acpiiort*	at acpi?
+#smmu*		at acpiiort?
 acpipci*	at acpi?
 pci*		at acpipci?
+acpipwrres*	at acpi?
+acpitz*		at acpi?
 ahci*		at acpi?
 ccp*		at acpi?		# AMD Cryptographic Co-processor
 com*		at acpi?
+dwgpio*		at acpi?
 dwiic*		at acpi?
 iic*		at dwiic?
 ipmi*		at acpi?
 pluart*		at acpi?
+sdhc*		at acpi?
 xhci*		at acpi?
 simplebus*	at fdt?
 
@@ -195,6 +204,7 @@ pci*		at pciecam?
 sdhc*		at fdt?
 sdmmc*		at sdhc?
 bwfm*		at sdmmc?	# Broadcom FullMAC
+#smmu*		at fdt?
 xhci*		at fdt?
 ccp*		at fdt?		# AMD Cryptographic Co-processor
 ipmi*		at fdt?
@@ -224,6 +234,8 @@ option	WSDISPLAY_COMPAT_USL		# VT handling
 option	WSDISPLAY_COMPAT_RAWKBD		# provide raw scancodes; needed for X11
 option	WSDISPLAY_DEFAULTSCREENS=6	# initial number of text consoles
 
+graphaudio*	at fdt?
+audio*		at graphaudio?
 simpleamp*	at fdt?
 simpleaudio*	at fdt?
 audio*		at simpleaudio?
@@ -240,17 +252,27 @@ amdgpu*		at pci?
 drm*		at amdgpu?
 wsdisplay*	at amdgpu?
 
+# Apple
+apldart*	at fdt?
+apldog*		at fdt? early 1
+aplintc*	at fdt? early 1
+aplpcie*	at fdt?
+pci*		at aplpcie?
+exuart*		at fdt?
+
 # iMX
 imxccm*		at fdt? early 1
 imxiomuxc*	at fdt? early 1
 imxanatop*	at fdt? early 1
 imxsrc*		at fdt? early 1
+imxdwusb*	at fdt?
 imxehci*	at fdt?
 usb*		at imxehci?
 imxgpc*		at fdt?
 imxgpio*	at fdt?
 fec*		at fdt?
 imxuart*	at fdt?
+imxiic*		at acpi?
 imxiic*		at fdt?
 iic*		at imxiic?
 bdpmic*		at iic?
@@ -325,12 +347,13 @@ mvkpcie*	at fdt?
 pci*		at mvkpcie?
 mvmdio*		at fdt?
 mvneta*		at fdt?
-#mvppc*		at fdt?
-#mvpp*		at mvppc?
+mvppc*		at fdt?
+mvpp*		at mvppc?
 mvrng*		at fdt?
 mvrtc*		at fdt?
 mvspi*		at fdt?
 moxtet*		at spi?
+mvsw*		at fdt?
 mvtemp*		at fdt?
 mvuart*		at fdt?
 sfp*		at fdt?
@@ -383,8 +406,10 @@ pci*		at ppb?
 
 # PCI Ethernet
 bnxt*		at pci?			# Broadcom BCM573xx, BCM574xx
+bge*		at pci?			# Broadcom BCM57xx
 em*		at pci?			# Intel Pro/1000 Ethernet
 ix*		at pci?			# Intel 82598EB 10Gb Ethernet
+ixl*		at pci?			# Intel Ethernet 700 Series
 mcx*		at pci?			# Mellanox ConnectX-4/5 Ethernet
 mskc*		at pci?			# Marvell Yukon-2
 msk*		at mskc?		#  each port of above
@@ -392,6 +417,7 @@ re*		at pci?			# Realtek 8169/8169S/8110S
 rge*		at pci?			# Realtek 8125
 
 # PCI WiFi
+athn*		at pci?			# Atheros AR9k (802.11a/g/n)
 bwfm*		at pci?			# Broadcom FullMAC
 
 # PCI SCSI
@@ -479,6 +505,8 @@ uslhcom*	at uhidev?		# Silicon Labs CP2110 USB HID UART
 ucom*		at uslhcom?
 uhid*		at uhidev?		# USB generic HID support
 fido*		at uhidev?		# FIDO/U2F security key support
+ujoy*		at uhidev?		# USB joystick/gamecontroller support
+uhidpp*		at uhidev?		# Logitech HID++ Devices
 upd*		at uhidev?		# USB Power Devices sensors
 aue*		at uhub?		# ADMtek AN986 Pegasus Ethernet
 atu*		at uhub?		# Atmel AT76c50x based 802.11b
@@ -558,6 +586,7 @@ ipmi*		at iic?			# IPMI (SIIF)
 islrtc*		at iic?			# ISL1208 RTC
 maxrtc*		at iic?			# DS1307 RTC
 mcprtc*		at iic?			# MCP794XX RTC
+mfokrtc*	at iic?			# M41T8X RTC
 pcamux*		at iic?			# PCA9548 multiplexer
 iic*		at pcamux?
 pcfrtc*		at iic?			# PCF8523 RTC

@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.15 2021/02/23 01:11:03 kaw Exp $
+# $Id: dtjsetup,v 1.16 2021/05/08 10:01:43 kaw Exp $
 #
 #========================================
 
@@ -372,7 +372,7 @@ if [ $(ask_yn "Will you setup Japanese language environment?" n) = 1 ]; then
     # if so, select input method software
     while :; do
         echo
-        im=$(ask_which "Which input method will you install?" "scim-anthy" "scim-anthy" "uim-gtk" "fcitx-anthy" "ibus-skk")
+        im=$(ask_which "Which input method will you install?" "fcitx-anthy" "fcitx-anthy" "uim-gtk" "ibus-skk" "scim-anthy")
         case "$im" in
             "") ;;
             fcitx-anthy) pkgs="$pkgs $im fcitx-gtk3";  break;;

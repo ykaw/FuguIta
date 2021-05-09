@@ -3,7 +3,7 @@
 #----------------------------------------
 # remaster_dvd.sh - Remastering FuguIta's LiveDVD
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: remaster_dvd.sh,v 1.2 2021/05/07 10:39:20 kaw Exp $
+# $Id: remaster_dvd.sh,v 1.1 2021/05/09 11:53:59 kaw Exp $
 #----------------------------------------
 
 # parameters

@@ -3,7 +3,7 @@
 #----------------------------------------
 # setup_fsimg.sh - setup file system image with specified size
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: setup_fsimg.sh,v 1.2 2021/05/07 00:03:02 kaw Exp $
+# $Id: setup_fsimg.sh,v 1.1 2021/05/09 11:53:59 kaw Exp $
 #----------------------------------------
 
 errmsg () {

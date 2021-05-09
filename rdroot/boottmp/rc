@@ -596,6 +596,24 @@ Enter keyboard type./'
                 /etc/ttys
         fi
 
+        #------------------------------
+        # put customized man.conf at mode 0
+        #
+        if [ X"$setup_rw_mode" = X0 ]; then
+            cat <<EOT >/etc/man.conf
+# comment out if the man directory is empty
+#
+manpath /fuguita/usr/share/man
+manpath /fuguita/usr/X11R6/man
+manpath /fuguita/usr/local/man
+#manpath /fuguita/usr/fuguita/man
+manpath /usr/local/man
+#manpath /usr/fuguita/man
+EOT
+        else
+            rm -f /etc/man.conf
+        fi
+
         #---------------
         # root password
         #

@@ -1,0 +1,68 @@
+#!/bin/sh
+
+#========================================
+# chnetconf - change network configuration
+#             with dirs under netconfs
+#
+# Yoshihiro Kawamata, kaw@on.rim.or.jp
+# $Id: chnetconf,v 1.1 2021/05/09 04:11:31 kaw Exp $
+#========================================
+
+confdir=/usr/fuguita/etc/netconfs
+
+usage () {
+    cat <<'EOT' >&2
+Usage: $0 [netconf-name]
+EOT
+}
+
+cd /etc || exit
+
+# extra argument found
+#
+if [ -n "$2" ]; then
+    usage
+    exit
+fi
+
+# more argument check
+#
+if [ -n "$1" ]; then
+    conf="$1"
+    if [ ! -d ${confdir}/$1 ]; then
+        echo "$0: no such conf - $1"
+        exit
+    fi
+else
+    # no argument - just display a list
+    #
+    if cd $confdir; then
+        du -sh *
+    fi
+    exit
+fi
+
+# start of configuration change
+
+# remove current symlinks
+#
+ls -l | awk 'BEGIN{confdir="^'"${confdir}"'"} $1 ~ /^l/ && $NF ~ confdir { print "rm", $(NF-2) }' | sh
+
+# create new symlinks
+#
+ln -sf ${confdir}/${conf}/* .
+
+# disable (and destroy possibly) all ether-derived network interfaces
+#
+for if in `ifconfig -a | egrep '^bridge|mtu 1500$' | cut -d: -f1`; do
+    ifconfig $if down
+    ifconfig $if -inet -inet6
+    ifconfig $if -nwid
+    ifconfig $if -nwkey
+    ifconfig $if -wpakey
+    ifconfig $if destroy
+done >/dev/null 2>&1
+
+# starting network by new configuration
+#
+sh /etc/netstart

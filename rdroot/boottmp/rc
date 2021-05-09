@@ -609,7 +609,7 @@ Enter keyboard type./'
         #
         mkdir -p /etc/netconfs/default
         /boottmp/gennetconfs /etc/netconfs/default
-        /boottmp/chnetconf default
+        /boottmp/chnetconf -d default
 
         #-----------------------
         # now disable to use prepared keys;

@@ -607,7 +607,9 @@ Enter keyboard type./'
         #------------------------
         # network configurations
         #
-        /boottmp/gennetconfs /etc
+        mkdir -p /etc/netconfs/default
+        /boottmp/gennetconfs /etc/netconfs/default
+        /boottmp/chnetconf default
 
         #-----------------------
         # now disable to use prepared keys;

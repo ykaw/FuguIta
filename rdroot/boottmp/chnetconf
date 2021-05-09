@@ -5,10 +5,10 @@
 #             with dirs under netconfs
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: chnetconf,v 1.1 2021/05/09 04:11:31 kaw Exp $
+# $Id: chnetconf,v 1.2 2021/05/09 04:39:59 kaw Exp $
 #========================================
 
-confdir=/usr/fuguita/etc/netconfs
+confdir=/etc/netconfs
 
 usage () {
     cat <<'EOT' >&2
@@ -63,6 +63,7 @@ for if in `ifconfig -a | egrep '^bridge|mtu 1500$' | cut -d: -f1`; do
     ifconfig $if destroy
 done >/dev/null 2>&1
 
-# starting network by new configuration
-#
-sh /etc/netstart
+# pending... this will be done after (in normal /etc/rc)
+# # starting network by new configuration
+# #
+# sh /etc/netstart

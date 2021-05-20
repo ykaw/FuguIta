@@ -5,7 +5,7 @@
 #             with dirs under netconfs
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: chnetconf,v 1.3 2021/05/09 05:58:43 kaw Exp $
+# $Id: chnetconf,v 1.4 2021/05/20 18:05:41 kaw Exp $
 #========================================
 
 confdir=/etc/netconfs
@@ -39,6 +39,10 @@ fi
 #
 if [ -n "$1" ]; then
     conf="$1"
+    if [ "$conf" = "templ" ]; then
+        echo "$0: You cannot change to '$conf'"
+        exit
+    fi
     if [ ! -d ${confdir}/$1 ]; then
         echo "$0: no such conf - $1"
         exit
@@ -60,7 +64,7 @@ ls -l | awk 'BEGIN{confdir="^'"${confdir}"'"} $1 ~ /^l/ && $NF ~ confdir { print
 
 # create new symlinks
 #
-ln -sf ${confdir}/${conf}/* .
+ln -sf $(ls -1d ${confdir}/${conf}/* | grep -v '/DISABLED\.') .
 
 # perform -d option
 #

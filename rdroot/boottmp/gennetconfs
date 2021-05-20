@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.5 2021/01/29 04:34:00 kaw Exp $
+# $Id: gennetconfs,v 1.6 2021/05/20 18:05:41 kaw Exp $
 #==================================================
 
 # Copyright (c) 2006--2021
@@ -39,6 +39,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+basedir=/etc/netconfs
+
 # addvar name [arg1 arg2 ...]
 #
 #    add trailing args 'arg1 arg2 ...'
@@ -51,11 +53,20 @@ addvar () {
 }
 
 #-----------------------
-# target directory - '/etc' as usual
+# set target directory
 #
 if [ -n "$1" ]; then
-    cd "$1" || exit;
+    if [ "$1" = "templ" ]; then
+	echo "$0: You cannot create configs in $1" >&2
+        exit 1
+    fi
+    confdir="$basedir/$1"
+    if [ ! -d "$confdir" ]; then
+	mkdir "$confdir" || exit 1
+    fi
+    cd "$confdir" || exit 1
 fi
+exit
 
 #-----------------------
 # host name
@@ -228,13 +239,16 @@ fi
 #-----------------------
 # all config for forwarding are fixed
 #
-etc_sysctl_conf=$(cat<<EOT
+if [ -r "$basedir/templ/sysctl.conf" ]; then
+    etc_sysctl_conf="$(cat $basedir/templ/sysctl.conf)"
+fi
+etc_sysctl_conf="${etc_sysctl_conf}\n$(cat<<EOT
 net.inet.ip.forwarding=0
 net.inet.ip.mforwarding=0
 net.inet6.ip6.forwarding=0
 net.inet6.ip6.mforwarding=0
 EOT
-               )
+               )"
 
 #-----------------------
 # emit config files
@@ -315,10 +329,9 @@ fi
 # sysctl.conf
 if [ -f sysctl.conf ]; then
     mv sysctl.conf DISABLED.${pid}.sysctl.conf
-    sed -e '/^net\.inet6*\.ip6*\.m*forwarding=/d' DISABLED.${pid}.sysctl.conf > sysctl.conf
 fi
 
-echo "$etc_sysctl_conf" >> sysctl.conf  # note that no "-n"
+echo "$etc_sysctl_conf" > sysctl.conf  # note that no "-n"
 
 #
 # -- end of file modifications------------------------------------------

@@ -626,7 +626,7 @@ EOT
         # network configurations
         #
         mkdir -p /etc/netconfs/default
-        /boottmp/gennetconfs /etc/netconfs/default
+        /boottmp/gennetconfs default
         /boottmp/chnetconf -d default
 
         #-----------------------

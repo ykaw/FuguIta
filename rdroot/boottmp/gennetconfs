@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.6 2021/05/20 18:05:41 kaw Exp $
+# $Id: gennetconfs,v 1.7 2021/05/21 01:35:16 kaw Exp $
 #==================================================
 
 # Copyright (c) 2006--2021
@@ -61,12 +61,9 @@ if [ -n "$1" ]; then
         exit 1
     fi
     confdir="$basedir/$1"
-    if [ ! -d "$confdir" ]; then
-	mkdir "$confdir" || exit 1
-    fi
+    mkdir -p "$confdir"
     cd "$confdir" || exit 1
 fi
-exit
 
 #-----------------------
 # host name

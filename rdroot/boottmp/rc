@@ -37,7 +37,6 @@
 # kaw@on.rim.or.jp
 #
 
-
 #====================
 # Global Definitions
 #====================
@@ -625,9 +624,9 @@ EOT
         #------------------------
         # network configurations
         #
-        mkdir -p /etc/netconfs/default
-        /boottmp/gennetconfs default
-        /boottmp/chnetconf -d default
+        if /boottmp/gennetconfs default; then
+            /boottmp/chnetconf -d default
+        fi
 
         #-----------------------
         # now disable to use prepared keys;

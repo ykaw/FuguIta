@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.16 2021/05/08 10:01:43 kaw Exp $
+# $Id: dtjsetup,v 1.17 2021/07/08 13:46:31 kaw Exp $
 #
 #========================================
 
@@ -472,12 +472,20 @@ cat <<EOF > $xs
 if [ -x /usr/local/bin/dbus-launch -a -z "\${DBUS_SESSION_BUS_ADDRESS}" ]; then
         eval \`dbus-launch --sh-syntax --exit-with-x11\`
 fi
+
+# add fontpaths of fonts installed by pkg_add
+#
+for dir in \$(ls -1d /usr/local/share/fonts/*/fonts.{dir,scale} 2>/dev/null | sed -e 's/[^/]*$//' | uniq); do
+    xset fp+ \$dir
+done
+xset fp rehash
 EOF
 
 # write .xsession - Japanese IM part
 #
 if [ "$ja_env" = YES ]; then
     echo >> $xs
+    echo "# set language locale" >> $xs
     echo "export LANG=ja_JP.UTF-8" >> $xs
     case "$im" in
         scim-anthy)
@@ -509,6 +517,7 @@ if [ "$ja_env" = YES ]; then
     cat <<EOF >> $xs
 
 # $im
+#
 export XMODIFIERS="@im=$xmod"
 export GTK_IM_MODULE="$im_mod"
 export QT_IM_MODULE="$im_mod"
@@ -520,6 +529,8 @@ fi
 #
 cat <<EOF >> $xs
 
+# start DT/WM and clients
+#
 dt="$dt"
 wm="$wm"
 case "\$dt" in

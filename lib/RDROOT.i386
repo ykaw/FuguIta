@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.855 2021/02/04 16:25:39 anton Exp $
+#	$OpenBSD: GENERIC,v 1.857 2021/08/20 05:23:18 anton Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -90,7 +90,6 @@ pseudo-device	msts	1	# MSTS line discipline
 pseudo-device	endrun	1	# EndRun line discipline
 pseudo-device	vnd	6	# vnode disk devices
 pseudo-device	ksyms	1	# kernel symbols device
-#pseudo-device	dt		# Dynamic Tracer
 
 # clonable devices
 pseudo-device	bpfilter	# packet filter
@@ -404,6 +403,8 @@ uticom* at uhub?		# TI serial
 ucom*	at uticom?
 uhid*	at uhidev?		# USB generic HID support
 fido*	at uhidev?		# FIDO/U2F security key support
+ucc*	at uhidev?		# Consumer Control keyboards
+wskbd*	at ucc? mux 1
 ujoy*	at uhidev?		# USB joystick/gamecontroller support
 uhidpp*	at uhidev?		# Logitech HID++ Devices
 upd*	at uhidev?		# USB Power Devices sensors
@@ -883,6 +884,7 @@ owctr*	at onewire?		# Counter device
 pseudo-device	pctr		1
 pseudo-device	nvram		1
 pseudo-device	hotplug		1	# devices hot plugging
+pseudo-device	dt
 
 # mouse & keyboard multiplexor pseudo-devices
 pseudo-device	wsmux		2

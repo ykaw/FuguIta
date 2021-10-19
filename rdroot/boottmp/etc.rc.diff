@@ -1,5 +1,5 @@
---- rc	Fri May  7 11:15:29 2021
-+++ rc.new	Fri May  7 11:13:50 2021
+--- rc	Tue Oct 19 00:11:59 2021
++++ rc.new	Tue Oct 19 00:12:08 2021
 @@ -177,22 +177,15 @@
  	# filesystems, otherwise record which ones are mounted read-only.
  	for _dkdev in $(df /usr/{lib,libexec} $_relink |
@@ -38,7 +38,7 @@
  
  rm -f /fastboot
  
-@@ -622,7 +616,9 @@
+@@ -632,7 +626,9 @@
  
  # Re-link the kernel, placing the objects in a random order.
  # Replace current with relinked kernel and inform root about it.

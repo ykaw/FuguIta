@@ -1,4 +1,4 @@
-#	$OpenBSD: GENERIC,v 1.497 2021/02/04 16:25:38 anton Exp $
+#	$OpenBSD: GENERIC,v 1.502 2021/09/14 08:19:58 jan Exp $
 #
 # For further information on compiling OpenBSD kernels, see the config(8)
 # man page.
@@ -90,7 +90,6 @@ pseudo-device	msts	1	# MSTS line discipline
 pseudo-device	endrun	1	# EndRun line discipline
 pseudo-device	vnd	6	# vnode disk devices
 pseudo-device	ksyms	1	# kernel symbols device
-#pseudo-device	dt		# Dynamic Tracer
 
 # clonable devices
 pseudo-device	bpfilter	# packet filter
@@ -406,6 +405,8 @@ uslhcom* at uhidev?		# Silicon Labs CP2110 USB HID UART
 ucom*	at uslhcom?
 uhid*	at uhidev?		# USB generic HID support
 fido*	at uhidev?		# FIDO/U2F security key support
+ucc*	at uhidev?		# Consumer Control keyboards
+wskbd*	at ucc? mux 1
 ujoy*	at uhidev?		# USB joystick/gamecontroller support
 uhidpp*	at uhidev?		# Logitech HID++ Devices
 upd*	at uhidev?		# USB Power Devices sensors
@@ -426,6 +427,7 @@ mos*	at uhub?		# MOSCHIP MCS7730/7830 10/100 Ethernet
 mue*	at uhub?		# Microchip LAN75xx/LAN78xx Ethernet
 url*	at uhub?		# Realtek RTL8150L based adapters
 ure*	at uhub?		# Realtek RTL8152 based adapters
+uaq*	at uhub?		# Aquantia AQC111U/AQC112U based adapters
 wi*	at uhub?		# WaveLAN IEEE 802.11DS
 udsbr*	at uhub?		# D-Link DSB-R100 radio
 radio*	at udsbr?		# USB radio
@@ -521,7 +523,7 @@ com*	at pcmcia?			# PCMCIA modems/serial ports
 com*	at puc?
 
 # options CY_HW_RTS
-#cy*	at pci?				# PCI cyclom serial card
+cy*	at pci?				# PCI cyclom serial card
 #cz*	at pci?				# Cyclades-Z multi-port serial boards
 
 lpt0	at isa? port 0x378 irq 7	# standard PC parallel ports
@@ -661,6 +663,7 @@ bnxt*	at pci?				# Broadcom BCM573xx, BCM574xx
 ixl*	at pci?				# Intel Ethernet 700 Series
 mcx*	at pci?				# Mellanox ConnectX-4
 iavf*	at pci?				# Intel Ethernet Adaptive VF
+aq*	at pci?				# Aquantia aQtion Ethernet
 
 # Wireless network cards
 acx*	at pci?				# TI ACX100/ACX111 (802.11b/g)
@@ -805,6 +808,7 @@ owctr*	at onewire?		# Counter device
 pseudo-device	pctr		1
 pseudo-device	nvram		1
 pseudo-device	hotplug		1	# devices hot plugging
+pseudo-device	dt
 
 # mouse & keyboard multiplexor pseudo-devices
 pseudo-device	wsmux		2

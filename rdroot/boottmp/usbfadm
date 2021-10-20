@@ -492,7 +492,7 @@ function fdisk_init {
             ;;
         GPT)
             fdisk -igy $scandev
-            fdisk_input="e 3\n0\n"
+            fdisk_input="e 0\n0\n"
             [ 0 -lt $ps_uefi ] && fdisk_input="${fdisk_input}e 1\nEF\n${ps_hgap}\n${ps_uefi}\nUEFI Boot\n"
             [ 0 -lt $ps_fat ]  && fdisk_input="${fdisk_input}e 2\n0C\n$((ps_hgap+ps_uefi+ps_fisys+ps_fiswp+ps_fidat))\n$ps_fat\nMSDOS FAT\n"
             [ 0 -lt $((ps_fisys+ps_fiswp+ps_fidat)) ] && fdisk_input="${fdisk_input}e 3\nA6\n$((ps_hgap+ps_uefi))\n$((ps_fisys+ps_fiswp+ps_fidat))\nOpenBSD Area\n"

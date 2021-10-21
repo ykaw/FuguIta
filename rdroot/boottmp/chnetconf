@@ -5,7 +5,7 @@
 #             with dirs under netconfs
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: chnetconf,v 1.5 2021/10/21 02:06:53 kaw Exp $
+# $Id: chnetconf,v 1.6 2021/10/21 14:49:14 kaw Exp $
 #========================================
 
 # Copyright (c) 2006--2021
@@ -121,15 +121,16 @@ fi
 
 # remove current files in /etc
 #
-curconf=$(stat -f %Y /etc/myname)
-curconf=${curconf%/*}
-
-if cd $curconf; then
-    for f in *; do
-        rm -f "/etc/$f"
-    done
-elif [ ! "$force_setup" = yes ]; then
-    exit 1
+if [ -L /etc/myname ]; then
+    curconf=$(stat -f %Y /etc/myname)
+    curconf=${curconf%/*}
+    if [ -n "$curconf" ] && cd "$curconf"; then
+        for f in *; do
+            rm -f "/etc/$f"
+        done
+    elif [ ! "$force_setup" = yes ]; then
+        exit 1
+    fi
 fi
 
 # link myname and copy other files to /etc

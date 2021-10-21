@@ -625,7 +625,7 @@ EOT
         # network configurations
         #
         if /boottmp/gennetconfs default; then
-            /boottmp/chnetconf -d default
+            /boottmp/chnetconf -f -d default
         fi
 
         #-----------------------

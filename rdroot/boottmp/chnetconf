@@ -5,21 +5,83 @@
 #             with dirs under netconfs
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: chnetconf,v 1.4 2021/05/20 18:05:41 kaw Exp $
+# $Id: chnetconf,v 1.5 2021/10/21 02:06:53 kaw Exp $
 #========================================
+
+# Copyright (c) 2006--2021
+# Yoshihiro Kawamata
+#
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are
+# met:
+#
+#   * Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#
+#   * Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in
+#     the documentation and/or other materials provided with the
+#     distribution.
+#
+#   * Neither the name of Yoshihiro Kawamata nor the names of its
+#     contributors may be used to endorse or promote products derived
+#     from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 confdir=/etc/netconfs
 
 usage () {
     cat <<'EOT' >&2
-Usage: $0 [-d] [netconf-name]
-   -d: don't perform /etc/netstart, reconfigure only
+Usage: $0 [-d netconf-name|-r|-f netconf-name] | [netconf-name]
+   -d: don't perform /etc/netstart, relink files only
+   -r: reset all network interfaces
+   -f: force reconfiguration unless current conf doesn't exist
 EOT
 }
 
-while getopts d OPT; do
+# reset all network interfaces
+#
+resetif () {
+    for if in `ifconfig -a | egrep '^[a-z]' | cut -d: -f1`; do
+        case "$if" in
+            lo[0-9]*|enc[0-9]*|pflog[0-9]*)
+                # make this if untouched
+                ;;
+            *)
+                ifconfig $if down
+                if ! ifconfig $if destroy 2>/dev/null; then
+                    # physical device ... can't destroy
+                    configout=$(ifconfig $if)
+                    echo "$configout" | grep -q '^	inet ' && ifconfig $if -inet
+                    echo "$configout" | grep -q '^	inet6 ' && ifconfig $if -inet6
+                    echo "$configout" | grep -q '^	groups: wlan' && ifconfig $if -nwid -nwkey -wpakey
+                fi
+                ;;
+        esac
+    done
+    # done >/dev/null 2>&1
+}
+
+# parsing command line options
+#
+while getopts drf OPT; do
     case "$OPT" in
-        d) reconf_only=yes;;
+        d) relink_only=yes;;
+        r) removeif_only=yes;;
+        f) force_setup=yes;;
         *) usage
            exit;;
     esac
@@ -28,61 +90,66 @@ shift $((OPTIND - 1))
 
 cd /etc || exit
 
-# extra argument found
+# no more arguments given
 #
-if [ -n "$2" ]; then
-    usage
-    exit
-fi
+if [ -z "$1" ]; then
+    if [ "$removeif_only" = yes ]; then
+        resetif  # just cleanup netifs
+        exit
+    fi
 
-# more argument check
-#
-if [ -n "$1" ]; then
-    conf="$1"
-    if [ "$conf" = "templ" ]; then
-        echo "$0: You cannot change to '$conf'"
-        exit
-    fi
-    if [ ! -d ${confdir}/$1 ]; then
-        echo "$0: no such conf - $1"
-        exit
-    fi
-else
     # no argument - just display a list
     #
     if cd $confdir; then
-        du -sh *
+        ls -l /etc/ | grep "$confdir"
     fi
     exit
 fi
 
-# start of configuration change
-
-# remove current symlinks
+# extra argument exists
 #
-ls -l | awk 'BEGIN{confdir="^'"${confdir}"'"} $1 ~ /^l/ && $NF ~ confdir { print "rm", $(NF-2) }' | sh
-
-# create new symlinks
-#
-ln -sf $(ls -1d ${confdir}/${conf}/* | grep -v '/DISABLED\.') .
-
-# perform -d option
-#
-if [ "$reconf_only" = yes ]; then
+newconf="$1"
+if [ "$newconf" = "templ" ]; then
+    echo "$0: You cannot change to '$newconf'"
+    exit
+elif [ ! -f "${confdir}/${newconf}/myname" ]; then
+    echo "$0: no such conf - $newconf"
     exit
 fi
 
-# disable (and destroy possibly) all ether-derived network interfaces
+# start of reconfiguration
+
+# remove current files in /etc
 #
-for if in `ifconfig -a | egrep '^bridge|mtu 1500$' | cut -d: -f1`; do
-    ifconfig $if down
-    ifconfig $if -inet -inet6
-    ifconfig $if -nwid
-    ifconfig $if -nwkey
-    ifconfig $if -wpakey
-    ifconfig $if destroy
-done >/dev/null 2>&1
+curconf=$(stat -f %Y /etc/myname)
+curconf=${curconf%/*}
+
+if cd $curconf; then
+    for f in *; do
+        rm -f "/etc/$f"
+    done
+elif [ ! "$force_setup" = yes ]; then
+    exit 1
+fi
+
+# link myname and copy other files to /etc
+#
+cd "${confdir}/${newconf}" || exit 1
+for f in *; do
+    if [ "$f" = myname ]; then
+        ln -sf "${confdir}/${newconf}/myname" /etc/myname
+    else
+        cp -p $f /etc
+    fi
+done
+
+# perform -d option
+#
+if [ "$relink_only" = yes ]; then
+    exit
+fi
 
 # starting network by new configuration
 #
+resetif
 sh /etc/netstart

@@ -5,7 +5,7 @@
 #             with dirs under netconfs
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: chnetconf,v 1.6 2021/10/21 14:49:14 kaw Exp $
+# $Id: chnetconf,v 1.7 2021/10/22 21:16:35 kaw Exp $
 #========================================
 
 # Copyright (c) 2006--2021
@@ -61,18 +61,15 @@ resetif () {
                 # make this if untouched
                 ;;
             *)
+                ifconfig $if -inet -inet6
                 ifconfig $if down
                 if ! ifconfig $if destroy 2>/dev/null; then
                     # physical device ... can't destroy
-                    configout=$(ifconfig $if)
-                    echo "$configout" | grep -q '^	inet ' && ifconfig $if -inet
-                    echo "$configout" | grep -q '^	inet6 ' && ifconfig $if -inet6
-                    echo "$configout" | grep -q '^	groups: wlan' && ifconfig $if -nwid -nwkey -wpakey
+                    ifconfig $if | grep -q '^	groups: wlan' && ifconfig $if -nwid -nwkey -wpakey
                 fi
                 ;;
         esac
-    done
-    # done >/dev/null 2>&1
+    done >/dev/null 2>&1
 }
 
 # parsing command line options

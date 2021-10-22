@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.8 2021/10/21 02:00:19 kaw Exp $
+# $Id: gennetconfs,v 1.9 2021/10/22 21:17:35 kaw Exp $
 #==================================================
 
 # Copyright (c) 2006--2021
@@ -173,8 +173,8 @@ case X"$ipv" in
         if [ X"$mydns" = X -o X"$mydns" = Xdhcp ]; then
             addvar etc_resolv_conf 'lookup file bind'
             addvar etc_resolv_conf "$af"
-            etc_resolv_conf_tail=$etc_resolv_conf
-            unset etc_resolv_conf
+            etc_resolv_conf_tail=$etc_resolv_conf  # for dhclient
+            # unset etc_resolv_conf                # resolv.conf.tail possibly will be obsolete
 
             #-----------------------
             # IPv4 configs

@@ -682,8 +682,8 @@ function setup_fs {
         fi
 
         mount -o async /dev/${datdev}d /mnt
-        mkdir /mnt/livecd-config
-        cat <<EOT >/mnt/noasks
+        mkdir -p /mnt/livecd-config/${verarch}
+        cat <<EOT >/mnt/livecd-config/${verarch}/noasks
 #
 # noasks - parameter settings for non-interactive boot
 #
@@ -692,19 +692,19 @@ function setup_fs {
 #
 #
 # FuguIta system device
-#noask_rdev='${scandev}a'
+#noask_rdev=${scandev}a
 #
 # tmpfs size in MB
-#noask_umem='0'
+#noask_umem=0
 #
 # boot mode
-#noask_setup_rw_mode='3'
+#noask_setup_rw_mode=3
 #
 # storage device
-#noask_confdev='${datdev}d'
+#noask_confdev=${datdev}d
 #
 # data set name in USB flash drive
-#noask_confdir=`hostname -s`
+#noask_confdir=$(hostname -s)
 EOT
         umount /mnt
 

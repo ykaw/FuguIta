@@ -1,4 +1,4 @@
-# $OpenBSD: GENERIC,v 1.194 2021/04/07 17:12:22 kettenis Exp $
+# $OpenBSD: GENERIC,v 1.206 2021/09/03 14:53:09 patrick Exp $
 #
 # GENERIC machine description file
 #
@@ -99,7 +99,6 @@ pseudo-device	msts	1	# MSTS line discipline
 pseudo-device	endrun	1	# EndRun line discipline
 pseudo-device	vnd	6	# vnode disk devices
 pseudo-device	ksyms	1	# kernel symbols device
-#pseudo-device	dt		# Dynamic Tracer
 
 # clonable devices
 pseudo-device	bpfilter	# packet filter
@@ -151,7 +150,6 @@ config		bsd	root on rd0a
 
 pseudo-device   rd              1       # ramdisk
 
-
 # The main bus device
 mainbus0	at root
 cpu0		at mainbus?
@@ -164,7 +162,7 @@ acpiec*		at acpi?
 acpige*		at acpi?
 acpimcfg*	at acpi?
 acpiiort*	at acpi?
-#smmu*		at acpiiort?
+smmu*		at acpiiort?
 acpipci*	at acpi?
 pci*		at acpipci?
 acpipwrres*	at acpi?
@@ -204,7 +202,7 @@ pci*		at pciecam?
 sdhc*		at fdt?
 sdmmc*		at sdhc?
 bwfm*		at sdmmc?	# Broadcom FullMAC
-#smmu*		at fdt?
+smmu*		at fdt?
 xhci*		at fdt?
 ccp*		at fdt?		# AMD Cryptographic Co-processor
 ipmi*		at fdt?
@@ -255,16 +253,23 @@ wsdisplay*	at amdgpu?
 # Apple
 apldart*	at fdt?
 apldog*		at fdt? early 1
+apldwusb*	at fdt?
 aplintc*	at fdt? early 1
 aplpcie*	at fdt?
 pci*		at aplpcie?
+aplpinctrl*	at fdt? early 1
+aplspmi*	at fdt?
+aplpmu*		at aplspmi?
 exuart*		at fdt?
+aplns*		at fdt?			# Apple NVME Storage controllers
+nvme*		at aplns?
 
 # iMX
 imxccm*		at fdt? early 1
 imxiomuxc*	at fdt? early 1
 imxanatop*	at fdt? early 1
 imxsrc*		at fdt? early 1
+imxdog*		at fdt?
 imxdwusb*	at fdt?
 imxehci*	at fdt?
 usb*		at imxehci?
@@ -362,6 +367,7 @@ sfp*		at fdt?
 rkclock*	at fdt? early 1
 rkgrf*		at fdt? early 1
 rkpinctrl*	at fdt? early 1
+rktcphy*	at fdt? early 1
 rkanxdp*	at fdt?
 rkdrm*		at fdt?
 drm*		at rkdrm?
@@ -419,6 +425,7 @@ rge*		at pci?			# Realtek 8125
 # PCI WiFi
 athn*		at pci?			# Atheros AR9k (802.11a/g/n)
 bwfm*		at pci?			# Broadcom FullMAC
+iwx*		at pci?			# Intel WiFi Link 22xxx
 
 # PCI SCSI
 ahci*		at pci? flags 0x0000	# AHCI SATA controllers
@@ -505,6 +512,8 @@ uslhcom*	at uhidev?		# Silicon Labs CP2110 USB HID UART
 ucom*		at uslhcom?
 uhid*		at uhidev?		# USB generic HID support
 fido*		at uhidev?		# FIDO/U2F security key support
+ucc*		at uhidev?		# Consumer Control keyboards
+wskbd*		at ucc? mux 1
 ujoy*		at uhidev?		# USB joystick/gamecontroller support
 uhidpp*		at uhidev?		# Logitech HID++ Devices
 upd*		at uhidev?		# USB Power Devices sensors
@@ -541,6 +550,7 @@ urtw*		at uhub?		# Realtek 8187
 rsu*		at uhub?		# Realtek RTL8188SU/RTL8191SU/RTL8192SU
 urtwn*		at uhub?		# Realtek RTL8188CU/RTL8192CU
 udcf*		at uhub?		# Gude Expert mouseCLOCK
+umb*		at uhub?		# Mobile Broadband Interface Model
 uthum*		at uhidev?		# TEMPerHUM sensor
 ugold*		at uhidev?		# gold TEMPer sensor
 utrh*		at uhidev?		# USBRH sensor
@@ -611,6 +621,7 @@ owctr*		at onewire?		# Counter device
 # Pseudo-Devices
 pseudo-device	openprom
 pseudo-device	hotplug		1	# devices hot plugging
+pseudo-device	dt
 
 # mouse & keyboard multiplexor pseudo-devices
 pseudo-device	wsmux		2

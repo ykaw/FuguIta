@@ -43,7 +43,7 @@ else
                 ls -ld /mnt/livecd-config /altroot/livecd-config/${verarch}/fuguita.templ
             fi
             echo 'noasks:'
-            cat <<EOT >/mnt/noasks
+            cat <<EOT >/mnt/livecd-config/${verarch}/noasks
 #
 # noasks - parameter settings for non-interactive boot
 #
@@ -52,19 +52,19 @@ else
 #
 #
 # FuguIta system device
-noask_rdev='sd0a'
+noask_rdev=sd0a
 #
 # tmpfs size in MB
-noask_umem='0'
+noask_umem=0
 #
 # boot mode
-noask_setup_rw_mode='3'
+noask_setup_rw_mode=3
 #
 # storage device
-noask_confdev='sd0d'
+noask_confdev=sd0d
 #
 # data set name in USB flash drive
-noask_confdir='fuguita.default'
+noask_confdir=fuguita.default
 EOT
             echo done
             umount /altroot

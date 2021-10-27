@@ -3,4 +3,4 @@
 disable_legacyboot=Yes
 disk_head_gap=32768    # in sectors
 fuguita_uefi_kb=16384  # in kilobytes
-fuguita_sys_mb=837     # in megabytes
+fuguita_sys_mb=914     # in megabytes

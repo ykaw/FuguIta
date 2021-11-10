@@ -5,7 +5,7 @@
 #             with dirs under netconfs
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: chnetconf,v 1.7 2021/10/22 21:16:35 kaw Exp $
+# $Id: chnetconf,v 1.8 2021/11/10 01:28:50 kaw Exp $
 #========================================
 
 # Copyright (c) 2006--2021
@@ -150,4 +150,5 @@ fi
 # starting network by new configuration
 #
 resetif
+hostname $(</etc/myname)
 sh /etc/netstart

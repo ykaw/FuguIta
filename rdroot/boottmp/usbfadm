@@ -1098,6 +1098,13 @@ while :; do
             continue
         fi
 
+        if swapctl -l | grep -q "^/dev/$newdev"; then
+            echo
+            echo "newdrive: $newdev is being used for swap."
+            echo "          Consider 'swapctl -d' for deactivate the swap partition."
+            continue
+        fi
+
         # create vnode device file if specified
         #
         case "$newdev" in

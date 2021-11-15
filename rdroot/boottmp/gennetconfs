@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.9 2021/10/22 21:17:35 kaw Exp $
+# $Id: gennetconfs,v 1.10 2021/11/15 17:07:37 kaw Exp $
 #==================================================
 
 # Copyright (c) 2006--2021
@@ -39,296 +39,503 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-basedir=/etc/netconfs
+# == Global Variables ====================================================
+#   basedir
+#   conf
+#   confdir
+#   etc_myname
+#   etc_mygate
+#   etc_hosts
+#   etc_hostname_if
+#   etc_resolv_conf
+#   etc_sysctl_conf
+#   ifconf4_manu
+#   ifconf6_manu
+#   ipv
+#   eth_nics
+#   with_nics
+#   confnic
+# ========================================================================
+
+# quiet output
+#   print message if -v specified
+#
+quiet () {
+    if [[ "$quiet" != 'yes' ]]; then
+        echo "$@"
+    fi
+}
+
+# display usage
+#
+usage () {
+    cat <<'EOT' >&2
+$0: generate network configuration files
+Usage: $0 [-b] [-q] [setup-dir]
+    -b: surpress banner message
+    -q: surpress additional explains
+EOT
+}
 
 # addvar name [arg1 arg2 ...]
 #
-#    add trailing args 'arg1 arg2 ...'
-#    to variable 'name' followed by EoL
-#                       ~~~~~~~~~~~~~~~
+#   add trailing args 'arg1 arg2 ...'
+#   to variable 'name' followed by EoL
+#                      ~~~~~~~~~~~~~~~
 addvar () {
-    [ -z "$1" ] && return
+    [[ -z "$1" ]] && return
     local _name="$1"; shift;
     eval "${_name}=\"\$${_name}\"\"$*\"\"\\n\""
 }
 
-#-----------------------
-# set target directory
+# setaddr_4
 #
-if [ -n "$1" ]; then
-    if [ "$1" = "templ" ]; then
-	echo "$0: You cannot create configs in $1" >&2
-        exit 1
-    fi
-    confdir="$basedir/$1"
-    mkdir -p "$confdir"
-    cd "$confdir" || exit 1
-fi
-
-#-----------------------
-# host name
+#   set configurration for IPv4 address and routing
 #
-echo -n 'host name (without domain) -> '; read myhost
-if [ X"$myhost" = X ]; then
-    myhost=fuguita
-fi
-addvar etc_myname "$myhost"
+setaddr_4 () {
+    local testif
+    local addr_mask
+    local addr mask gw
 
-# get net i/f's
-#
-ifconfig_out=`ifconfig -a`
-nicifs=`echo "$ifconfig_out" | grep ' mtu 1500$' | cut -d: -f1`
+    echo
+    echo 'IPv4 - address and routing:'
+    echo '  Enter "auto" or "IPv4_address[/mask] [default_gateway]"'
+    quiet '  "auto" is an automatic setting by DHCP.'
+    quiet '  The "/mask" part can be specified in either format, such as "/255.255.255.0" or "/24".'
+    quiet '  If there is no default gateway, set the second field to "none" or leave it blank.'
 
-#-----------------------
-# IP protocol versions
-#
-if [ X"$nicifs" = X ]; then
-    echo 'No available network interfaces found.'
-    ipv='n'
-else
-    set - $nicifs
-    nicifs="$@"
-    defnic="$1"
-    echo 'IP version(s) to use: 4, 6, 46, 64 or n'
-    echo "  46: IPv4 preferred over IPv6 in address resolution"
-    echo "  64: reversed to 46"
-    echo "   n: stand alone operation"
-    echo -n '[46]-> '; read ipv
-    ipv=`echo -n $ipv | tr -dc '46Nn' | tr N n`
-    case "$ipv" in
-        *4*6*) ipv='46'; af='family inet4 inet6' ;;
-        *6*4*) ipv='64'; af='family inet6 inet4' ;;
-        *4*)   ipv='4';  af='family inet4' ;;
-        *6*)   ipv='6';  af='family inet6' ;;
-        *n*)   ipv='n';  af='' ;;
-        *)     echo "'46' selected as default"
-               ipv='46'; af='family inet4 inet6' ;;
-    esac
-fi
-
-#-----------------------
-# loopback in any case
-#
-addvar etc_hosts '127.0.0.1 localhost'
-addvar etc_hosts '::1       localhost'
-
-case X"$ipv" in
-    #-----------------------
-    # IP-generic configs
+    # randomly choose unused virtual ethernet device
+    # for test address and mask
     #
-    X*[46]*)
-        echo "==[ifconfig -a]========================="
-        echo "$ifconfig_out"
-        echo "========================================"
-        echo "Available network interface(s): $nicifs"
-        echo -n "network interface to setup [$defnic] -> "; read mynic
-        if [ X"$mynic" = X ]; then
-            mynic=$defnic
-        fi
-        
-        #-----------------------
-        # host names
-        #
-        echo -n "FQDN of this host -> ${myhost}."; read mydomain
-        if [ -n "$mydomain" ]; then
-            myfqdn=${myhost}.${mydomain}
-            addvar etc_resolv_conf "search $mydomain"
-            etc_myname="$myfqdn\n"
-        fi
-
-        #-----------------------
-        # wireless settings
-        #
-        if ifconfig "$mynic" 2>/dev/null | grep -q 'groups:.*wlan'; then
-            wlan=''
-            echo -n 'Wi-Fi SSID -> '; read ssid
-            if [ -n "$ssid" ]; then
-                wlan="nwid $ssid"
-                echo -n '   WPA Key -> '; read wpakey
-                if [ -z "$wpakey" ]; then
-                    echo -n '   WEP Key -> '; read wepkey
-                    if [ -n "$wepkey" ]; then
-                        wlan="$wlan nwkey $wepkey"
-                    fi
+    while :; do
+        testif=vether$(jot -r 1 1000 1999)  # choice with random number
+        ifconfig $testif >/dev/null 2>&1 || break  # unused ... choose this
+        sleep 1  # testif already exists ... retry after 1sec
+    done
+    
+    # read value and test it
+    #
+    while :; do
+        echo -n '[auto] -> '; read addr_mask gw
+        case "$addr_mask" in
+            [Aa][Uu][Tt][Oo]*|'')  # autoconf
+                addvar etc_hostname_if 'inet autoconf'
+                break ;;
+            *.*.*.*/[1-9]|*.*.*.*/[123][0-9])
+                # masklen
+                set -- $(echo "$addr_mask" | tr / ' ')
+                addr="$1"
+                mask="$2"
+                if ifconfig $testif inet "$addr/$mask" >/dev/null 2>&1; then
+                    addvar etc_hostname_if "inet $addr/$mask"
+                    ifconf4_manu=yes
+                    break
                 else
-                    wlan="$wlan wpakey $wpakey"
+                    echo "bad value - $addr_mask"
                 fi
-            fi
-            if [ -n "$wlan" ]; then
-                addvar etc_hostname_if "$wlan"
-            fi
-        fi
-
-        #-----------------------
-        # name resolutions
-        #
-        echo 'DNS setup;'
-        echo '  Manual : Enter up to three IPv4/IPv6 addresses, separated by spaces'
-        echo '  DHCP   : Just press ENTER .'
-        echo '  no DNS : Enter "none".'
-        echo -n '-> '; read mydns
-
-        mydns=`echo -n $mydns | tr -cs '0-9A-Za-z:.%' ' '`
-
-        if [ X"$mydns" = X -o X"$mydns" = Xdhcp ]; then
-            addvar etc_resolv_conf 'lookup file bind'
-            addvar etc_resolv_conf "$af"
-            etc_resolv_conf_tail=$etc_resolv_conf  # for dhclient
-            # unset etc_resolv_conf                # resolv.conf.tail possibly will be obsolete
-
-            #-----------------------
-            # IPv4 configs
-            #
-            case X"$ipv" in
-                X*4*)
-                    addvar etc_hostname_if 'inet autoconf'
-                    ;;
-            esac
-        else
-            if [ X"$mydns" == Xnone ]; then
-                addvar etc_resolv_conf 'lookup file'
-            else
-                addvar etc_resolv_conf "lookup file bind"
-                addvar etc_resolv_conf "$af"
-                set -- $mydns
-                [ -n "$1" ] && addvar etc_resolv_conf "nameserver $1"
-                [ -n "$2" ] && addvar etc_resolv_conf "nameserver $2"
-                [ -n "$3" ] && addvar etc_resolv_conf "nameserver $3"
-            fi
-
-            #-----------------------
-            # IPv4 configs
-            #
-            case X"$ipv" in
-                X*4*)
-                    echo -n 'IPv4 addr of this host -> '; read myv4addr
-                    echo -n 'netmask                -> '; read mynetmask
-                    echo -n 'default route          -> '; read mygw
-
-                    addvar etc_hostname_if "inet $myv4addr $mynetmask NONE"
-                    addvar etc_mygate "$mygw"
-                    addvar etc_hosts "$myv4addr $myfqdn ${myfqdn%%.*}"
-                    ;;
-            esac
-        fi
-
-        #-----------------------
-        # IPv6 configs
-        #
-        case X"$ipv" in
-            X*6*)
-                addvar etc_hostname_if 'inet6 autoconf'
+                ;;
+            *.*.*.*/*.*.*.*)
+                # maskaddr
+                set -- $(echo "$addr_mask" | tr / ' ')
+                addr="$1"
+                mask="$2"
+                if ifconfig $testif inet "$addr" netmask "$mask" >/dev/null 2>&1; then
+                    addvar etc_hostname_if "inet $addr netmask $mask"
+                    ifconf4_manu=yes
+                    break
+                else
+                    echo "bad value - $addr"
+                fi
+                ;;
+            *.*.*.*)
+                # no mask specified
+                if ifconfig $testif inet "$addr_mask" >/dev/null 2>&1; then
+                    set -- $(ifconfig $testif | grep 'inet .* netmask .*')
+                    addr="$2"
+                    mask="$4"
+                    addvar etc_hostname_if "inet $addr netmask $mask"
+                    ifconf4_manu=yes
+                    break
+                else
+                    echo "bad value - $addr_mask"
+                fi
+                ;;
+            *)
+                # illegal form
+                echo "illegal address format - $addr_mask"
                 ;;
         esac
-        ;;
-esac
+    done
 
-#-----------------------
-#  resolving myhost
-#    This is for smtpd
+    # set addr to hosts
+    #
+    [[ -n "$addr" ]] && addvar etc_hosts $addr $(echo -n $etc_myname)  # to omit etc_myname's EOL
+
+    # dispose the test device
+    #
+    ifconfig $testif destroy >/dev/null 2>&1
+
+    # set default gateway
+    #
+    if [[ -n "$gw" && "$gw" != '[Nn][Oo]*' ]]; then
+        addvar etc_mygate "$gw"
+    fi
+}
+
+# setaddr_6
 #
-if ! echo $etc_hosts | grep -q "$myhost"
-then
-    addvar etc_hosts "127.0.0.1 $myhost"
-    addvar etc_hosts "::1       $myhost"
+#   set configurration for IPv6 address and routing
+#
+setaddr_6 () {
+    local testif
+    local addr_plen
+    local addr plen gw
+
+    echo
+    echo 'IPv6 - address and routing:'
+    echo '  Enter "auto" or "IPv6_address[/prefixlen] [default_gateway]"'
+    quiet '  "auto" is an automatic setting by SLAAC.'
+    quiet '  The "/prefixlen" part can be an integer between 0 and 128.'
+    quiet '  If there is no default gateway, set the second field to "none" or leave it blank.'
+
+    # randomly choose unused virtual ethernet device
+    # for test address and mask
+    #
+    while :; do
+        testif=vether$(jot -r 1 1000 1999)  # choice with random number
+        ifconfig $testif >/dev/null 2>&1 || break
+        sleep 1  # testif already exists ... retry after 1sec
+    done
+    
+    # read value and test it
+    #
+    while :; do
+        echo -n '[auto] -> '; read addr_plen gw
+        case "$addr_plen" in
+            [Aa][Uu][Tt][Oo]*|'')  # autoconf
+                addvar etc_hostname_if 'inet6 autoconf'
+                break ;;
+            [:0-9A-Fa-f]*/[0-9]|[:0-9A-Fa-f]*/[1-9][0-9]|[:0-9A-Fa-f]*/1[0-9][0-9])
+                # prefixlen
+                set -- $(echo "$addr_plen" | tr / ' ')
+                addr="$1"
+                plen="$2"
+                if ifconfig $testif inet6 "$addr" prefixlen "$plen" >/dev/null 2>&1; then
+                    addvar etc_hostname_if "inet6 $addr prefixlen $plen"
+                    ifconf6_manu=yes
+                    break
+                else
+                    echo "bad value - $addr"
+                fi
+                ;;
+            [:0-9A-Fa-f]*[:0-9A-Fa-f])
+                # no prefixlen specified
+                if ifconfig $testif inet6 "$addr_plen" >/dev/null 2>&1; then
+                    set -- $(ifconfig $testif | grep 'inet6 .* prefixlen .*' | grep -v scopeid)
+                    addr="$2"
+                    plen="$4"
+                    addvar etc_hostname_if "inet6 $addr prefixlen $plen"
+                    ifconf6_manu=yes
+                    break
+                else
+                    echo "bad value - $addr_plen"
+                fi
+                ;;
+            *)
+                # illegal form
+                echo "illegal address format - $addr_plen"
+                ;;
+        esac
+    done
+
+    # set addr to hosts
+    #
+    [[ -n "$addr" ]] && addvar etc_hosts $addr $(echo -n $etc_myname)  # to omit etc_myname's EOL
+
+    # dispose the test device
+    ifconfig $testif destroy >/dev/null 2>&1
+
+    if [[ -n "$gw" && "$gw" != '[Nn][Oo]*' ]]; then
+        addvar etc_mygate "$gw"
+    fi
+}
+
+# outif text outfile
+#   output text to outfile unless text is null
+#   subfunction for emit_config
+#
+outif () {
+    if [[ -n "$2" ]]; then
+        quiet "  ${confdir}/$2"
+        echo -n "$1" > $2
+    fi
+}
+
+# write all setting values to files
+#
+emit_config () {
+    quiet ''
+    quiet 'writing configured values:'
+    outif "$etc_myname" myname
+    outif "$etc_mygate" mygate
+    outif "$etc_hosts" hosts
+    outif "$etc_hostname_if" hostname.${confnic}
+    if [[ -e hostname.${confnic} ]]; then
+        chown root:wheel hostname.${confnic}
+        chmod 0640 hostname.${confnic}
+    fi
+    outif "$etc_resolv_conf" resolv.conf
+    outif "$etc_sysctl_conf" sysctl.conf
+}
+
+
+#=====================
+# main runs from here
+#=====================
+
+# must be root
+#
+if [ ! `id -un` = root ]; then
+    echo "$0: must be run as a root."
+    exit 1
 fi
 
-#-----------------------
-# all config for forwarding are fixed
+# parsing command line options
 #
-if [ -r "$basedir/templ/sysctl.conf" ]; then
-    etc_sysctl_conf="$(cat $basedir/templ/sysctl.conf)"
-fi
-etc_sysctl_conf="${etc_sysctl_conf}\n$(cat<<EOT
-net.inet.ip.forwarding=0
-net.inet.ip.mforwarding=0
-net.inet6.ip6.forwarding=0
-net.inet6.ip6.mforwarding=0
-EOT
-               )"
+while getopts bq OPT; do
+    case "$OPT" in
+        b) builtin_rc=yes  # surpress banner
+           ;;
+        q) quiet=yes  # quit additional messages
+           ;;
+        *) usage
+           exit
+           ;;
+    esac
+done
+shift $((OPTIND - 1))
 
-#-----------------------
-# emit config files
+# base directory for configurations
 #
-#  files to configure:
-#    /etc/myname
-#    /etc/mygate
-#    /etc/hosts
-#    /etc/hostname.if
-#    /etc/resolv.conf
-#    /etc/resolv.conf.tail
-#    /etc/sysctl.conf
+basedir=/etc/netconfs
+
+# set and cd to configuration directory
+# unless specified, run on current working directory
 #
+if [[ -n "$1" ]]; then
+    conf="$1"
+    if [[ "$conf" = 'templ' ]]; then
+	echo "$0: '$conf' is the special name."
+	echo "    You can't configure $conf. Use other name."
+        exit 1
+    fi
 
-debug=0
-if [ 1 -le "$debug" ]; then
-    outbuf=$(cat<<EOT
-======etc_myname=================
-$etc_myname
-======etc_mygate=================
-$etc_mygate
-======etc_hosts==================
-$etc_hosts
-======etc_hostname_if============
-$etc_hostname_if
-======etc_resolv_conf============
-$etc_resolv_conf
-======etc_resolv_conf_tail=======
-$etc_resolv_conf_tail
-======etc_sysctl_conf============
-$etc_sysctl_conf
-=================================
-
-EOT
-          )
-    echo "$outbuf"
-fi
-
-# -- file modifications-------------------------------------------------
-#
-
-# /etc/myname
-echo -n "$etc_myname" > myname
-
-# /etc/mygate
-if [ -n "$etc_mygate" ];then
-    echo -n "$etc_mygate" > mygate
+    confdir="$basedir/$conf"
+    mkdir -p "$confdir"  # even if $confdir already exists
+    cd "$confdir" || exit 1
 else
-    rm -f mygate
+    confdir=$(pwd)
 fi
-echo -n "$etc_hosts" > hosts
 
-# /etc/hostname.if
-pid=$$
+if [[ "$builtin_rc" != 'yes' ]]; then
+    cat <<EOT
+===================================================
+= gennetconfs: generate network configuration files
+===================================================
+EOT
+fi
 
-# rename stale hostname_if to disable it
+# Initial values
 #
-for hostname_if in $(ls -1d * | egrep '^hostname\.[a-z]+[0-9]+'); do
-    mv "$hostname_if" "DISABLED.${pid}.${hostname_if}"
-    chmod 0640 "DISABLED.${pid}.${hostname_if}"
+addvar etc_hosts '127.0.0.1 localhost'
+addvar etc_hosts '::1 localhost'
+addvar etc_sysctl_conf 'net.inet.ip.forwarding=0'
+addvar etc_sysctl_conf 'net.inet.ip.mforwarding=0'
+addvar etc_sysctl_conf 'net.inet6.ip6.forwarding=0'
+addvar etc_sysctl_conf 'net.inet6.ip6.mforwarding=0'
+
+# Host name
+#
+echo
+echo 'Hostname with domain part (FQDN):'
+quiet 'only host name without domain part is also OK.'
+while :; do
+    echo -n '-> '; read ln
+    if echo "$ln" | grep -q '[^0-9A-Za-z.-]'; then
+        echo "illgal character in $ln"
+        continue
+    elif [[ -z "$ln" ]]; then
+        continue
+    else
+        addvar etc_myname "$ln"
+        break
+    fi
 done
 
-if [ -n "$mynic" ]; then
-    echo -n "$etc_hostname_if" > "hostname.${mynic}"
-    chmod 0640 "hostname.${mynic}"
-fi
-
-# resolv.conf
-echo -n "$etc_resolv_conf" > resolv.conf
-
-# resolv.conf.tail
-if [ -n "$etc_resolv_conf_tail" ];then
-    echo -n "$etc_resolv_conf_tail" > resolv.conf.tail
-else
-    rm -f resolv.conf.tail
-fi
-
-# sysctl.conf
-if [ -f sysctl.conf ]; then
-    mv sysctl.conf DISABLED.${pid}.sysctl.conf
-fi
-
-echo "$etc_sysctl_conf" > sysctl.conf  # note that no "-n"
-
+# Detect physical network devices
 #
-# -- end of file modifications------------------------------------------
+for nic in $(ifconfig -a|grep '^[a-z][0-9a-z][0-9a-z]*: '|cut -d: -f1); do
+    case "$(ifconfig $nic)" in
+        *'media: Ethernet '*)
+            eth_nics=${eth_nics:+"$eth_nics "}$nic
+        ;;
+        *'media: IEEE802.11 '*)
+            wifi_nics=${wifi_nics:+"$wifi_nics "}$nic
+        ;;
+    esac
+done
+
+# No NICs found ... standalone settings
+#
+if [[ -z "${eth_nics}${wifi_nics}" ]]; then
+    echo
+    echo 'No physical network devices found - setup as standalone...'
+    addvar etc_resolv_conf 'lookup file'
+    emit_config
+    exit
+fi
+
+# IP versions
+#
+echo
+echo 'IP protocol version(s) to be enabled: 4, 6, 46, 64 or "none"'
+quiet '  4: enable only IPv4'
+quiet '  6: enable only IPv6'
+quiet '  46: give priority to IPv4 name resolution'
+quiet '  64: give priority to IPv6 name resolution'
+quiet '  none: operate as standalone'
+while :; do
+    echo -n '[64] -> '; read ipver
+    case "$ipver" in
+        46)
+            ipv='4 6'
+            addvar etc_resolv_conf 'lookup file bind'
+            addvar etc_resolv_conf 'family inet4 inet6'
+            ;;
+        64|'')
+            ipv='6 4'
+            addvar etc_resolv_conf 'lookup file bind'
+            addvar etc_resolv_conf 'family inet6 inet4'
+            ;;
+        4)
+            ipv='4'
+            addvar etc_resolv_conf 'lookup file bind'
+            addvar etc_resolv_conf 'family inet4'
+            ;;
+        6)
+            ipv='6'
+            addvar etc_resolv_conf 'lookup file bind'
+            addvar etc_resolv_conf 'family inet6'
+            ;;
+        [Nn]*)
+            echo 'No IP protocols specified - setup as standalone...'
+            addvar etc_resolv_conf 'lookup file'
+            emit_config
+            exit
+            ;;
+        *) continue
+           ;;
+    esac
+    break
+done
+
+# List physical network devices
+#
+echo
+echo "Network Interfaces: Choose one"
+echo
+echo '  NIC    type      Name'
+echo '-------- ----- ------------'
+dmesg="$(cat /var/run/dmesg.boot 2>/dev/null; dmesg)"  # get device names dmesg
+for nic in $eth_nics $wifi_nics; do
+    if expr "$eth_nics" : ".*$nic" >/dev/null 2>&1 ; then
+        type=ether
+    elif expr "$wifi_nics" : ".*$nic" >/dev/null 2>&1 ; then
+        type=wifi
+    else
+        type='???'
+    fi
+    prod=$(echo "$dmesg" | sed "/^$nic at .*\".*\"/!d; s/^[^\"]*\"//; s/\".*//" | tail -n 1)
+    printf "%8s %-5s %s\n" "$nic" "$type" "${prod:-unknown}"
+done
+
+# Spcifying a device
+#
+set -- $eth_nics $wifi_nics
+defnic="$1"  # simply, default is the first one found
+echo -n "[$defnic] -> "; read nic
+confnic=${nic:-$defnic}
+
+# Non exsitent now
+#   proceed settings since the device may be created
+#   in the future (i.e. vether, USB dongle ...)
+#
+if ! expr "$eth_nics $wifi_nics" : ".*$confnic" >/dev/null; then
+   echo
+   echo "Warning: $confnic hasn't been detected yet."
+   echo "         anyway, continue setting..."
+fi
+
+# Wi-Fi settings
+#
+while :; do  # this loop runs once
+    wlan=''
+    expr "$wifi_nics" : ".*$confnic" >/dev/null || break  # It's not Wi-Fi.
+
+    echo
+    echo 'Wi-Fi settings:'
+    echo -n '  SSID -> '; read wifi_ssid
+    wlan="${wifi_ssid:+nwid $wifi_ssid}"
+
+    echo -n '  WPA Key -> '; read wifi_wpakey
+    wlan="$wlan${wifi_wpakey:+ wpakey $wifi_wpakey}"
+    [[ -n "$wifi_wpakey" ]] && break  # finish setting here
+
+    echo -n '  WEP Key -> '; read wifi_wepkey
+    wlan="$wlan${wifi_wepkey:+ nwkey $wifi_wepkey}"
+    break
+done
+#
+# store the values to var
+#
+if [[ -n "$wlan" ]]; then
+    addvar etc_hostname_if "$wlan"
+    addvar etc_hostname_if "up"
+fi
+
+# IP address and routing
+#   configure in name resolution order
+#
+for ipver in $ipv; do
+    case "$ipver" in
+        4) setaddr_4 ;;
+        6) setaddr_6 ;;
+    esac
+done
+
+# DNS settings
+#
+if [[ "${ifconf4_manu}${ifconf6_manu}" != '' ]]; then
+    # manual config at least one
+    echo
+    echo 'DNS servers: up to 3 IP addresses, separated by spaces'
+    echo -n '-> '; read dns
+    set -- $(echo "$dns" | tr -sc '0-9.A-Fa-z:%' ' ')
+    [[ -n "$1" ]] && addvar etc_resolv_conf "nameserver $1"
+    [[ -n "$2" ]] && addvar etc_resolv_conf "nameserver $2"
+    [[ -n "$3" ]] && addvar etc_resolv_conf "nameserver $3"
+fi
+
+# write to configuration files
+#
+emit_config
+
+if [[ "$builtin_rc" != 'yes' ]]; then
+    cat <<EOT
+
+======================================================
+= end of gennetconfs:
+= Use chnetconf utility to activate this configuration
+======================================================
+EOT
+fi

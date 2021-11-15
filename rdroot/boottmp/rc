@@ -307,6 +307,7 @@ fi
 noask_rdev=`duid2dev $noask_rdev`
 if [ X = X"$noask_rdev" ]; then
     while :; do
+        echo
         echo -n "Which is FuguIta's operating device? ${def_rdev:+[default: ${def_rdev}] }-> "
         read rdev
         [ -n "${def_rdev}${rdev}" ] && break
@@ -365,6 +366,7 @@ maxmem=`/fuguita/usr/sbin/chroot /fuguita /usr/bin/dc -e "$maxmem 1024 / 1024 / 
 defmem=0
 
 echo "  user memory: $maxmem MB"
+echo
 echo "Enter tmpfs size in MB. (0 is auto)"
 echo -n "[default: ${defmem}] -> "
 if [ X = X"$noask_umem" ]; then
@@ -439,6 +441,7 @@ while :; do
     #----------------------------
     # boot modes
     #
+    echo
     echo 'Boot modes:'
     echo '  0: fresh boot - standard mode as a live system'
     echo "  1: fresh boot - less memory, faster boot (/usr is non-writable, can't pkg_add)"
@@ -636,6 +639,7 @@ EOT
         #---------------
         # root password
         #
+        echo
         until passwd root
           do
           echo "passwd failed, Try again."
@@ -644,7 +648,7 @@ EOT
         #------------------------
         # network configurations
         #
-        if /boottmp/gennetconfs default; then
+        if /boottmp/gennetconfs -b default; then
             /boottmp/chnetconf -f -d default
         fi
 
@@ -669,6 +673,7 @@ EOT
         #
         case `uname -m` in
             i386|amd64)
+                echo
                 echo 'Do you login with C)onsole or X) Window System?'
                 echo -n '[default: C] -> '; read ans
                 case "$ans" in
@@ -726,6 +731,7 @@ EOT
         if [ -z "$noask_confdev" ]; then
             # manual input
             #
+            echo
             echo -n "Which is FuguIta's storage device? ${def_sdev:+[default: ${def_sdev}] }-> "
             read sdev
 

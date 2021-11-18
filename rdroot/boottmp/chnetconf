@@ -5,7 +5,7 @@
 #             with dirs under netconfs
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: chnetconf,v 1.9 2021/11/15 17:07:37 kaw Exp $
+# $Id: chnetconf,v 1.10 2021/11/18 05:00:56 kaw Exp $
 #========================================
 
 # Copyright (c) 2006--2021
@@ -41,7 +41,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-confdir=/etc/netconfs
+confdir=/usr/fuguita/etc/netconfs
 
 usage () {
     cat <<'EOT' >&2
@@ -89,8 +89,8 @@ cd /etc || exit
 
 # no more arguments given
 #
-if [ -z "$1" ]; then
-    if [ "$removeif_only" = yes ]; then
+if [[ -z "$1" ]]; then
+    if [[ "$removeif_only" = 'yes' ]]; then
         resetif  # just cleanup netifs
         exit
     fi
@@ -106,7 +106,7 @@ fi
 # extra argument exists
 #
 newconf="$1"
-if [ "$newconf" = "templ" ]; then
+if [[ "$newconf" = 'templ.head' || "$newconf" = 'templ.tail' ]]; then
     echo "$0: You cannot change to '$newconf'"
     exit
 elif [ ! -f "${confdir}/${newconf}/myname" ]; then
@@ -118,32 +118,52 @@ fi
 
 # remove current files in /etc
 #
-if [ -L /etc/myname ]; then
+if [[ -L /etc/myname ]]; then
     curconf=$(stat -f %Y /etc/myname)
     curconf=${curconf%/*}
-    if [ -n "$curconf" ] && cd "$curconf"; then
+    if [[ -n "$curconf" ]] && cd "$curconf"; then
         for f in *; do
             rm -f "/etc/$f"
         done
-    elif [ ! "$force_setup" = yes ]; then
+    elif [[ ! "$force_setup" = 'yes' ]]; then
         exit 1
     fi
 fi
 
+# check sprious hostname.if files
+#
+set -- /etc/hostname.*
+if [[ -e "$1" ]]; then
+    echo "$0: warning: extra hostname.if(s) found: $*"
+    echo "Remove them manually if not needed."
+fi
+
+
+# collect file names to put into /etc
+#
+putfiles=$(ls -1d $confdir/{templ.{head,tail},$newconf}/* 2>/dev/null | sed -e 's/.*\///' | sort | uniq)
+
 # link myname and copy other files to /etc
 #
-cd "${confdir}/${newconf}" || exit 1
-for f in *; do
-    if [ "$f" = myname ]; then
-        ln -sf "${confdir}/${newconf}/myname" /etc/myname
+cd $confdir/$newconf || exit 1
+for f in $putfiles; do
+    if [[ "$f" = 'myname' ]]; then
+        ln -sf $confdir/$newconf/myname /etc/myname
     else
-        cp -p $f /etc
+        [[ -e "$f" ]] && cp -p "$f" /etc  # create a file with the same attribute
+        : > "/etc/$f"                     # and make it empty
+
+        # write the setting value with
+        # concatenating head/tail template (if any)
+        cat "${confdir}/templ.head/$f" \
+            "$f" \
+            "${confdir}/templ.tail/$f" >> "/etc/$f" 2>/dev/null
     fi
 done
 
 # perform -d option
 #
-if [ "$relink_only" = yes ]; then
+if [[ "$relink_only" = 'yes' ]]; then
     exit
 fi
 

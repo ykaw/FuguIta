@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.11 2021/11/16 05:58:40 kaw Exp $
+# $Id: gennetconfs,v 1.12 2021/11/18 05:00:56 kaw Exp $
 #==================================================
 
 # Copyright (c) 2006--2021
@@ -265,7 +265,7 @@ setaddr_6 () {
 #   subfunction for emit_config
 #
 outif () {
-    if [[ -n "$2" ]]; then
+    if [[ -n "$1" && -n "$2" ]]; then
         quiet "  ${confdir}/$2"
         echo -n "$1" > $2
     fi
@@ -279,10 +279,12 @@ emit_config () {
     outif "$etc_myname" myname
     outif "$etc_mygate" mygate
     outif "$etc_hosts" hosts
-    outif "$etc_hostname_if" hostname.${confnic}
-    if [[ -e hostname.${confnic} ]]; then
-        chown root:wheel hostname.${confnic}
-        chmod 0640 hostname.${confnic}
+    if [[ -n "$confnic" ]]; then
+        outif "$etc_hostname_if" hostname.${confnic}
+        if [[ -e hostname.${confnic} ]]; then
+            chown root:wheel hostname.${confnic}
+            chmod 0640 hostname.${confnic}
+        fi
     fi
     outif "$etc_resolv_conf" resolv.conf
     outif "$etc_sysctl_conf" sysctl.conf
@@ -317,7 +319,7 @@ shift $((OPTIND - 1))
 
 # base directory for configurations
 #
-basedir=/etc/netconfs
+basedir=/usr/fuguita/etc/netconfs
 
 # set and cd to configuration directory
 # unless specified, run on current working directory
@@ -344,15 +346,6 @@ if [[ "$builtin_rc" != 'yes' ]]; then
 ===================================================
 EOT
 fi
-
-# Initial values
-#
-addvar etc_hosts '127.0.0.1 localhost'
-addvar etc_hosts '::1 localhost'
-addvar etc_sysctl_conf 'net.inet.ip.forwarding=0'
-addvar etc_sysctl_conf 'net.inet.ip.mforwarding=0'
-addvar etc_sysctl_conf 'net.inet6.ip6.forwarding=0'
-addvar etc_sysctl_conf 'net.inet6.ip6.mforwarding=0'
 
 # Host name
 #

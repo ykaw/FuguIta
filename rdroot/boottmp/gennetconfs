@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.12 2021/11/18 05:00:56 kaw Exp $
+# $Id: gennetconfs,v 1.13 2021/11/18 09:54:11 kaw Exp $
 #==================================================
 
 # Copyright (c) 2006--2021
@@ -319,7 +319,7 @@ shift $((OPTIND - 1))
 
 # base directory for configurations
 #
-basedir=/usr/fuguita/etc/netconfs
+basedir=/etc/netconfs
 
 # set and cd to configuration directory
 # unless specified, run on current working directory

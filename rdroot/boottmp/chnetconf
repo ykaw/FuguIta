@@ -5,7 +5,7 @@
 #             with dirs under netconfs
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: chnetconf,v 1.11 2021/11/18 09:54:11 kaw Exp $
+# $Id: chnetconf,v 1.12 2021/11/24 12:18:40 kaw Exp $
 #========================================
 
 # Copyright (c) 2006--2021
@@ -43,12 +43,24 @@
 
 confdir=/etc/netconfs
 
+# print usage
+#
 usage () {
-    cat <<'EOT' >&2
-Usage: $0 [-d netconf-name|-r|-f netconf-name] | [netconf-name]
-   -d: don't perform /etc/netstart, relink files only
-   -r: reset all network interfaces
-   -f: force reconfiguration unless current conf doesn't exist
+    cat <<EOT
+
+Usage: $0 [options] [config_name]
+Syntax:
+  [config_name]     : symlink myname and copy other files
+                      from /etc/netconf/config_name to /etc
+                      then perform "sh /etc/netstart"
+                      reconfig current setting unless config_name specified
+  -d [config_name]  : don't perform /etc/netstart, symlink and copy only
+  -f config_name    : force reconfig for config_name
+                      even if current config files don't exist in /etc
+  -r                : reset or destroy all network interfaces
+  -p                : print current config_name
+  -l                : print list of configs
+  -h                : print this help
 EOT
 }
 
@@ -72,40 +84,93 @@ resetif () {
     done >/dev/null 2>&1
 }
 
-# parsing command line options
-#
-while getopts drf OPT; do
-    case "$OPT" in
-        d) relink_only=yes;;
-        r) removeif_only=yes;;
-        f) force_setup=yes;;
-        *) usage
-           exit;;
-    esac
-done
-shift $((OPTIND - 1))
+printconfig() {
+    local file=$(stat -f %Y /etc/myname)
+    file=${file#"${confdir}/"}
+    file=${file%/myname}
+    [[ -n "$file" ]] && echo $file
+}
 
+listconfig() {
+    local path
+    local defconf=${confdir}/$(printconfig)
+    local defmark
+
+    for path in $(ls -1d ${confdir}/*); do
+        defmark=' '
+        [[ "$path" = "$defconf" ]] && defmark='*'
+        if [[ -e "$path/myname" ]]; then
+            printf "%1s%-10s " "$defmark" ${path#"${confdir}/"}
+            [[ -r "$path/description" ]] && echo -n $(<$path/description)
+            echo
+        fi
+    done
+}
+
+
+# for fail-safe
+#
 cd /etc || exit
 
-# no more arguments given
+# parsing command line options
+#
+opts=0
+cmd=normal
+maxargs=1
+while getopts dfrplh OPT; do
+    case "$OPT" in
+        d) cmd=dont_netstart;;
+        f) cmd=force_config;;
+        r) cmd=reset_allnic;;
+        p) cmd=print_config;;
+        l) cmd=list_config;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+    case "$OPT" in
+        d|f)   maxargs=1;;
+        r|p|l) maxargs=0;;
+    esac
+    opts=$((opts+1))
+done
+shift $((OPTIND-1))
+
+# check options/arguments
+#
+if [[ 1 < $opts ]]; then
+    echo "$0: every option is mutually exclusive"
+    usage
+    exit 1
+elif [[ $cmd = 'force_config' && 1 < $# ]]; then
+    echo "$0: requires one argument"
+    usage
+    exit 1
+elif [[ $maxargs < $# ]]; then
+    echo "$0: too much arguments - $*"
+    usage
+    exit 1
+fi
+
+# perform -r/-p/-l
+#
+case "$cmd" in
+    'reset_allinc') resetif; exit;;
+    'print_config') printconfig; exit;;
+    'list_config')  listconfig; exit;;
+esac
+
+# this is "config_name"
 #
 if [[ -z "$1" ]]; then
-    if [[ "$removeif_only" = 'yes' ]]; then
-        resetif  # just cleanup netifs
-        exit
-    fi
-
-    # no argument - just display a list
-    #
-    if cd $confdir; then
-        ls -l /etc/ | grep "$confdir"
-    fi
-    exit
+    newconf=$(printconfig)
+else
+    newconf="$1"
 fi
 
 # extra argument exists
 #
-newconf="$1"
 if [[ "$newconf" = 'templ.head' || "$newconf" = 'templ.tail' ]]; then
     echo "$0: You cannot change to '$newconf'"
     exit
@@ -125,7 +190,7 @@ if [[ -L /etc/myname ]]; then
         for f in *; do
             rm -f "/etc/$f"
         done
-    elif [[ ! "$force_setup" = 'yes' ]]; then
+    elif [[ ! $cmd = 'force_config' ]]; then
         exit 1
     fi
 fi
@@ -147,23 +212,29 @@ putfiles=$(ls -1d $confdir/{templ.{head,tail},$newconf}/* 2>/dev/null | sed -e '
 #
 cd $confdir/$newconf || exit 1
 for f in $putfiles; do
-    if [[ "$f" = 'myname' ]]; then
-        ln -sf $confdir/$newconf/myname /etc/myname
-    else
-        [[ -e "$f" ]] && cp -p "$f" /etc  # create a file with the same attribute
-        : > "/etc/$f"                     # and make it empty
+    case "$f" in
+        'description')
+            :  # do nothing
+            ;;
+        'myname')
+            ln -sf $confdir/$newconf/myname /etc/myname
+            ;;
+        *)
+            [[ -e "$f" ]] && cp -p "$f" /etc  # create a file with the same attribute
+            : > "/etc/$f"                     # and make it empty
 
-        # write the setting value with
-        # concatenating head/tail template (if any)
-        cat "${confdir}/templ.head/$f" \
-            "$f" \
-            "${confdir}/templ.tail/$f" >> "/etc/$f" 2>/dev/null
-    fi
+            # write the setting value with
+            # concatenating head/tail template (if any)
+            cat "${confdir}/templ.head/$f" \
+                "$f" \
+                "${confdir}/templ.tail/$f" >> "/etc/$f" 2>/dev/null
+            ;;
+    esac
 done
 
 # perform -d option
 #
-if [[ "$relink_only" = 'yes' ]]; then
+if [[ $cmd = 'dont_netstart' ]]; then
     exit
 fi
 

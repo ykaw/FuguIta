@@ -5,7 +5,7 @@
 #             with dirs under netconfs
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: chnetconf,v 1.12 2021/11/24 12:18:40 kaw Exp $
+# $Id: chnetconf,v 1.13 2021/11/24 14:40:51 kaw Exp $
 #========================================
 
 # Copyright (c) 2006--2021
@@ -41,8 +41,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-confdir=/etc/netconfs
-
 # print usage
 #
 usage () {
@@ -55,7 +53,7 @@ Syntax:
                       then perform "sh /etc/netstart"
                       reconfig current setting unless config_name specified
   -d [config_name]  : don't perform /etc/netstart, symlink and copy only
-  -f config_name    : force reconfig for config_name
+  -f [config_name]  : force reconfig for config_name
                       even if current config files don't exist in /etc
   -r                : reset or destroy all network interfaces
   -p                : print current config_name
@@ -112,18 +110,23 @@ listconfig() {
 #
 cd /etc || exit
 
+# system-wide constants
+#
+confdir=/etc/netconfs
+
 # parsing command line options
 #
-opts=0
 cmd=normal
+cmds=0
+force_config=no
 maxargs=1
 while getopts dfrplh OPT; do
     case "$OPT" in
-        d) cmd=dont_netstart;;
-        f) cmd=force_config;;
-        r) cmd=reset_allnic;;
-        p) cmd=print_config;;
-        l) cmd=list_config;;
+        d) cmd=dont_netstart; cmds=$((cmds+1)) ;;
+        f) force_config=yes ;;
+        r) cmd=reset_allnic;  cmds=$((cmds+1)) ;;
+        p) cmd=print_config;  cmds=$((cmds+1)) ;;
+        l) cmd=list_config;   cmds=$((cmds+1)) ;;
         *)
             usage
             exit 1
@@ -133,17 +136,16 @@ while getopts dfrplh OPT; do
         d|f)   maxargs=1;;
         r|p|l) maxargs=0;;
     esac
-    opts=$((opts+1))
 done
 shift $((OPTIND-1))
 
 # check options/arguments
 #
-if [[ 1 < $opts ]]; then
-    echo "$0: every option is mutually exclusive"
+if [[ 1 < $cmds ]]; then
+    echo "$0: -d, -r, -p, or -l is mutually exclusive"
     usage
     exit 1
-elif [[ $cmd = 'force_config' && 1 < $# ]]; then
+elif [[ $force_config = yes && 1 < $# ]]; then
     echo "$0: requires one argument"
     usage
     exit 1
@@ -153,7 +155,7 @@ elif [[ $maxargs < $# ]]; then
     exit 1
 fi
 
-# perform -r/-p/-l
+# perform -r, -p or -l
 #
 case "$cmd" in
     'reset_allinc') resetif; exit;;

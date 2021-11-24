@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.19 2021/11/24 12:18:40 kaw Exp $
+# $Id: dtjsetup,v 1.20 2021/11/24 14:40:51 kaw Exp $
 #
 #========================================
 
@@ -583,7 +583,7 @@ if [ "$ja_env" = YES ]; then
         if [ $(ask_yn 'Set hardware clock to JST?' n) = 1 ]; then
             check_rootcmd
             _rootcmd echo 'kern.utc_offset=540' '>>' '/etc/netconfs/templ.head/sysctl.conf'
-            _rootcmd chneconf -d
+            _rootcmd chnetconf -d
             msg This will take effect on the next boot.
         fi
     fi

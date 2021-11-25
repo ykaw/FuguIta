@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.13 2021/11/18 09:54:11 kaw Exp $
+# $Id: gennetconfs,v 1.14 2021/11/25 05:09:59 kaw Exp $
 #==================================================
 
 # Copyright (c) 2006--2021
@@ -40,21 +40,20 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # == Global Variables ====================================================
-#   basedir
-#   conf
-#   confdir
-#   etc_myname
-#   etc_mygate
-#   etc_hosts
-#   etc_hostname_if
-#   etc_resolv_conf
-#   etc_sysctl_conf
-#   ifconf4_manu
-#   ifconf6_manu
-#   ipv
-#   eth_nics
-#   with_nics
-#   confnic
+#   basedir            directory where configurations reside
+#   conf               name of configuration
+#   confdir            directory where files to be configure reside
+#   etc_myname         contents of /etc/myname
+#   etc_mygate         contents of /etc/mygate
+#   etc_hosts          contents of /etc/hosts
+#   etc_hostname_if    contents of /etc/hostname.if
+#   etc_resolv_conf    contents of /etc/resolv.conf
+#   etc_sysctl_conf    contents of /etc/sysctl.conf
+#   ifconf4_manu       'yes' if IPv4 manually configured
+#   ifconf6_manu       'yes' if IPv6 manually configured
+#   ipv                enabled IP version such as '6 4'
+#   eth_nics           detected physical network interfaces
+#   confnic            a network interface to configure
 # ========================================================================
 
 # quiet output
@@ -71,7 +70,7 @@ quiet () {
 usage () {
     cat <<'EOT' >&2
 $0: generate network configuration files
-Usage: $0 [-b] [-q] [setup-dir]
+Usage: $0 [-b] [-q] [config_name]
     -b: surpress banner message
     -q: surpress additional explains
 EOT

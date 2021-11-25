@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.14 2021/11/25 05:09:59 kaw Exp $
+# $Id: gennetconfs,v 1.15 2021/11/25 10:26:38 kaw Exp $
 #==================================================
 
 # Copyright (c) 2006--2021
@@ -220,7 +220,7 @@ setaddr_6 () {
                 addr="$1"
                 plen="$2"
                 if ifconfig $testif inet6 "$addr" prefixlen "$plen" >/dev/null 2>&1; then
-                    addvar etc_hostname_if "inet6 $addr prefixlen $plen"
+                    addvar etc_hostname_if "inet6 $addr $plen"
                     ifconf6_manu=yes
                     break
                 else
@@ -233,7 +233,7 @@ setaddr_6 () {
                     set -- $(ifconfig $testif | grep 'inet6 .* prefixlen .*' | grep -v scopeid)
                     addr="$2"
                     plen="$4"
-                    addvar etc_hostname_if "inet6 $addr prefixlen $plen"
+                    addvar etc_hostname_if "inet6 $addr $plen"
                     ifconf6_manu=yes
                     break
                 else

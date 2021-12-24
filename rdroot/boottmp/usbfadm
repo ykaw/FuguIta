@@ -609,22 +609,26 @@ function setup_fs {
                 umount /mnt
                 ;;
             UEFI)
+                # if MBR exists, install MBR loader also
+                #
+                if [ "$parttype" = MBR \
+                                 -a -f /fuguita/usr/mdec/biosboot \
+                                 -a -f /fuguita/usr/mdec/boot ]; then
+                    notice "Installing BIOS loader"
+                    /usr/sbin/installboot -v -r /mnt ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot
+                fi
                 umount /mnt
+
                 notice "Installing UEFI boot loader"
-                /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot
-                if mount /dev/${scandev}i /mnt; then
-                    if ! ls -ld /mnt/efi/BOOT/*.[Ee][Ff][Ii] 2>&1 | grep -q '^-'; then
-                        notice "installboot failed, taking workaround..."
-                        set -x
-                        mkdir -p /mnt/efi/BOOT
-                        cp /fuguita/usr/mdec/*.EFI /mnt/efi/BOOT
-                        [ "$opt_trace" != yes ] && set +x
-                    fi
+                if mount -t msdos -o -l /dev/${scandev}i /mnt; then
+                    mkdir -p /mnt/efi/BOOT
+                    cp /fuguita/usr/mdec/*.EFI /mnt/efi/BOOT
                     umount /mnt
                 fi
                 ;;
         esac
 
+        notice "Checking the partition for system files"
         fsck -fy /dev/r${scandev}a
     fi
 
@@ -708,6 +712,7 @@ function setup_fs {
 EOT
         umount /mnt
 
+        notice "Checking the partition for persistent storage"
         fsck -fy /dev/r${datdev}d
     fi
 
@@ -1190,7 +1195,7 @@ while :; do
         #
         if [ $sects_total -lt `byte2sect 2T` ]; then
             echo
-            instsys=`ask_which "Select boot method:" 'Legacy BIOS' "$legacyitem" "$uefiitem" 'none (only for save data)' "$hybriditem"`
+            instsys=`ask_which "Select boot method:" 'UEFI' "$legacyitem" "$uefiitem" 'none (only for save data)' "$hybriditem"`
 
             echo
             case $instsys in
@@ -1198,22 +1203,7 @@ while :; do
                     parttype=MBR
                     ;;
                 UEFI)
-                    parttype=`ask_which "Select partition type:" GPT GPT MBR`
-                    if [ "$parttype" = MBR ]; then
-                        cat <<EOT
-
-Notice:
-  You have selected 'UEFI' as boot type
-  and 'MBR' as partition type.
-
-  This is NOT normal configuration for many platforms.
-
-EOT
-                        if [ 1 -gt `ask_yn "Proceed anyway?" n` ]; then
-                            clear_vn $newdev $vnfile
-                            continue
-                        fi
-                    fi
+                    parttype=`ask_which "Select partition type:" MBR MBR GPT`
                     ;;
                 none)
                     parttype=`ask_which "Select partition type:" MBR MBR GPT Hybrid`
@@ -1425,15 +1415,10 @@ EOT
                 # install MBR boot loader, too
                 if [ "$instsys" = Hybrid \
                        -a `expr "$disable_uefiboot" : '[Yy][Ee][Ss]'` -eq 0 ]; then
-                    /usr/sbin/installboot -v ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot
-                    if mount /dev/${scandev}i /mnt; then
-                        if ! ls -ld /mnt/efi/BOOT/*.[Ee][Ff][Ii] 2>&1 | grep -q '^-'; then
-                            notice "installboot failed, taking workaround..."
-                            set -x
-                            mkdir -p /mnt/efi/BOOT
-                            cp /fuguita/usr/mdec/*.EFI /mnt/efi/BOOT
-                            [ "$opt_trace" != yes ] && set +x
-                        fi
+                    notice "Installing UEFI boot loader"
+                    if mount -t msdos -o -l /dev/${scandev}i /mnt; then
+                        mkdir -p /mnt/efi/BOOT
+                        cp /fuguita/usr/mdec/*.EFI /mnt/efi/BOOT
                         umount /mnt
                     fi
                 fi

@@ -517,7 +517,7 @@ function fdisk_init {
               echo "$fdisk_input"
             } >> "$debugfile"
         fi
-        echo -n "$fdisk_input" | fdisk -e "$scandev"
+        echo -n "$fdisk_input" | fdisk -e "$scandev" >/dev/null
     fi
 }
 
@@ -574,7 +574,7 @@ function setup_fs {
               echo "$disklabel_input"
             } >> "$debugfile"
         fi
-        echo -n "$disklabel_input" | disklabel -c -E "$scandev"
+        echo -n "$disklabel_input" | disklabel -c -E "$scandev" >/dev/null
     fi
 
     local disklabel=`disklabel -c $scandev`
@@ -665,7 +665,7 @@ function setup_fs {
         #
         if [ 0 -lt `expr "$datdev" : '^sd[0-9]'` ]; then
             fdisk -iy $datdev
-            echo "a d\n\n*\n4.2BSD\nw\nq\n" | disklabel -c -E $datdev
+            echo "a d\n\n*\n4.2BSD\nw\nq\n" | disklabel -c -E $datdev >/dev/null
         else
             return  # crypto volume not found
         fi
@@ -879,13 +879,20 @@ cat <<EOT
 Welcome to usbfadm.
 USB flash drive administration tool for FuguIta
 
-  Version/Arch: $verarch  (FuguIta-`cat /usr/fuguita/version`)
-     Boot mode: $bootmode
-Data stored in: $d
- Data Saved as: $u
-
-Type ? for help.
+ Version/Arch: $verarch  (FuguIta-`cat /usr/fuguita/version`)
+    Boot mode: $bootmode
+Target device: $d
+Data saved as: $u
 EOT
+
+if [ -x /usr/local/bin/rlwrap ]; then
+    echo
+    echo "readline capability available"
+    echo "TAB to complete the reserved words"
+fi
+
+echo
+echo 'Type ? for help.'
 
 while :; do
     #-------------------
@@ -894,7 +901,7 @@ while :; do
     d="${devname#/dev/}" ; [ -z "$devname" ] && d='?'
     u="$uconf"           ; [ -z "$uconf" ]   && u='?'
     echo
-    cmd=`rl_wread "$d : $u " '' quit bye exit sync info saveas target newdrive help ?`
+    cmd=`rl_wread "$d : $u " '' quit bye exit sync info saveas target newdrive expand help ?`
 
     set X $cmd
 
@@ -918,11 +925,11 @@ while :; do
         Xsync)
         echo
         if [ X"$devname" = X ]; then
-            echo "Name of device not set. Use 'target' to perform it."
+            echo "Name of device not set. Use 'target' to perform this."
             continue
         fi
         if [ X"$uconf" = X ]; then
-            echo "Name of saving data not set. Use 'saveas' to perform it."
+            echo "Name of saving data not set. Use 'saveas' to perform this."
             continue
         fi
 
@@ -946,7 +953,7 @@ while :; do
                 else
                     echo
                     echo "$devname isn't for FuguIta's backup."
-                    echo "(Directory /livecd-config doesn't exists)"
+                    echo "(Directory /livecd-config doesn't exist)"
                 fi
                 umount $devname
             fi
@@ -1003,7 +1010,14 @@ while :; do
             # listing storage devices with investigation
             for rdev in `sysctl -n hw.disknames \
                          | sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'`; do
-                [ 0 -eq `expr "$rdev" : '^[sw]d[0-9]'` ] && continue
+
+                # vnd included
+                (expr $rdev : '^[sw]d[0-9]' || expr $rdev : '^vnd[0-9]' ) >/dev/null \
+                || continue
+
+                # vnd execluded
+                #expr $rdev : '^[sw]d[0-9]' >/dev/null || continue
+
                 # $rdev is detected storage name - e.g. "sd2"
                 for ptfs in `disklabel -c "$rdev" 2>/dev/null \
                              | awk '/^  [abd-p]:/ { print $1 $4 }'`; do
@@ -1446,6 +1460,156 @@ EOT
         ;;
 
         #-------------------
+        # expand targeted storage partition to fill the device
+        #
+        Xexpand)
+
+        echo
+        if [[ -z "$devname" ]]; then
+            echo "Name of device not set. Use 'target' to perform this."
+            continue
+        fi
+
+        expdev=${devname#/dev/}  # expdev initially e.g. 'sd2d'
+        exppar=${expdev#*[0-9]}  # partition to expand - 'd'
+        expdev=${expdev%?}       # device to expand - 'sd2'
+
+        eval $(disk_scan $expdev)  # to get sect_size for byte2sect
+        [[ $diskscan != 'ok' ]] && continue
+
+        fdisk_output=$(fdisk $expdev)
+
+        # check partitioning types
+        #
+        if echo "$fdisk_output" | grep -q '^Disk: .* Usable LBA: '; then
+            exptype=gpt  # Only GPT exists
+        elif echo "$fdisk_output" | grep -q 'Signature: 0xAA55'; then
+            if echo "$fdisk_output" | grep -q '[0123]: EF .* EFI Sys'; then
+                if echo "$fdisk_output" | grep -q '[0123]: EE .* EFI GPT'; then
+                    exptype=hybrid    # MBR and GPT co-exist
+                else
+                    exptype=mbr_uefi  # MBR with UEFI bootloader
+                fi
+            else
+                exptype=mbr  # Only MBR exists
+            fi
+        else
+            exptype=unknown  # random stuff
+        fi
+
+        # Get OpenBSD's partition ID
+        #
+        unset partid_obsd
+        case "$exptype" in
+            "mbr"|"mbr_uefi")
+                partid_obsd=$(echo "$fdisk_output" | tr -d '*:' | awk '/A6.*OpenBSD/ {print $1}')
+                fdisk_input="e ${partid_obsd}\nA6\nn\n\n*\nw\nq\n"
+                ;;
+            "gpt")
+                partid_obsd=$(echo "$fdisk_output" | awk '/[1-9][0-9]*: OpenBSD/ {print 0+$1}')
+                fdisk_input="e ${partid_obsd}\nA6\n\n*\nOpenBSD Area\nw\nq\n"
+                ;;
+            "hybrid")
+                echo "expand: cannot modify hybrid MBR - $expdev"
+                continue
+                ;;
+            "unknown")
+                echo "expand: cannot read any partition tables - $expdev"
+                continue
+                ;;
+        esac
+
+        [[ -z "$partid_obsd" ]] && continue  # fail safe
+
+        expcmd=$(ask_which "Select the expansion method for ${expdev}${exppar}:" \
+                           'exit without expansion' \
+                           'growfs - expands the partition while retaining its contents' \
+                           'newfs - expand and format the partition' \
+                           'exit without expansion')
+
+        case "$expcmd" in
+            growfs)
+                echo
+                echo "This expands ${expdev}${exppar} as large as possible."
+                echo 'It may take time.'
+                echo 'It is recommended that you make a backup of your data before proceeding'
+                echo 'with the subsequent expansion process.'
+                [[ $(ask_yn 'Do you proceed?' n) != 1 ]] && continue
+                ;;
+            newfs)
+                echo
+                echo "This makes ${expdev}${exppar} as large as possible."
+                echo "Note that all contents in ${expdev}${exppar} will be removed"
+                [[ $(ask_yn 'Do you proceed?' n) != 1 ]] && continue
+                ;;
+            exit)
+                continue
+                ;;
+        esac
+
+        echo
+
+        # expand fdisk or GPT partition
+        echo "$fdisk_input" | fdisk -e $expdev > /dev/null
+        
+        # expand disklabel partition
+        echo "b\n\n*\nm ${exppar}\n\n*\n\nw\nq\n" | disklabel -c -E ${expdev}${exppar} > /dev/null
+
+        # setup the filesystem
+        #
+        case "$expcmd" in
+            growfs)
+                growfs -y /dev/r${expdev}${exppar}
+                fsck -fy /dev/r${expdev}${exppar}
+                ;;
+            newfs)
+                # get number of sectors of the expaneded partition
+                expsect=$(disklabel -c ${expdev} | awk "\$1 == \"${exppar}:\" { print int(0.5+\$2) }" )
+
+                if [ $expsect -lt `byte2sect 2G` ]; then
+                    # adjust inode density for little space
+                    # because too many symlinks when booted mode 0
+                    newfs -O 1 -m 0 -o space -i1024 -b4096 -f512 /dev/r${expdev}${exppar}
+                else
+                    newfs -O 2 -m 0 -o space /dev/r${expdev}${exppar}
+                fi
+
+                fsck -fy /dev/r${expdev}${exppar}
+                if mount /dev/${expdev}${exppar} /mnt; then
+                    mkdir -p /mnt/livecd-config/${verarch}
+                    cat <<EOT >/mnt/livecd-config/${verarch}/noasks
+#
+# noasks - parameter settings for non-interactive boot
+#
+# Make statements uncommented
+# to activate settings
+#
+#
+# FuguIta system device
+#noask_rdev=${expdev}a
+#
+# tmpfs size in MB
+#noask_umem=0
+#
+# boot mode
+#noask_setup_rw_mode=3
+#
+# storage device
+#noask_confdev=${expdev}${exppar}
+#
+# data set name in USB flash drive
+#noask_confdir=$(hostname -s)
+EOT
+                    umount /mnt
+                fi
+                ;;
+            *)
+                continue
+                ;;
+        esac
+        ;;
+
+        #-------------------
         # null command
         # ... only RET
         X)
@@ -1465,6 +1629,7 @@ Interactive commands are;
     sync      -  sync current tmpfs to the target device
     info      -  Show info on the target device
     newdrive  -  make new FuguIta device
+    expand    -  expand the target partiotion as possible
     bye, exit, quit
               - end of this utility
 

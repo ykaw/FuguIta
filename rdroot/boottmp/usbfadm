@@ -1624,12 +1624,12 @@ EOT
         echo
         cat<<EOT
 Interactive commands are;
-    target    -  set storage device for sync and info
-    saveas    -  set name of saving data
-    sync      -  sync current tmpfs to the target device
-    info      -  Show info on the target device
-    newdrive  -  make new FuguIta device
-    expand    -  expand the target partiotion as possible
+    target    -  set the partition for sync, info and expand
+    saveas    -  set the name of the data to be saved
+    sync      -  sync the target with the current tmpfs
+    info      -  show info about the target partition
+    newdrive  -  make a new FuguIta LiveUSB
+    expand    -  expand the target partition as large as possible
     bye, exit, quit
               - end of this utility
 

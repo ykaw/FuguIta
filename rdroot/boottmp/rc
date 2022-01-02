@@ -276,7 +276,10 @@ if [ $# -eq 1 ]; then
         umount /mnt
     fi
 elif [ $# -gt 1 ]; then
-    echo "Warning: multiple noask files found: ${part_noask}."
+    echo "Warning: multiple noask files found: "
+    for f in $part_noask; do
+        echo "    $f"
+    done
     echo "disabling non-interactive boot ..."
 fi
 
@@ -451,7 +454,7 @@ while :; do
     echo '   3: boot with retrieving saved files from storage device'
     echo '      or enter passphrase for an encrypted volume'
     echo '   4: boot with retrieving saved files from floppy disk'
-    echo '   5: interactive shell for maitenance'
+    echo '   5: interactive shell for maintenance'
     echo -n '-> '
     if [ X = X"$noask_setup_rw_mode" ]; then
         read setup_rw_mode

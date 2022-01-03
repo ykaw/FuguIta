@@ -5,10 +5,10 @@
 #             with dirs under netconfs
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: chnetconf,v 1.13 2021/11/24 14:40:51 kaw Exp $
+# $Id: chnetconf,v 1.14 2022/01/03 08:22:13 kaw Exp $
 #========================================
 
-# Copyright (c) 2006--2021
+# Copyright (c) 2006--2022
 # Yoshihiro Kawamata
 #
 # All rights reserved.

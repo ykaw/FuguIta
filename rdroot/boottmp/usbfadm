@@ -5,6 +5,8 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
+# $Id: usbfadm,v 1.76 2022/01/09 05:30:09 kaw Exp $
+#
 #========================================
 
 # Copyright (c) 2006--2022
@@ -281,6 +283,37 @@ function sect2byte {
         val=$((val/1024)); [ "$val" -lt $scale ] && { echo "${val}GB"; return; }
         val=$((val/1024)); echo "${val}TB"; return
     fi
+}
+
+#-------------------
+# convert device name to DUID
+#
+# Usage: dev2duid device_name
+#
+#     device_name: e.g. 'sd1'
+#
+#   outputs DUID to stdout
+#   or no output if conversion failed
+#
+dev2duid () {
+
+    # check device name
+    #
+    if ! expr "$1" : '[ws]d[0-9]$' >/dev/null && \
+            ! expr "$1" : '[ws]d[1-9][0-9]$' >/dev/null; then
+        return
+    fi
+    local _dev="$1"
+
+    # scan list of devices
+    #
+    local _dev_duid
+    for _dev_duid in $(sysctl -n hw.disknames | tr , ' '); do
+        if expr $_dev_duid : $_dev >/dev/null; then
+            echo ${_dev_duid##*:}
+            return
+        fi
+    done
 }
 
 #-------------------
@@ -685,6 +718,8 @@ function setup_fs {
             newfs -O 2 -m 0 -o space ${datdev}d
         fi
 
+        sys_duid=$(dev2duid $scandev)
+        dat_duid=$(dev2duid $datdev)
         mount -o async /dev/${datdev}d /mnt
         mkdir -p /mnt/livecd-config/${verarch}
         cat <<EOT >/mnt/livecd-config/${verarch}/noasks
@@ -692,11 +727,13 @@ function setup_fs {
 # noasks - parameter settings for non-interactive boot
 #
 # Make statements uncommented
-# to activate settings
+# Then assign real values
 #
 #
 # FuguIta system device
-#noask_rdev=${scandev}a
+#${sys_duid:+   - Use one of two lines}
+#noask_rdev=${scandev}a  # device name format
+#${sys_duid:+noask_rdev=${sys_duid}.a  # DUID format}
 #
 # tmpfs size in MB
 #noask_umem=0
@@ -705,7 +742,9 @@ function setup_fs {
 #noask_setup_rw_mode=3
 #
 # storage device
-#noask_confdev=${datdev}d
+#${dat_duid:+   - Use one of two lines}
+#noask_confdev=${datdev}d  # device name format
+#${dat_duid:+noask_confdev=${dat_duid}.d  # DUID format}
 #
 # data set name in USB flash drive
 #noask_confdir=$(hostname -s)

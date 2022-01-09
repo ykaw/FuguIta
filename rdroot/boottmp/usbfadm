@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.76 2022/01/09 05:30:09 kaw Exp $
+# $Id: usbfadm,v 1.77 2022/01/09 09:47:58 kaw Exp $
 #
 #========================================
 
@@ -1051,11 +1051,11 @@ while :; do
                          | sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'`; do
 
                 # vnd included
-                (expr $rdev : '^[sw]d[0-9]' || expr $rdev : '^vnd[0-9]' ) >/dev/null \
-                || continue
+                #(expr $rdev : '^[sw]d[0-9]' || expr $rdev : '^vnd[0-9]' ) >/dev/null \
+                #|| continue
 
                 # vnd execluded
-                #expr $rdev : '^[sw]d[0-9]' >/dev/null || continue
+                expr $rdev : '^[sw]d[0-9]' >/dev/null || continue
 
                 # $rdev is detected storage name - e.g. "sd2"
                 for ptfs in `disklabel -c "$rdev" 2>/dev/null \
@@ -1615,17 +1615,20 @@ EOT
 
                 fsck -fy /dev/r${expdev}${exppar}
                 if mount /dev/${expdev}${exppar} /mnt; then
+                    expduid=$(dev2duid $expdev)  # get DUID after disk_scan is OK
                     mkdir -p /mnt/livecd-config/${verarch}
                     cat <<EOT >/mnt/livecd-config/${verarch}/noasks
 #
 # noasks - parameter settings for non-interactive boot
 #
 # Make statements uncommented
-# to activate settings
+# Then assign real values
 #
 #
 # FuguIta system device
-#noask_rdev=${expdev}a
+#${expduid:+   - Use one of two lines}
+#noask_rdev=${expdev}a  # device name format
+#${expduid:+noask_rdev=${expduid}.a  # DUID format}
 #
 # tmpfs size in MB
 #noask_umem=0
@@ -1634,7 +1637,9 @@ EOT
 #noask_setup_rw_mode=3
 #
 # storage device
+#${expduid:+   - Use one of two lines}
 #noask_confdev=${expdev}${exppar}
+#${expduid:+noask_confdev=${expduid}.${exppar}  # DUID format}
 #
 # data set name in USB flash drive
 #noask_confdir=$(hostname -s)

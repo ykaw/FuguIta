@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.77 2022/01/09 09:47:58 kaw Exp $
+# $Id: usbfadm,v 1.78 2022/01/26 08:40:25 kaw Exp $
 #
 #========================================
 
@@ -210,8 +210,12 @@ function ask_which {
 function rl_wread {
     local prompt="$1";  shift
     local default="$1"; shift
+    local retval
 
-    if [ -x /usr/local/bin/rlwrap ]; then
+    # check if rlwrap is available
+    #   When control tty is missing (in /etc/rc.shutdown for example),
+    #   rlwrap in command substitution "$(rlwrap ...) " fails.
+    if retval=$(/usr/local/bin/rlwrap true) 2>/dev/null; then
         echo "$@" > $lockdir/rl_words
         rlwrap -b '' \
                -f $lockdir/rl_words \
@@ -894,17 +898,22 @@ if [ "$opt_mode" = 'resync' ]; then
     if mount -o softdep,noatime $devname /mnt; then
         if [ "$opt_quiet" = 'yes' ]; then
             rsync -q -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+            retval=$?
         else
-            notice "Sync current tmpfs as $uconf into $devname"
+            notice "Sync $devname with current tmpfs as $uconf"
             rsync --progress -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+            retval=$?
         fi
         # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
         rm -rf /mnt/livecd-config/$uconf/tmp/{.??*,*}
         sync
         sleep 5
         umount $devname
+	clear_exit $retval
+    else
+	clear_exit 1
     fi
-    clear_exit 0
+0
 fi
 
 #-------------------
@@ -924,10 +933,15 @@ Target device: $d
 Data saved as: $u
 EOT
 
-if [ -x /usr/local/bin/rlwrap ]; then
-    echo
+echo
+# check if rlwrap is available
+#   When control tty is missing (in /etc/rc.shutdown for example),
+#   rlwrap in command substitution "$(rlwrap ...) " fails.
+if retval=$(/usr/local/bin/rlwrap true) 2>/dev/null; then
     echo "readline capability available"
     echo "TAB to complete the reserved words"
+else
+    echo "Sorry, readline capability unavailable"
 fi
 
 echo

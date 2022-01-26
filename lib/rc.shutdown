@@ -12,7 +12,7 @@
 usbfadm_r () {
     ( # Invoking auto-save process in a subshell
 
-      export PATH=$PATH:/usr/local/bin:/usr/local/bin:/usr/fuguita/bin:/usr/fuguita/bin
+      export PATH=$PATH:/usr/local/bin:/usr/local/bin:/usr/fuguita/sbin:/usr/fuguita/bin
 
       # check if 'saveas' is set
       #
@@ -44,4 +44,4 @@ usbfadm_r () {
 }
 
 # To re-sync on shutdown. uncomment the following line.
-# usbfadm_r
+usbfadm_r

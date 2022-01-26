@@ -44,4 +44,4 @@ usbfadm_r () {
 }
 
 # To re-sync on shutdown. uncomment the following line.
-usbfadm_r
+#usbfadm_r

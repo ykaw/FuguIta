@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.81 2022/01/27 04:38:24 kaw Exp $
+# $Id: usbfadm,v 1.82 2022/01/27 04:43:06 kaw Exp $
 #
 #========================================
 
@@ -869,7 +869,7 @@ while [ 1 -lt $# ]; do
         -d) debugfile=`pwd`/usbf.debugout  # This is also flag.
             shift;;
         *) cat <<EOT 2>&1
-Usage: ${0##*/} [-rqtdh]
+Usage: ${0##*/} [-riqtdh]
 
     -r : redo sync non-interactively
         (must run 'sync' at interactive mode before doing this)

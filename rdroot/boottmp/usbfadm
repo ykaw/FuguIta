@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.78 2022/01/26 08:40:25 kaw Exp $
+# $Id: usbfadm,v 1.79 2022/01/27 04:27:59 kaw Exp $
 #
 #========================================
 
@@ -858,11 +858,12 @@ fuguita_uefi_kb=512
 
 # command line arguments
 #
-cmdargs=`getopt qrtdh $*`
+cmdargs=`getopt qritdh $*`
 set -- $cmdargs
 while [ 1 -lt $# ]; do
     case "$1" in
         -r) opt_mode=resync; shift;;
+        -i) opt_mode=info;   shift;;
         -q) opt_quiet=yes;   shift;;
         -t) opt_trace=yes; set -x; shift;;
         -d) debugfile=`pwd`/usbf.debugout  # This is also flag.
@@ -886,35 +887,55 @@ done
 #-------------------
 # non-interactive process
 #
-if [ "$opt_mode" = 'resync' ]; then
-    if [ -z "$devname" ]; then
-        echo "$0: Name of device isn't set. Use 'target', then 'sync' in interactive mode."
-        clear_exit 1
-    elif [ -z "$uconf" ]; then
-        echo "$0: Name of saving data isn't set. Use 'saveas', then 'sync' in interactive mode."
-        clear_exit 1
-    fi
-
-    if mount -o softdep,noatime $devname /mnt; then
-        if [ "$opt_quiet" = 'yes' ]; then
-            rsync -q -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
-            retval=$?
-        else
-            notice "Sync $devname with current tmpfs as $uconf"
-            rsync --progress -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
-            retval=$?
+case "$opt_mode" in
+    resync)
+        if [ -z "$devname" ]; then
+            echo "$0: Name of device isn't set. Use 'target', then 'sync' in interactive mode."
+            clear_exit 1
+        elif [ -z "$uconf" ]; then
+            echo "$0: Name of saving data isn't set. Use 'saveas', then 'sync' in interactive mode."
+            clear_exit 1
         fi
-        # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
-        rm -rf /mnt/livecd-config/$uconf/tmp/{.??*,*}
-        sync
-        sleep 5
-        umount $devname
-	clear_exit $retval
-    else
-	clear_exit 1
-    fi
-0
-fi
+
+        if mount -o softdep,noatime $devname /mnt; then
+            if [ "$opt_quiet" = 'yes' ]; then
+                rsync -q -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+                retval=$?
+            else
+                notice "Sync $devname with current tmpfs as $uconf"
+                rsync --progress -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+                retval=$?
+            fi
+            # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
+            rm -rf /mnt/livecd-config/$uconf/tmp/{.??*,*}
+            sync
+            sleep 5
+            umount $devname
+	    clear_exit $retval
+        else
+	    clear_exit 1
+        fi
+        ;;
+    info)
+        cat <<EOT
+FuguIta's persistent storage status:
+
+ Version/Arch: $verarch  (FuguIta-`cat /usr/fuguita/version`)
+    Boot mode: $bootmode
+Target device: ${devname:-not set}
+Data saved as: ${uconf:-not set}
+
+EOT
+        if [[ -n "$devname" ]] && mount -r $devname /mnt; then
+            (cd /mnt/livecd-config
+             echo
+             df -hi /mnt
+             echo "\nscanning...\n" && du -sh [1-9].[0-9]/*/* [1-9].[0-9]-*-*) 2>/dev/null
+            umount $devname
+        fi
+        clear_exit $?;
+        ;;
+esac
 
 #-------------------
 # interactive process
@@ -1017,8 +1038,11 @@ while :; do
         # show status of storage device
         #
         Xinfo)
-        if mount -r $devname /mnt; then
-            (cd /mnt/livecd-config && echo && df -hi /mnt && echo "\nscanning...\n" && du -sh [1-9].[0-9]/*/* [1-9].[0-9]-*-*) 2>/dev/null
+        if [[ -n "$devname" ]] && mount -r $devname /mnt; then
+            (cd /mnt/livecd-config
+             echo
+             df -hi /mnt
+             echo "\nscanning...\n" && du -sh [1-9].[0-9]/*/* [1-9].[0-9]-*-*) 2>/dev/null
             umount $devname
         fi
         ;;

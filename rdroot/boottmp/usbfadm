@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.79 2022/01/27 04:27:59 kaw Exp $
+# $Id: usbfadm,v 1.80 2022/01/27 04:29:40 kaw Exp $
 #
 #========================================
 
@@ -873,6 +873,7 @@ Usage: $0 [-rqtdh]
 
     -r : redo sync non-interactively
         (must run 'sync' at interactive mode before doing this)
+    -i : show info about the persistent storage
     -q : quiet mode when redo sync
     -t : trace output (pass -x to shell)
     -d : debug output for newdrive to file 'usbf.debugout'
@@ -1718,6 +1719,7 @@ Interactive commands are;
 Command line options are;
     -r : redo sync non-interactively
         (must run 'sync' at interactive mode before doing this)
+    -i : show info about the persistent storage
     -q : quiet mode when redo sync
     -t : trace output (pass -x to shell)
     -d : debug output for newdrive to file 'usbf.debugout'

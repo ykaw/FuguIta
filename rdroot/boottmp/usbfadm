@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.80 2022/01/27 04:29:40 kaw Exp $
+# $Id: usbfadm,v 1.81 2022/01/27 04:38:24 kaw Exp $
 #
 #========================================
 
@@ -810,7 +810,7 @@ if [ ! -r /usr/fuguita/version ]; then
 fi
 
 if [ ! `id -un` = root ]; then
-    echo "$0 must be run as a root."
+    echo "${0##*/} must be run as a root."
     exit 1
 fi
 
@@ -829,7 +829,7 @@ fi
 umask_o=`umask`; umask 077
 if ! mkdir $lockdir 2>/dev/null; then
     umask $umask_o
-    echo "another $0 running (or remove $lockdir)"
+    echo "another ${0##*/} running (or remove $lockdir)"
     exit 1
 fi
 umask $umask_o
@@ -837,7 +837,7 @@ umask $umask_o
 #-------------------
 # initializations
 #
-trap 'echo $0: interrupted. >&2; clear_exit 1' INT
+trap 'echo ${0##*/}: interrupted. >&2; clear_exit 1' INT
 
 # read status files
 #
@@ -869,7 +869,7 @@ while [ 1 -lt $# ]; do
         -d) debugfile=`pwd`/usbf.debugout  # This is also flag.
             shift;;
         *) cat <<EOT 2>&1
-Usage: $0 [-rqtdh]
+Usage: ${0##*/} [-rqtdh]
 
     -r : redo sync non-interactively
         (must run 'sync' at interactive mode before doing this)
@@ -891,10 +891,10 @@ done
 case "$opt_mode" in
     resync)
         if [ -z "$devname" ]; then
-            echo "$0: Name of device isn't set. Use 'target', then 'sync' in interactive mode."
+            echo "${0##*/}: Name of device isn't set. Use 'target', then 'sync' in interactive mode."
             clear_exit 1
         elif [ -z "$uconf" ]; then
-            echo "$0: Name of saving data isn't set. Use 'saveas', then 'sync' in interactive mode."
+            echo "${0##*/}: Name of saving data isn't set. Use 'saveas', then 'sync' in interactive mode."
             clear_exit 1
         fi
 

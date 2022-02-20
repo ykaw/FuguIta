@@ -522,11 +522,11 @@ while :; do
             # extract pre-build symlinks archive
             # or lndir from /ram/usr to /fuguita/usr
             #
-            if [ -r /fuguita/usr/fuguita/etc/mode0symlinks.cpio.gz \
+            if [ -r /fuguita/etc/fuguita/mode0symlinks.cpio.gz \
                  -a ! -e /boottmp/force_lndir ]; then
                 echo -n "Extracting symlinks from /ram to /fuguita ... "
                 ( cd /ram \
-                  && pax -rzpe -f /fuguita/usr/fuguita/etc/mode0symlinks.cpio.gz \
+                  && pax -rzpe -f /fuguita/etc/fuguita/mode0symlinks.cpio.gz \
                   && [ -r /etc/mtree/special.fuguita ] \
                   && mtree -edtq -u -p / -f /etc/mtree/special.fuguita > /dev/null )
             else
@@ -869,7 +869,7 @@ EOT
         # merge user-defined fstab entries
         # into auto generated /etc/fstab
         #
-        fstab_tail="/usr/fuguita/etc/fstab.tail"
+        fstab_tail="/etc/fuguita/fstab.tail"
         fstab_merged="# followings are merged from $fstab_tail"
 
         if ! fgrep -q "$fstab_merged" /etc/fstab; then

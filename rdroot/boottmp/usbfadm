@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.82 2022/01/27 04:43:06 kaw Exp $
+# $Id: usbfadm,v 1.83 2022/02/20 05:45:09 kaw Exp $
 #
 #========================================
 
@@ -854,7 +854,7 @@ fuguita_uefi_kb=512
 #
 # overwrite defaults
 #
-[ -r /usr/fuguita/etc/usbfadm.conf ] && . /usr/fuguita/etc/usbfadm.conf
+[ -r /etc/fuguita/usbfadm.conf ] && . /etc/fuguita/usbfadm.conf
 
 # command line arguments
 #
@@ -1526,7 +1526,7 @@ EOT
 
         # site-specific post processing
         #
-        [ -r /usr/fuguita/etc/usbfadm_postproc.sh ] && . /usr/fuguita/etc/usbfadm_postproc.sh
+        [ -r /etc/fuguita/usbfadm_postproc.sh ] && . /etc/fuguita/usbfadm_postproc.sh
 
         if [ "$debugfile" ]; then
             { echo

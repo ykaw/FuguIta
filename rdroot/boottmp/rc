@@ -517,6 +517,15 @@ while :; do
         ln -s fuguita/* .     2> /dev/null
         #ln -s fuguita/.??* . 2> /dev/null ; # Maybe not needed
 
+
+        # modify /etc/mtree/special
+        #
+        if [[ "$setup_rw_mode" = 0 ]]; then
+            (cd /etc/mtree && patch -s < /boottmp/mtree_special.mode0.diff)
+        elif [[ "$setup_rw_mode" = 1 ]]; then
+            (cd /etc/mtree && patch -s < /boottmp/mtree_special.mode1.diff)
+        fi
+
         if [ X"$setup_rw_mode" = X0 ]; then
             #-------------------------------------------
             # extract pre-build symlinks archive
@@ -527,8 +536,8 @@ while :; do
                 echo -n "Extracting symlinks from /ram to /fuguita ... "
                 ( cd /ram \
                   && pax -rzpe -f /fuguita/etc/fuguita/mode0symlinks.cpio.gz \
-                  && [ -r /etc/mtree/special.fuguita ] \
-                  && mtree -edtq -u -p / -f /etc/mtree/special.fuguita > /dev/null )
+                  && [ -r /etc/mtree/special ] \
+                  && mtree -edtq -u -p / -f /etc/mtree/special > /dev/null )
             else
                 echo -n "Linking files from /ram to /fuguita ... "
                 mkshadowdir /fuguita/usr /ram/usr
@@ -775,14 +784,6 @@ Welcome to FuguIta: OpenBSD-based Live System
 Visit http://fuguita.org/ for more info.
 
 EOT
-
-        # modify /etc/mtree/special
-        #
-        if [[ "$setup_rw_mode" = 0 ]]; then
-            (cd /etc/mtree && patch -s < /boottmp/mtree_special.mode0.diff)
-        elif [[ "$setup_rw_mode" = 1 ]]; then
-            (cd /etc/mtree && patch -s < /boottmp/mtree_special.mode1.diff)
-        fi
 
         #========================================
         # Configurations under misc dir

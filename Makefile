@@ -98,7 +98,7 @@ syncback:
 # generate an ISO file
 
 hyb:
-	make open-fuguita
+	-make open-fuguita
 	echo "$(VERSION)-$(ARCH)-$(DATE)$$(($(REVISION)+1))" > fuguita/usr/fuguita/version
 	make close-fuguita
 

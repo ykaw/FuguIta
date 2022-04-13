@@ -65,7 +65,7 @@ close-rdroot:
 
 open-media:
 	-vnconfig vnd1 media.img
-	-mount /dev/vnd1a media
+	-mount -o async,noatime /dev/vnd1a media
 
 close-media:
 	-umount media
@@ -73,7 +73,7 @@ close-media:
 
 open-fuguita:
 	-vnconfig vnd2 media/fuguita-$(VERSION)-$(ARCH).ffsimg
-	-mount /dev/vnd2a fuguita
+	-mount -o async,noatime /dev/vnd2a fuguita
 
 close-fuguita:
 	-umount fuguita

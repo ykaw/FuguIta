@@ -32,9 +32,9 @@ cp ./install_pkgs/pv-*.tgz     ./staging/tmp/.
 cat <<EOT | chroot ./staging /bin/ksh
 set -x
 ldconfig /usr/lib /usr/X11R6/lib /usr/local/lib
-pkg_add /tmp/rsync-*.tgz
-pkg_add /tmp/rlwrap-*.tgz
-pkg_add /tmp/pv-*.tgz
+pkg_add -D unsigned /tmp/rsync-*.tgz
+pkg_add -D unsigned /tmp/rlwrap-*.tgz
+pkg_add -D unsigned /tmp/pv-*.tgz
 makewhatis
 for dir in 100dpi 75dpi OTF TTF Type1 cyrillic misc
 do

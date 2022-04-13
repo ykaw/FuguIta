@@ -117,7 +117,7 @@ hyb:
 #========================================
 # stuffs on kernel generation
 
-boot: bsd bsd.mp lib/cdbr lib/cdboot
+boot: lib/cdbr lib/cdboot bsd bsd.mp
 	cp lib/cdbr lib/cdboot media/.
 	[ -d media/etc ] || mkdir media/etc
 	cp lib/boot.conf media/etc/.

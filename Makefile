@@ -29,6 +29,10 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+
+#========================================
+# global definitions
+
 PROJNAME =FuguIta
 VERSION !=uname -r
 ARCH    !=uname -m
@@ -40,14 +44,12 @@ FI_FILENAME=$(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$(REVISION)
 VERSTAT=
 AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
 
-CDR_DEV=cd0
-
-USB_DEV=vnd1
-USB_MNT=/mnt
-USB_IMG=media.img
-
 all:
 	@echo /$(FI_FILENAME)/ - lets go
+
+
+#========================================
+# vncofig stuffs
 
 open-all: open-rdroot open-media open-fuguita
 
@@ -77,26 +79,23 @@ close-fuguita:
 	-umount fuguita
 	-vnconfig -u vnd2
 
-shrink: shrinkfiles zipfiles
+#========================================
+# contents syncing
 
-shrinkfiles: filetypelist
-	[ X$(BASEDIR) != X ]
-	[ -d $(BASEDIR) ]
-	grep 'not stripped' filetypes | cut -d: -f1 | xargs strip
-	grep 'current ar archive' filetypes | cut -d: -f1 | xargs rm -f
+sync:
+	-make close-all
+	make open-media
+	make open-fuguita
+	(cd staging && rsync -avxHS --delete . ../fuguita/.)
 
-filetypelist:
-	[ X$(BASEDIR) != X ]
-	[ -d $(BASEDIR) ]
-	-find $(BASEDIR) -type f -print0 | xargs -0 file > filetypes 2> filetypes.err
+syncback:
+	-make close-all
+	make open-media
+	make open-fuguita
+	(cd fuguita && rsync -avxHS --delete . ../staging/.)
 
-zipfiles:
-	[ X$(BASEDIR) != X ]
-	[ -d $(BASEDIR) ]
-	-cd $(BASEDIR)/man && /usr/fuguita/sbin/compress_man.sh
-	-cd $(BASEDIR)/share/doc && find . -type f -print0 | xargs -0 gzip -v9
-	-cd $(BASEDIR)/info && find . -type f \! -name dir -print0 | xargs -0 gzip -v9
-	-cd $(BASEDIR)/share/gtk-doc && find . -type f -print0 | xargs -0 gzip -v9
+#========================================
+# generate an ISO file
 
 hyb:
 	make open-fuguita
@@ -106,7 +105,7 @@ hyb:
 	mkhybrid -a -R -L -l -d -D -N \
 		-o livecd.iso \
 		-v -v \
-		-A "FuguIta - OpenBSD Live System" \
+		-A "FuguIta: OpenBSD-based Live System" \
 		-P "Copyright (c) `date +%Y` KAWAMATA Yoshihiro" \
 		-p "KAWAMATA Yoshihiro, http://fuguita.org/" \
 		-V "$(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$$(($(REVISION)+1))" \
@@ -115,79 +114,53 @@ hyb:
 		media \
 	&& echo $$(($(REVISION)+1)) > revcount_cdmaster
 
-boot: bsd.rdcd bsd.mp.rdcd lib/cdbr lib/cdboot
+#========================================
+# stuffs on kernel generation
+
+boot: bsd bsd.mp lib/cdbr lib/cdboot
 	cp lib/cdbr lib/cdboot media/.
 	[ -d media/etc ] || mkdir media/etc
 	cp lib/boot.conf media/etc/.
-	: '[ -d media/sbin ] || mkdir media/sbin'
-	: 'cp -p /sbin/vnconfig media/sbin; strip media/sbin/vnconfig'
-	: '/usr/mdec/installboot -v media/boot /usr/mdec/biosboot vnd1'
 
-bsd.rdcd: bsd.orig rdroot.img
-	cp bsd.orig bsd
+kern:
+	(cd sys/arch/$(ARCH)/conf && config RDROOT)
+	(cd sys/arch/$(ARCH)/compile/RDROOT && make obj && make)
+	(cd sys/arch/$(ARCH)/conf && config RDROOT.MP)
+	(cd sys/arch/$(ARCH)/compile/RDROOT.MP && make obj && make)
+
+bsd: rdroot.img sys/arch/$(ARCH)/compile/RDROOT/obj/bsd
+	cp sys/arch/$(ARCH)/compile/RDROOT/obj/bsd bsd
 	rdsetroot bsd rdroot.img
 	gzip -c9 bsd > media/bsd-fi
 
-bsd.mp.rdcd: bsd.mp.orig rdroot.img
-	cp bsd.mp.orig bsd.mp
+bsd.mp: rdroot.img sys/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
+	cp sys/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd bsd.mp
 	rdsetroot bsd.mp rdroot.img
 	gzip -c9 bsd.mp > media/bsd-fi.mp
 
-cdemu:
-	/usr/local/bin/qemu-system-x86_64 -m 256 -monitor stdio -cdrom livecd.iso -boot d
+#========================================
+# packaging controls
 
-usbemu:
-	/usr/local/bin/qemu-system-x86_64 -m 256 -monitor stdio -hda media.img c -boot c
-
-hddinstall:
-	cat media/bsd-fi    > /bsd-fi
-	cat media/bsd-fi.mp > /bsd-fi.mp
-	dd if=livecd.iso of=/ISO/$(FI_FILENAME).iso bs=65535k
-
-gz: cdgz usbgz
-
-cdgz:
-	ln livecd.iso $(FI_FILENAME)$(VERSTAT).iso
-	gzip -v9 $(FI_FILENAME)$(VERSTAT).iso
-
-cdxz:
-	dd if=livecd.iso of=$(FI_FILENAME)$(VERSTAT).iso bs=65536k
-	xz -v9 $(FI_FILENAME)$(VERSTAT).iso
-
-usbgz:
-	gzip -cv9 media.img > $(FI_FILENAME)$(VERSTAT).usbimg.gz
-
-cdrburn: cdrclean cdburn
-
-cdrclean:
-	cdio -v -f /dev/r$(CDR_DEV)c blank
-
-cdburn:
-	cdio -v -f /dev/r$(CDR_DEV)c tao livecd.iso
-
-clean:
-	rm -f bsd bsd.mp livecd.iso $(FI_FILENAME).iso.gz $(FI_FILENAME).usbimg.gz
-
-contall:
+iso:
 	-make close-all
-	rm -f /ISO/FuguIta-*-$(ARCH)-?????????.iso
 	make open-media
 	make boot
 	make hyb
-	make hddinstall
 	-make close-all
-	-make cdrburn
-	make cdgz
 
-#======================================================================
+test:
+	vmctl start -cL -i1 -m256M -r livecd.iso fitest
 
-#usbfill:
-#	mount /dev/$(USB_DEV)a $(USB_MNT)
-#	-[ -d $(USB_MNT)/tmp ] || mkdir $(USB_MNT)/tmp && chmod 1777 $(USB_MNT)/tmp
-#	-dd if=/dev/zero of=$(USB_MNT)/tmp/fill bs=65536k
-#	rm -f $(USB_MNT)/tmp/fill
-#	umount $(USB_MNT)
-#	mount /dev/$(USB_DEV)d $(USB_MNT)
-#	-dd if=/dev/zero of=$(USB_MNT)/livecd-config/fill bs=65536k
-#	rm -f $(USB_MNT)/livecd-config/fill
-#	umount $(USB_MNT)
+createimg:
+	dd if=/dev/zero of=liveusb.img bs=1 count=0 seek=2G
+
+testwithimg:
+	vmctl start -cL -i1 -m256M -r livecd.iso -d liveusb.img fitest
+
+gz:
+	pv livecd.iso | gzip -9f -o $(FI_FILENAME)$(VERSTAT).iso.gz
+	[ -f liveusb.img ] && pv liveusb.img | gzip -9f -o $(FI_FILENAME)$(VERSTAT).img.gz
+
+reset:
+	rm -f bsd bsd.mp livecd.iso liveusb.img FuguIta-?.?-*-*.iso.gz FuguIta-?.?-*-*.img.gz
+	> revcount_cdmaster

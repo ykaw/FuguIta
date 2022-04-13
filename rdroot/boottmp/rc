@@ -651,7 +651,22 @@ EOT
         done
 
         #------------------------
-        # network configurations
+        # create /etc/fuguita related stuffs
+        #
+        mkdir -p /etc/fuguita/netconfs/templ.{head,tail}  # may already be created
+        cat > /etc/fuguita/netconfs/templ.head/sysctl.conf <<EOT
+machdep.allowaperture=2 # See xf86(4)
+machdep.lidaction=0
+net.inet.ip.forwarding=0
+net.inet.ip.mforwarding=0
+net.inet6.ip6.forwarding=0
+net.inet6.ip6.mforwarding=0
+EOT
+        cat > /etc/fuguita/netconfs/templ.head/hosts <<EOT
+127.0.0.1   localhost
+::1         localhost
+EOT
+        # configure network
         #
         if /boottmp/gennetconfs -b default; then
             /boottmp/chnetconf -f -d default
@@ -691,6 +706,98 @@ EOT
         # modify OpenBSD's orignal /etc/rc
         #
         (cd /etc && patch -s < /boottmp/etc.rc.diff)
+
+        # create misc stuffs
+        #
+        ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+        echo 'https://cdn.openbsd.org/pub/OpenBSD' > /etc/installurl
+        echo '/usr/sbin/fw_update -v'              > /etc/rc.firsttime
+        cat <<EOT > /etc/rc.shutdown
+# usbfadm_r - perform re-sync of the usbfadm utility
+#
+# This function calls usbfadm's sync function on shutdown to
+# synchronize the contents of the USB stick with tmpfs.
+# If usbfadm is incompletely configured, this function will invoke a
+# sub-shell to prompt for configuration and saving by usbfadm.
+# If re-synchronisation fails repeatedly, it will still launch a
+# sub-shell for data preservation work, allowing the user to remove
+# the cause of the error and perform usbfadm sync manually or by other
+# means to preserve the data.
+#
+usbfadm_r () {
+    ( # Invoking auto-save process in a subshell
+
+      export PATH=\$PATH:/usr/local/bin:/usr/local/bin:/usr/fuguita/sbin:/usr/fuguita/bin
+
+      # check if 'saveas' is set
+      #
+      if [[ -z \$(</boottmp/boot_user_config) ]] 2>/dev/null; then
+          echo "= The 'saveas' of usbfadm utility is not set."
+          echo "= Please do 'saveas' then 'sync' in the interactive mode of usbfadm."
+          echo = invoking interactive shell for emergency...
+          PS1="(emg) \$PS1" /bin/ksh -li
+      fi
+
+      # usbfadm with retry loop
+      #
+      retry=0
+      retrymax=3
+      waitsec=5
+      while ! /usr/fuguita/sbin/usbfadm -r; do
+          retry=\$((retry+1))
+          if [ \$retry -ge \$retrymax ]; then
+              echo = too many failures of usbfadm
+              echo = invoking interactive shell for emergency
+              PS1="(emg) \$PS1" /bin/ksh -li
+              retry=0  # reset retry loop then do again...
+          else
+              echo usbfadm failed,
+          fi
+          echo will retry after \$waitsec seconds...
+          sleep \$waitsec
+      done )
+}
+
+# To re-sync on shutdown. uncomment the following line.
+#usbfadm_r
+EOT
+
+        # mtree
+        #
+
+        # motd
+        #
+        cat <<EOT > /etc/motd
+OpenBSD ?.? (UNKNOWN)
+
+Welcome to FuguIta: OpenBSD-based Live System
+
+Visit http://fuguita.org/ for more info.
+
+EOT
+
+        # modify /etc/mtree/special
+        #
+        if [[ "$setup_rw_mode" = 0 ]]; then
+            (cd /etc/mtree && patch -s < /boottmp/mtree_special.mode0.diff)
+        elif [[ "$setup_rw_mode" = 1 ]]; then
+            (cd /etc/mtree && patch -s < /boottmp/mtree_special.mode1.diff)
+        fi
+
+        #========================================
+        # Configurations under misc dir
+        #========================================
+        #
+        cat <<EOT | tee -a /root/.profile >> /etc/skel/.profile
+
+PATH=\$PATH:/usr/fuguita/sbin:/usr/fuguita/bin
+export PATH
+EOT
+        install -o root -g wheel -m 0600 /dev/null /root/.Xauthority
+        install -o root -g wheel -m 0600 /dev/null /etc/skel/.Xauthority
+        dd if=/dev/random of=/var/db/host.random bs=64k count=1 2>/dev/null
+        chown root:wheel /var/db/host.random
+        chmod 0600 /var/db/host.random
 
         break
         ;;

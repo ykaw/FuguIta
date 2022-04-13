@@ -1,0 +1,57 @@
+--- special	Tue Apr 12 21:20:23 2022
++++ special.mode1	Tue Apr 12 21:20:32 2022
+@@ -12,6 +12,11 @@
+ mem		type=char mode=0640 uname=root gname=kmem
+ ..	#dev
+ 
++sbin		type=link
++usr		type=link
++
++ram		type=dir mode=0755 uname=root gname=wheel
++
+ etc		type=dir mode=0755 uname=root gname=wheel
+ acme-client.conf	type=file mode=0644 uname=root gname=wheel optional
+ bgpd.conf	type=file mode=0600 uname=root gname=wheel optional
+@@ -129,36 +134,6 @@
+ ..	#root/.ssh
+ ..	#root
+ 
+-sbin		type=dir mode=0755 uname=root gname=wheel ignore
+-..	#sbin
+-
+-usr		type=dir mode=0755 uname=root gname=wheel
+-bin		type=dir mode=0755 uname=root gname=wheel ignore
+-..	#usr/bin
+-games		type=dir mode=0755 uname=root gname=wheel optional
+-..	#usr/games
+-include		type=dir mode=0755 uname=root gname=bin ignore
+-..	#usr/include
+-lib		type=dir mode=0755 uname=root gname=wheel ignore
+-..	#usr/lib
+-libdata		type=dir mode=0755 uname=root gname=wheel ignore
+-..	#usr/libdata
+-libexec		type=dir mode=0755 uname=root gname=wheel
+-auth		type=dir mode=0750 uname=root gname=auth ignore
+-..	#usr/libexec/auth
+-..	#usr/libexec
+-local		type=dir mode=0755 uname=root gname=wheel
+-bin		type=dir mode=0755 uname=root gname=wheel ignore
+-..	#usr/local/bin
+-lib		type=dir mode=0755 uname=root gname=wheel ignore
+-..	#usr/local/lib
+-..	#usr/local
+-sbin		type=dir mode=0755 uname=root gname=wheel ignore
+-..	#usr/sbin
+-share		type=dir mode=0755 uname=root gname=wheel ignore
+-..	#usr/share
+-..	#usr
+-
+ var		type=dir mode=0755 uname=root gname=wheel
+ account		type=dir mode=0755 uname=root gname=wheel
+ acct		type=file mode=0644 uname=root gname=wheel optional
+@@ -214,3 +189,5 @@
+ output		type=dir mode=0755 uname=root gname=wheel ignore
+ ..	#var/spool/output
+ ..	#var/spool
++..	#var
++..	#ram

@@ -1,0 +1,22 @@
+--- special	Tue Apr 12 21:09:17 2022
++++ special.fuguita	Tue Apr 12 21:09:11 2022
+@@ -12,6 +12,9 @@
+ mem		type=char mode=0640 uname=root gname=kmem
+ ..	#dev
+ 
++sbin		type=link
++ram		type=dir mode=0755 uname=root gname=wheel
++
+ etc		type=dir mode=0755 uname=root gname=wheel
+ acme-client.conf	type=file mode=0644 uname=root gname=wheel optional
+ bgpd.conf	type=file mode=0600 uname=root gname=wheel optional
+@@ -128,9 +131,6 @@
+ authorized_keys	type=file mode=0600 uname=root gname=wheel
+ ..	#root/.ssh
+ ..	#root
+-
+-sbin		type=dir mode=0755 uname=root gname=wheel ignore
+-..	#sbin
+ 
+ usr		type=dir mode=0755 uname=root gname=wheel
+ bin		type=dir mode=0755 uname=root gname=wheel ignore

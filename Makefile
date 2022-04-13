@@ -159,7 +159,7 @@ testwithimg:
 
 gz:
 	pv livecd.iso | gzip -9f -o $(FI_FILENAME)$(VERSTAT).iso.gz
-	[ -f liveusb.img ] && pv liveusb.img | gzip -9f -o $(FI_FILENAME)$(VERSTAT).img.gz
+	-[ -f liveusb.img ] && pv liveusb.img | gzip -9f -o $(FI_FILENAME)$(VERSTAT).img.gz
 
 reset:
 	rm -f bsd bsd.mp livecd.iso liveusb.img FuguIta-?.?-*-*.iso.gz FuguIta-?.?-*-*.img.gz

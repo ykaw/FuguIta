@@ -118,15 +118,15 @@ hyb:
 # stuffs on kernel generation
 
 boot: lib/cdbr lib/cdboot bsd bsd.mp
-	cp lib/cdbr lib/cdboot media/.
+	cp lib/cdbr lib/cdboot lib/boot media/.
 	[ -d media/etc ] || mkdir media/etc
 	cp lib/boot.conf media/etc/.
 
 kern:
 	(cd sys/arch/$(ARCH)/conf && config RDROOT)
-	(cd sys/arch/$(ARCH)/compile/RDROOT && make obj && make)
+	(cd sys/arch/$(ARCH)/compile/RDROOT && make obj && make -j2)
 	(cd sys/arch/$(ARCH)/conf && config RDROOT.MP)
-	(cd sys/arch/$(ARCH)/compile/RDROOT.MP && make obj && make)
+	(cd sys/arch/$(ARCH)/compile/RDROOT.MP && make obj && make -j2)
 
 bsd: rdroot.img sys/arch/$(ARCH)/compile/RDROOT/obj/bsd
 	cp sys/arch/$(ARCH)/compile/RDROOT/obj/bsd bsd

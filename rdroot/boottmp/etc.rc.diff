@@ -1,11 +1,18 @@
---- rc	Tue Oct 19 00:11:59 2021
-+++ rc.new	Tue Oct 19 00:12:08 2021
-@@ -177,22 +177,15 @@
+--- rc	Tue Apr 19 09:55:48 2022
++++ rc.new	Tue Apr 19 10:04:53 2022
+@@ -177,9 +177,17 @@
  	# filesystems, otherwise record which ones are mounted read-only.
  	for _dkdev in $(df /usr/{lib,libexec} $_relink |
  	    sed '1d;s/ .*//' | sort -u); do
 -		_mp=$(mount -t ffs | grep "^$_dkdev") || return
-+		_mp=$(mount | egrep 'ffs|tmpfs' | grep "^$_dkdev") || return
++		if mount -t ffs | grep -q "^$_dkdev"; then
++			_mp=$(mount -t ffs | grep "^$_dkdev")
++		elif mount | egrep -q "(tmpfs|mfs).*/ram"; then
++			_mp=$($mount | egrep "/ram")
++		else
++			return
++		fi
++
  		if [[ $_mp == *read-only* ]]; then
 -			_ro_list="$_ro_list ${_mp%% *}"
 +			echo "fuguita: can't reorder libraries at this boot mode"
@@ -13,20 +20,7 @@
  		fi
  	done
  
- 	echo -n 'reordering libraries:'
- 
--	# Remount the (read-only) filessystems in _ro_list as read-write.
--	for _mp in $_ro_list; do
--		if ! mount -u -w $_mp; then
--			echo ' failed.'
--			return
--		fi
--	done
--
- 	# Only choose the latest version of the libraries.
- 	for _liba in $_relink/usr/lib/lib{c,crypto}; do
- 		_libas="$_libas $(ls $_liba.so.+([0-9.]).a | sort -rV | head -1)"
-@@ -384,8 +377,9 @@
+@@ -384,8 +392,9 @@
  # Re-mount the root filesystem read/writeable. (root on nfs requires this,
  # others aren't hurt.)
  mount -uw /
@@ -38,7 +32,7 @@
  
  rm -f /fastboot
  
-@@ -632,7 +626,9 @@
+@@ -632,7 +641,9 @@
  
  # Re-link the kernel, placing the objects in a random order.
  # Replace current with relinked kernel and inform root about it.

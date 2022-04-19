@@ -259,6 +259,16 @@ echo '
 scan_disks
 
 #-------------------------------
+# activate swap partition(s)
+#
+if [ -n "$part_swp" ]; then
+    for swdev in $part_swp; do
+        echo "activating swap partition: /dev/$swdev"
+        swapon /dev/$swdev
+    done
+fi
+
+#-------------------------------
 # set noask parameters
 # from a single noasks file
 #
@@ -352,25 +362,17 @@ elif [ -d /fuguita/ISO ]; then
 fi
 
 #-------------------------------
-# activate swap partition(s)
-#
-if [ -n "$part_swp" ]; then
-    for swdev in $part_swp; do
-        echo "activating swap partition: /dev/$swdev"
-        swapon /dev/$swdev
-    done
-fi
-
-#-------------------------------
 # set ram size
 #
 maxmem=`sysctl -n hw.physmem`
 maxmem=`/fuguita/usr/sbin/chroot /fuguita /usr/bin/dc -e "$maxmem 1024 / 1024 / p"`
-defmem=0
+#defmem=0
+defmem=$((3*maxmem/4))
 
 echo "available memory: $maxmem MB"
 echo
-echo "Enter tmpfs size in MB. (0 is auto)"
+#echo "Enter tmpfs size in MB. (0 is auto)"
+echo "Enter tmpfs size in MB."
 echo -n "[default: ${defmem}] -> "
 if [ X = X"$noask_umem" ]; then
     read umem
@@ -384,19 +386,21 @@ if [ X = X"$umem" ]; then
     umem="$defmem"
 fi
 
-#-------------------------------
-# check ram size
-#
-if [ $maxmem -lt $umem ]; then
-    echo "set tmpfs size to maximum limit: ${maxmem}MB"
-    umem=$maxmem
-elif [ X"$umem" = X0 ]; then
-    echo "tmpfs size will be automatically allocated"
-else
-    echo "set tmpfs size to ${umem}MB"
-fi
+# #-------------------------------
+# # check ram size
+# #
+# if [ $maxmem -lt $umem ]; then
+#     echo "set tmpfs size to maximum limit: ${maxmem}MB"
+#     umem=$maxmem
+# elif [ X"$umem" = X0 ]; then
+#     echo "tmpfs size will be automatically allocated"
+# else
+#     echo "set tmpfs size to ${umem}MB"
+# fi
+echo "set tmpfs size to ${umem}MB"
 
-/fuguita/sbin/mount_tmpfs -s ${umem}M -o wxallowed tmpfs /ram || exit
+#/fuguita/sbin/mount_tmpfs -s ${umem}M -o wxallowed tmpfs /ram || exit
+/fuguita/sbin/mount_mfs -s $((2*1024*umem)) -o wxallowed swap /ram || exit
 
 #-------------------------------
 # generate fstab from current

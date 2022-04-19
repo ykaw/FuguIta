@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.83 2022/02/20 05:45:09 kaw Exp $
+# $Id: usbfadm,v 1.84 2022/04/19 14:34:08 kaw Exp $
 #
 #========================================
 
@@ -331,7 +331,7 @@ copydirs () {
     [ -d "$srcdir" ]  || { echo "source directory $srcdir not found";       return; }
     [ -d "$destdir" ] || { echo "destination directory $destdir not found"; return; }
     if [ -x /usr/local/bin/pv ]; then
-        local srcsize; srcsize=$(df -k /ram | awk '/^tmpfs .* \/ram$/ { print $3 "K"}')
+        local srcsize; srcsize=$(df -k /ram | awk '/ \/ram$/ { print $3 "K"}')
         echo "copying $srcdir to $destdir (${srcsize}B approx.):"
         (cd "$srcdir" && pax -wX -x cpio .) | (pv -s $srcsize; echo -n "waiting for pax to finish ... " >&2) | (cd "$destdir" && pax -rpe)
         (echo -n "syncing ... "; sync; sync; sync; echo done.) >&2

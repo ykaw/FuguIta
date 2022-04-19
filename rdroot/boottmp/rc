@@ -43,6 +43,7 @@
 init_args="$@"
 osrel=`sysctl -n kern.osrelease`
 osmac=`sysctl -n hw.machine`
+memfstype='mfs'  # 'mfs' or 'tmpfs'
 
 #-------------------------------
 # make a list of all partitions
@@ -366,14 +367,22 @@ fi
 #
 maxmem=`sysctl -n hw.physmem`
 maxmem=`/fuguita/usr/sbin/chroot /fuguita /usr/bin/dc -e "$maxmem 1024 / 1024 / p"`
-#defmem=0
-defmem=$((3*maxmem/4))
+
+if [[ "$memfstype" = 'tmpfs' ]]; then
+    defmem=0
+else
+    defmem=$((3*maxmem/4))
+fi
 
 echo "available memory: $maxmem MB"
 echo
-#echo "Enter tmpfs size in MB. (0 is auto)"
-echo "Enter tmpfs size in MB."
+if [[ "$memfstype" = 'tmpfs' ]]; then
+    echo "Enter tmpfs size in MB. (0 is auto)"
+else
+    echo "Enter mfs size in MB."
+fi
 echo -n "[default: ${defmem}] -> "
+
 if [ X = X"$noask_umem" ]; then
     read umem
 else
@@ -397,10 +406,13 @@ fi
 # else
 #     echo "set tmpfs size to ${umem}MB"
 # fi
-echo "set tmpfs size to ${umem}MB"
+echo "set ${memfstype} size to ${umem}MB"
 
-#/fuguita/sbin/mount_tmpfs -s ${umem}M -o wxallowed tmpfs /ram || exit
-/fuguita/sbin/mount_mfs -s $((2*1024*umem)) -o wxallowed swap /ram || exit
+if [[ "$memfstype" = 'tmpfs' ]]; then
+    /fuguita/sbin/mount_tmpfs -s ${umem}M -o wxallowed tmpfs /ram || exit
+else
+    /fuguita/sbin/mount_mfs -s $((2*1024*umem)) -o wxallowed swap /ram || exit
+fi
 
 #-------------------------------
 # generate fstab from current
@@ -416,7 +428,7 @@ while read ln; do
         X/fuguitaX|X/sysmediaX)
             echo $1 $3 $5 ro 0 0 ;;
         X/ramX)
-            echo tmpfs $3 $5 rw,wxallowed 0 0 ;;
+            echo $memfstype $3 $5 rw,wxallowed 0 0 ;;
         *)
             echo $1 $3 $5 defaults 0 0 ;;
     esac
@@ -727,7 +739,7 @@ EOT
 # usbfadm_r - perform re-sync of the usbfadm utility
 #
 # This function calls usbfadm's sync function on shutdown to
-# synchronize the contents of the USB stick with tmpfs.
+# synchronize the contents of the USB stick with ${memfstype}.
 # If usbfadm is incompletely configured, this function will invoke a
 # sub-shell to prompt for configuration and saving by usbfadm.
 # If re-synchronisation fails repeatedly, it will still launch a
@@ -1112,7 +1124,7 @@ if [ -d /ram/usr -a ! -L /ram/usr/fuguita/version ]; then
         fi
         
     else
-        echo "    tmpfs still paged out ... You can't remove any storage device(s)."
+        echo "    ${memfstype} still paged out ... You can't remove any storage device(s)."
         sleep 5
     fi
 fi

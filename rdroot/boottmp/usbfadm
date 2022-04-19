@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.84 2022/04/19 14:34:08 kaw Exp $
+# $Id: usbfadm,v 1.85 2022/04/19 14:59:24 kaw Exp $
 #
 #========================================
 
@@ -739,7 +739,7 @@ function setup_fs {
 #noask_rdev=${scandev}a  # device name format
 #${sys_duid:+noask_rdev=${sys_duid}.a  # DUID format}
 #
-# tmpfs size in MB
+# ${memfstype} size in MB
 #noask_umem=0
 #
 # boot mode
@@ -796,10 +796,12 @@ function clear_vn {
 #-------------------
 # systemwide constants
 #
-lockdir=/tmp/usbfadm.lock
-  osrel=`sysctl -n kern.osrelease`
-  hwmac=`sysctl -n hw.machine`
-verarch=${osrel}/${hwmac}
+  lockdir=/tmp/usbfadm.lock
+    osrel=`sysctl -n kern.osrelease`
+    hwmac=`sysctl -n hw.machine`
+  verarch=${osrel}/${hwmac}
+memfstype='mfs'  # 'mfs' or 'tmpfs'
+
 
 #-------------------
 # environment check
@@ -903,7 +905,7 @@ case "$opt_mode" in
                 rsync -q -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
                 retval=$?
             else
-                notice "Sync $devname with current tmpfs as $uconf"
+                notice "Sync ${devname} with current ${memfstype} as ${uconf}"
                 rsync --progress -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
                 retval=$?
             fi
@@ -1008,7 +1010,7 @@ while :; do
             continue
         fi
 
-        if [ 1 = `ask_yn "Sync current tmpfs as \\\`\\\`$uconf'' , OK?" n` ]; then
+        if [ 1 = `ask_yn "Sync current ${memfstype} as \\\`\\\`$uconf'' , OK?" n` ]; then
             if mount -o softdep,noatime $devname /mnt; then
                 echo
                 if [ -d /mnt/livecd-config ]; then
@@ -1669,7 +1671,7 @@ EOT
 #noask_rdev=${expdev}a  # device name format
 #${expduid:+noask_rdev=${expduid}.a  # DUID format}
 #
-# tmpfs size in MB
+# ${memfstype} size in MB
 #noask_umem=0
 #
 # boot mode
@@ -1709,7 +1711,7 @@ EOT
 Interactive commands are;
     target    -  set the partition for sync, info and expand
     saveas    -  set the name of the data to be saved
-    sync      -  sync the target with the current tmpfs
+    sync      -  sync the target with the current ${memfstype}
     info      -  show info about the target partition
     newdrive  -  make a new FuguIta LiveUSB
     expand    -  expand the target partition as large as possible

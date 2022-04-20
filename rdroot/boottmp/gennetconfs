@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.17 2022/02/20 05:45:09 kaw Exp $
+# $Id: gennetconfs,v 1.18 2022/04/20 14:38:05 kaw Exp $
 #==================================================
 
 # Copyright (c) 2006--2022
@@ -97,11 +97,13 @@ setaddr_4 () {
     local addr mask gw
 
     echo
-    echo 'IPv4 - address and routing:'
-    echo '  Enter "auto" or "IPv4_address[/mask] [default_gateway]"'
+    echo  'IPv4 - address and routing:'
+    echo  '  Enter "auto" or "IPv4_address[/mask] [default_gateway]"'
     quiet '  "auto" is an automatic setting by DHCP.'
-    quiet '  The "/mask" part can be specified in either format, such as "/255.255.255.0" or "/24".'
-    quiet '  If there is no default gateway, set the second field to "none" or leave it blank.'
+    quiet '  The "/mask" part can be specified in either format,'
+    quiet '  such as "/255.255.255.0" or "/24".'
+    quiet '  If there is no default gateway,'
+    quiet '  set the second field to "none" or leave it blank.'
 
     # randomly choose unused virtual ethernet device
     # for test address and mask
@@ -191,11 +193,12 @@ setaddr_6 () {
     local addr plen gw
 
     echo
-    echo 'IPv6 - address and routing:'
-    echo '  Enter "auto" or "IPv6_address[/prefixlen] [default_gateway]"'
+    echo  'IPv6 - address and routing:'
+    echo  '  Enter "auto" or "IPv6_address[/prefixlen] [default_gateway]"'
     quiet '  "auto" is an automatic setting by SLAAC.'
     quiet '  The "/prefixlen" part can be an integer between 0 and 128.'
-    quiet '  If there is no default gateway, set the second field to "none" or leave it blank.'
+    quiet '  If there is no default gateway,'
+    quiet '  set the second field to "none" or leave it blank.'
 
     # randomly choose unused virtual ethernet device
     # for test address and mask

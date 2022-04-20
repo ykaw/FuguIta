@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.85 2022/04/19 14:59:24 kaw Exp $
+# $Id: usbfadm,v 1.86 2022/04/20 15:05:29 kaw Exp $
 #
 #========================================
 
@@ -740,7 +740,7 @@ function setup_fs {
 #${sys_duid:+noask_rdev=${sys_duid}.a  # DUID format}
 #
 # ${memfstype} size in MB
-#noask_umem=0
+#noask_umem=75%
 #
 # boot mode
 #noask_setup_rw_mode=3
@@ -1672,7 +1672,7 @@ EOT
 #${expduid:+noask_rdev=${expduid}.a  # DUID format}
 #
 # ${memfstype} size in MB
-#noask_umem=0
+#noask_umem=75%
 #
 # boot mode
 #noask_setup_rw_mode=3

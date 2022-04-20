@@ -132,6 +132,53 @@ scan_disks () {
 }
 
 #-------------------------------
+# parse  -  convert size with factor to megabytes
+#
+#  usage: parsesize factored-size memory-size(MB) swap-size(MB)
+#
+#         factors: n|n[Mm] - n megabytes
+#                  n[kK]   - n kilobytes
+#                  n[gG]   - n gigabytes
+#                  n%      - n percent of memory-size
+#                  n%%     - n percent of (memory-size+swap-size)
+#
+#    The result will be output to stdout with megabyte value
+#
+parsesize () {
+    local   umem="$1"; shift
+    local maxmem="$1"; shift
+    local swpmem="$1"; shift
+
+    local d0='[0-9]'
+    local d1='[1-9]'
+    local k='[kK]'
+    local m='[mM]'
+    local g='[gG]'
+
+    case "$umem" in
+        $d0|$d1$d0|$d1$d0$d0|$d1$d0$d0$d0|$d1$d0$d0$d0$d0) # up to 99999(MB)
+            echo $umem
+            ;;
+        $d0$k|$d1$d0$k|$d1$d0$d0$k|$d1$d0$d0$d0$k|$d1$d0$d0$d0$d0$k|$d1$d0$d0$d0$d0$d0$k|$d1$d0$d0$d0$d0$d0$d0$k|$d1$d0$d0$d0$d0$d0$d0$d0$k)  # up to 99999999KB
+            echo $((${umem%?}/1024))
+            ;;
+        $d0$m|$d1$d0$m|$d1$d0$d0$m|$d1$d0$d0$d0$m|$d1$d0$d0$d0$d0$m) # up to 99999MB
+            echo ${umem%?}
+            ;;
+        $d0$g|$d1$d0$g|$d1$d0$d0$g)  # up to 999GB
+            echo $((1024*${umem%?}))
+            ;;
+        $d0%%|$d1$d0%%|100%%)
+            echo $((${umem%??}*(maxmem+swpmem)/100))
+            ;;
+        $d0%|$d1$d0%|100%)
+            echo $((${umem%?}*maxmem/100))
+            ;;
+        *)
+    esac
+}
+
+#-------------------------------
 # duid2dev  -  convert DUID.partition expression to DEVpartition
 #     e.g. 7df1e3007af31be5.a -> sd0a
 #                        sd0a -> sd0a
@@ -353,12 +400,9 @@ elif [ -d /fuguita/ISO ]; then
 fi
 
 #-------------------------------
-# set ram size
+# get ram size in MB
 #
-maxmem=`sysctl -n hw.physmem`
-maxmem=`/fuguita/usr/sbin/chroot /fuguita /usr/bin/dc -e "$maxmem 1024 / 1024 / p"`
-
-echo "available memory: $maxmem MB"
+maxmem=$(($(sysctl -n hw.physmem)/1024/1024))
 
 #-------------------------------
 # activate swap partition(s)
@@ -372,7 +416,8 @@ fi
 #
 # get total swap size in MB
 #
-swpmem=$( (swapctl -lk; echo 'end') | while read dev size rest; do
+swpmem=$( (swapctl -lk; echo 'end') | while read dev size rest
+          do
               if [[ "$dev" = 'end' ]]; then
                   echo $((totsize/1024))
               elif [[ "$dev" = 'Device' ]]; then
@@ -381,31 +426,54 @@ swpmem=$( (swapctl -lk; echo 'end') | while read dev size rest; do
                   totsize=$((totsize+size))
               fi
           done ) 2> /dev/null
-[[ 0 < "$swpmem" ]] && echo "total swap size: ${swpmem}MB"
 
 #-------------------------------
 # prompt for mfs/tmpfs size
 #
-echo
-if [[ -n "$noask_umem" ]]; then  # non-interactive value specified
-    umem="$noask_umem"
-    echo "${memfstype} size in MB -> $umem"
-    unset noask_umem
-else
-    if [[ "$memfstype" = 'tmpfs' ]]; then
-        defmem=0
-        echo "Enter tmpfs size in MB. (0 is auto)"
-    else
-        defmem=$((3*maxmem/4))
-        echo "Enter mfs size in MB."
-    fi
-    echo -n "[default: ${defmem}] -> "; read umem
+while :; do
+    echo "available memory: ${maxmem}M"
+    [[ 0 < "$swpmem" ]] && echo "total swap size: ${swpmem}M"
+    echo
 
-    if [[ -z "$umem" ]]; then
-        umem="$defmem"
+    if [[ -n "$noask_umem" ]]; then  # non-interactive value specified
+        umem="$noask_umem"
+        echo "${memfstype} size -> $umem"
+        unset noask_umem
+    else  # manual setup
+        echo -n "Enter ${memfstype} size"
+        if [[ "$memfstype" = 'tmpfs' ]]; then
+            defmem=0
+            echo ' (0M is auto).'
+        else
+            defmem=$(parsesize '75%' $maxmem $swpmem)
+            echo '.'
+        fi
+
+        cat <<EOT
+Note: K, M, and G can be used as the memory size suffix.
+      When omitted, M is assumed.
+      In addition, % is a percentage of the memory size
+      and %% is a percentage of the total memory and swap.
+
+EOT
+
+        echo -n "[default: ${defmem}M] -> "; read umem
+        
+        if [[ -z "$umem" ]]; then
+            umem="$defmem"
+        fi
     fi
-fi
-echo "set ${memfstype} size to ${umem}MB"
+
+    umem=$(parsesize $umem $maxmem $swpmem)
+
+    if [[ -n "$umem" ]]; then
+        echo "set ${memfstype} size to ${umem}MB"
+        break;
+    else
+        echo "illegal input - try again"
+    fi
+done
+
 
 #-------------------------------
 # create and mount memory-based file system

@@ -42,7 +42,7 @@ REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; 
 FI_FILENAME=$(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$(REVISION)
 #VERSTAT=beta
 VERSTAT=
-AUTHOR=KAWAMATA, Yoshihiro <kaw@on.rim.or.jp>
+AUTHOR=Yoshihiro Kawamata <kaw@on.rim.or.jp>
 
 all:
 	@echo /$(FI_FILENAME)/ - lets go
@@ -106,8 +106,8 @@ hyb:
 		-o livecd.iso \
 		-v -v \
 		-A "FuguIta: OpenBSD-based Live System" \
-		-P "Copyright (c) `date +%Y` KAWAMATA Yoshihiro" \
-		-p "KAWAMATA Yoshihiro, http://fuguita.org/" \
+		-P "Copyright (c) `date +%Y` Yoshihiro Kawamata" \
+		-p "Yoshihiro Kawamata, http://fuguita.org/" \
 		-V "$(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$$(($(REVISION)+1))" \
 		-b cdbr \
 		-c boot.catalog \

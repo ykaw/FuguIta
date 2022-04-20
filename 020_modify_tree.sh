@@ -48,6 +48,7 @@ fc-cache
 EOT
 
 rm ./staging/tmp/*
+rm -f ./staging/root/.ksh_history
 
 mkdir ./staging/etc/fuguita
 cp -p ./lib/usbfadm.conf.$(uname -m) ./staging/etc/fuguita/usbfadm.conf

@@ -260,16 +260,6 @@ echo '
 scan_disks
 
 #-------------------------------
-# activate swap partition(s)
-#
-if [ -n "$part_swp" ]; then
-    for swdev in $part_swp; do
-        echo "activating swap partition: /dev/$swdev"
-        swapon /dev/$swdev
-    done
-fi
-
-#-------------------------------
 # set noask parameters
 # from a single noasks file
 #
@@ -368,46 +358,58 @@ fi
 maxmem=`sysctl -n hw.physmem`
 maxmem=`/fuguita/usr/sbin/chroot /fuguita /usr/bin/dc -e "$maxmem 1024 / 1024 / p"`
 
-if [[ "$memfstype" = 'tmpfs' ]]; then
-    defmem=0
-else
-    defmem=$((3*maxmem/4))
-fi
-
 echo "available memory: $maxmem MB"
+
+#-------------------------------
+# activate swap partition(s)
+#
+if [ -n "$part_swp" ]; then
+    for swdev in $part_swp; do
+        echo "activating swap partition: /dev/$swdev"
+        swapon /dev/$swdev
+    done
+fi
+#
+# get total swap size in MB
+#
+swpmem=$( (swapctl -lk; echo 'end') | while read dev size rest; do
+              if [[ "$dev" = 'end' ]]; then
+                  echo $((totsize/1024))
+              elif [[ "$dev" = 'Device' ]]; then
+                  :
+              else
+                  totsize=$((totsize+size))
+              fi
+          done ) 2> /dev/null
+[[ 0 < "$swpmem" ]] && echo "total swap size: ${swpmem}MB"
+
+#-------------------------------
+# prompt for mfs/tmpfs size
+#
 echo
-if [[ "$memfstype" = 'tmpfs' ]]; then
-    echo "Enter tmpfs size in MB. (0 is auto)"
-else
-    echo "Enter mfs size in MB."
-fi
-echo -n "[default: ${defmem}] -> "
-
-if [ X = X"$noask_umem" ]; then
-    read umem
-else
-    echo $noask_umem
+if [[ -n "$noask_umem" ]]; then  # non-interactive value specified
     umem="$noask_umem"
-    noask_umem=''
-fi
+    echo "${memfstype} size in MB -> $umem"
+    unset noask_umem
+else
+    if [[ "$memfstype" = 'tmpfs' ]]; then
+        defmem=0
+        echo "Enter tmpfs size in MB. (0 is auto)"
+    else
+        defmem=$((3*maxmem/4))
+        echo "Enter mfs size in MB."
+    fi
+    echo -n "[default: ${defmem}] -> "; read umem
 
-if [ X = X"$umem" ]; then
-    umem="$defmem"
+    if [[ -z "$umem" ]]; then
+        umem="$defmem"
+    fi
 fi
-
-# #-------------------------------
-# # check ram size
-# #
-# if [ $maxmem -lt $umem ]; then
-#     echo "set tmpfs size to maximum limit: ${maxmem}MB"
-#     umem=$maxmem
-# elif [ X"$umem" = X0 ]; then
-#     echo "tmpfs size will be automatically allocated"
-# else
-#     echo "set tmpfs size to ${umem}MB"
-# fi
 echo "set ${memfstype} size to ${umem}MB"
 
+#-------------------------------
+# create and mount memory-based file system
+#
 if [[ "$memfstype" = 'tmpfs' ]]; then
     /fuguita/sbin/mount_tmpfs -s ${umem}M -o wxallowed tmpfs /ram || exit
 else

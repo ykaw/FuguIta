@@ -449,13 +449,11 @@ while :; do
             echo '.'
         fi
 
-        cat <<EOT
-Note: K, M, and G can be used as the memory size suffix.
+        echo "Note: K, M, and G can be used as the memory size suffix.
       When omitted, M is assumed.
       In addition, % is a percentage of the memory size
       and %% is a percentage of the total memory and swap.
-
-EOT
+"
 
         echo -n "[default: ${defmem}M] -> "; read umem
         

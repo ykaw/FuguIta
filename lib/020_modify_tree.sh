@@ -50,6 +50,6 @@ EOT
 rm ./staging/tmp/*
 rm -f ./staging/root/.ksh_history
 
-mkdir ./staging/etc/fuguita
+mkdir -p ./staging/etc/fuguita
 cp -p ./lib/usbfadm.conf.$(uname -m) ./staging/etc/fuguita/usbfadm.conf
 cp -p ./lib/mode0symlinks.cpio.gz.$(uname -m) ./staging/etc/fuguita/mode0symlinks.cpio.gz

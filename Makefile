@@ -84,7 +84,11 @@ close-fuguita:
 	-vnconfig -u vnd2
 
 #========================================
-# contents syncing
+# setup system filetree
+
+stage:
+	./lib/010_extract.sh
+	./lib/020_modify_tree.sh
 
 sync:
 	-make close-all

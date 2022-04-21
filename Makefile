@@ -44,6 +44,10 @@ FI_FILENAME=$(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$(REVISION)
 VERSTAT=
 AUTHOR=Yoshihiro Kawamata <kaw@on.rim.or.jp>
 
+FIBUILD!=pwd
+KERNSRC=/usr/src/sys
+MAKEOPT=-j2
+
 all:
 	@echo /$(FI_FILENAME)/ - lets go
 
@@ -117,26 +121,38 @@ hyb:
 #========================================
 # stuffs on kernel generation
 
-boot: lib/cdbr lib/cdboot bsd bsd.mp
-	cp lib/cdbr lib/cdboot lib/boot media/.
+boot: lib/cdbr lib/cdboot media/bsd-fi media/bsd-fi.mp
+	cp /usr/mdec/cdbr /usr/mdec/cdboot /usr/mdec/boot media/.
 	[ -d media/etc ] || mkdir media/etc
 	cp lib/boot.conf media/etc/.
 
-kern:
-	(cd sys/arch/$(ARCH)/conf && config RDROOT)
-	(cd sys/arch/$(ARCH)/compile/RDROOT && make obj && make -j2)
-	(cd sys/arch/$(ARCH)/conf && config RDROOT.MP)
-	(cd sys/arch/$(ARCH)/compile/RDROOT.MP && make obj && make -j2)
+kernconfig:
+	(cd $(KERNSRC)/conf && \
+	 cp GENERIC RDROOT && \
+         patch < $(FIBUILD)/lib/RDROOT.diff)
+	(cd $(KERNSRC)/arch/$(ARCH)/conf && \
+	 cp GENERIC RDROOT && \
+         patch < $(FIBUILD)/lib/RDROOT.arch.diff && \
+	 cp GENERIC.MP RDROOT.MP && \
+         patch < $(FIBUILD)/lib/RDROOT.MP.arch.diff )
 
-bsd: rdroot.img sys/arch/$(ARCH)/compile/RDROOT/obj/bsd
-	cp sys/arch/$(ARCH)/compile/RDROOT/obj/bsd bsd
+kern:
+	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT && \
+         make obj && make config && make $(MAKEOPT))
+	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP && \
+         make obj && make config && make $(MAKEOPT))
+
+media/bsd-fi: rdroot.img $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
+	cp $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd bsd
 	rdsetroot bsd rdroot.img
 	gzip -c9 bsd > media/bsd-fi
+	-rm bsd
 
-bsd.mp: rdroot.img sys/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
-	cp sys/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd bsd.mp
+media/bsd-fi.mp: rdroot.img $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
+	cp $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd bsd.mp
 	rdsetroot bsd.mp rdroot.img
 	gzip -c9 bsd.mp > media/bsd-fi.mp
+	-rm bsd.mp
 
 #========================================
 # packaging controls

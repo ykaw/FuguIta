@@ -860,9 +860,20 @@ EOT
         cat <<EOT > /etc/motd
 OpenBSD ?.? (UNKNOWN)
 
-Welcome to FuguIta: OpenBSD-based Live System
+Welcome to FuguIta, the OpenBSD-based live system.
 
-Visit http://fuguita.org/ for more info.
+FuguIta aims to help popularize OpenBSD operating system by making it easier
+to get started with.
+
+For information on FuguIta's specific features and how to use them, please
+refer to the documentation on http://fuguita.org/.
+
+If you have any questions or suggestions for FuguIta, please send an email to
+me or post a message to fuguita.org's message board.
+Please feel free to contact me.
+
+Yoshihiro Kawamata
+kaw@on.rim.or.jp , http://fuguita.org/
 
 EOT
 

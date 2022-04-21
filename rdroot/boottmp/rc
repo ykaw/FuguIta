@@ -449,12 +449,11 @@ while :; do
             echo '.'
         fi
 
-        echo "Note: K, M, and G can be used as the memory size suffix.
-      When omitted, M is assumed.
-      In addition, % is a percentage of the memory size
-      and %% is a percentage of the total memory and swap.
-"
-
+        echo '  You can add suffix K, M, or G.'
+        echo '  % is a percentage of memory size.'
+        echo '  and %% is a percentage of the total memory and swap.'
+        echo '  otherwise considered "megabytes"'
+        echo
         echo -n "[default: ${defmem}M] -> "; read umem
         
         if [[ -z "$umem" ]]; then

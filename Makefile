@@ -136,9 +136,9 @@ kernconfig:
          patch < $(FIBUILD)/lib/RDROOT.diff)
 	(cd $(KERNSRC)/arch/$(ARCH)/conf && \
 	 cp GENERIC RDROOT && \
-         patch < $(FIBUILD)/lib/RDROOT.arch.diff && \
+         patch < $(FIBUILD)/lib/RDROOT.$(ARCH).diff && \
 	 cp GENERIC.MP RDROOT.MP && \
-         patch < $(FIBUILD)/lib/RDROOT.MP.arch.diff && \
+         patch < $(FIBUILD)/lib/RDROOT.MP.$(ARCH).diff && \
          config RDROOT && config RDROOT.MP )
 
 kern:

@@ -1,0 +1,25 @@
+--- RDROOT	Thu Apr 21 11:38:00 2022
++++ RDROOT.new	Thu Apr 21 11:42:08 2022
+@@ -10,7 +10,7 @@
+ # device.
+ 
+ machine		i386
+-include		"../../../conf/GENERIC"
++include		"../../../conf/RDROOT"
+ maxusers	80			# estimated number of users
+ 
+ option		USER_PCICONF	# user-space PCI configuration
+@@ -22,7 +22,12 @@
+ option		SUSPEND
+ option		HIBERNATE
+ 
+-config		bsd	swap generic
++config		bsd root on rd0a swap on wd0b and sd0b
++option		RAMDISK_HOOKS
++option		MINIROOTSIZE=3800
++option		NKPTP=5
++
++pseudo-device   rd              1 # ramdisk
+ 
+ mainbus0 at root
+ 

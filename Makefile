@@ -55,7 +55,7 @@ all:
 #========================================
 # vncofig stuffs
 
-close-all: close-fuguita close-media close-rdroot
+close-all: close-media close-rdroot
 
 open-rdroot:
 	@if mount | grep -q ' on $(FIBUILD)/rdroot'; \

@@ -55,33 +55,38 @@ all:
 #========================================
 # vncofig stuffs
 
-open-all: open-rdroot open-media open-fuguita
-
 close-all: close-fuguita close-media close-rdroot
 
 open-rdroot:
-	-vnconfig vnd0 rdroot.img
-	-mount /dev/vnd0a rdroot
+	@if mount | grep -q ' on $(FIBUILD)/rdroot'; \
+	then echo rdroot already opened;\
+	else vnconfig vnd0 rdroot.img ; mount /dev/vnd0a rdroot; fi
 
 close-rdroot:
-	-umount rdroot
-	-vnconfig -u vnd0
+	@if mount | grep -q ' on $(FIBUILD)/rdroot'; \
+	then umount rdroot; vnconfig -u vnd0; \
+	else echo rdroot already closed; fi
 
 open-media:
-	-vnconfig vnd1 media.img
-	-mount -o async,noatime /dev/vnd1a media
+	@if mount | grep -q ' on $(FIBUILD)/media'; \
+	then echo media already opened;\
+	else vnconfig vnd1 media.img ; mount -o async,noatime /dev/vnd1a media; fi
 
 close-media:
-	-umount media
-	-vnconfig -u vnd1
+	@if mount | grep -q ' on $(FIBUILD)/media'; \
+	then make close-fuguita; umount media; vnconfig -u vnd1; \
+	else echo media already closed; fi
 
 open-fuguita:
-	-vnconfig vnd2 media/fuguita-$(VERSION)-$(ARCH).ffsimg
-	-mount -o async,noatime /dev/vnd2a fuguita
+	make open-media
+	@if mount | grep -q ' on $(FIBUILD)/fuguita'; \
+	then echo fuguita already opened;\
+	else vnconfig vnd2 $(FIBUILD)/media/fuguita-$(VERSION)-$(ARCH).ffsimg ; mount -o async,noatime /dev/vnd2a fuguita; fi
 
 close-fuguita:
-	-umount fuguita
-	-vnconfig -u vnd2
+	@if mount | grep -q ' on $(FIBUILD)/fuguita'; \
+	then umount fuguita; vnconfig -u vnd2; \
+	else echo fuguita already closed; fi
 
 #========================================
 # setup system filetree
@@ -91,22 +96,21 @@ stage:
 	./lib/020_modify_tree.sh
 
 sync:
-	-make close-all
-	make open-media
+	make close-all
 	make open-fuguita
-	(cd staging && rsync -avxHS --delete . ../fuguita/.)
+	(cd staging && rsync --progress -avxHS --delete . ../fuguita/.)
 
 syncback:
-	-make close-all
-	make open-media
+	make close-all
 	make open-fuguita
-	(cd fuguita && rsync -avxHS --delete . ../staging/.)
+	(cd fuguita && rsync --progress -avxHS --delete . ../staging/.)
 
 #========================================
 # generate an ISO file
 
 hyb:
-	-make open-fuguita
+	make close-all
+	make open-fuguita
 	echo "$(VERSION)-$(ARCH)-$(DATE)$$(($(REVISION)+1))" > fuguita/usr/fuguita/version
 	make close-fuguita
 
@@ -125,7 +129,9 @@ hyb:
 #========================================
 # stuffs on kernel generation
 
-boot: lib/cdbr lib/cdboot media/bsd-fi media/bsd-fi.mp
+boot: /usr/mdec/cdbr /usr/mdec/cdboot /usr/mdec/boot media/bsd-fi media/bsd-fi.mp
+	make close-all
+	make open-media
 	cp /usr/mdec/cdbr /usr/mdec/cdboot /usr/mdec/boot media/.
 	[ -d media/etc ] || mkdir media/etc
 	cp lib/boot.conf media/etc/.
@@ -163,11 +169,11 @@ media/bsd-fi.mp: rdroot.img $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
 # packaging controls
 
 iso:
-	-make close-all
+	make close-all
 	make open-media
 	make boot
 	make hyb
-	-make close-all
+	make close-all
 
 test:
 	vmctl start -cL -i1 -m256M -r livecd.iso fitest

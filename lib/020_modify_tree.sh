@@ -51,5 +51,5 @@ rm ./staging/tmp/*
 rm -f ./staging/root/.ksh_history
 
 mkdir -p ./staging/etc/fuguita
-cp -p ./lib/usbfadm.conf.$(uname -m) ./staging/etc/fuguita/usbfadm.conf
+cp -p ./lib/global.conf.$(uname -m) ./staging/etc/fuguita/global.conf
 cp -p ./lib/mode0symlinks.cpio.gz.$(uname -m) ./staging/etc/fuguita/mode0symlinks.cpio.gz

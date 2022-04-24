@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.86 2022/04/20 15:05:29 kaw Exp $
+# $Id: usbfadm,v 1.87 2022/04/24 03:44:20 kaw Exp $
 #
 #========================================
 
@@ -856,7 +856,7 @@ fuguita_uefi_kb=512
 #
 # overwrite defaults
 #
-[ -r /etc/fuguita/usbfadm.conf ] && . /etc/fuguita/usbfadm.conf
+[ -r /etc/fuguita/global.conf ] && . /etc/fuguita/global.conf
 
 # command line arguments
 #

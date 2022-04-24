@@ -400,6 +400,13 @@ elif [ -d /fuguita/ISO ]; then
 fi
 
 #-------------------------------
+# read global system configurations
+#
+if [[ -r /fuguita/etc/fuguita/global.conf ]]; then
+    . /fuguita/etc/fuguita/global.conf  # for $mfs_max_mb
+fi
+
+#-------------------------------
 # get ram size in MB
 #
 maxmem=$(($(sysctl -n hw.physmem)/1024/1024))
@@ -446,6 +453,9 @@ while :; do
             echo ' (0M is auto).'
         else
             defmem=$(parsesize '75%' $maxmem $swpmem)
+            if [[ -n "$mfs_max_mb" && "$mfs_max_mb" < "$defmem" ]]; then
+                defmem="$mfs_max_mb"
+            fi
             echo '.'
         fi
 

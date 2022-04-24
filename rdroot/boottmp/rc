@@ -43,7 +43,6 @@
 init_args="$@"
 osrel=`sysctl -n kern.osrelease`
 osmac=`sysctl -n hw.machine`
-memfstype='mfs'  # 'mfs' or 'tmpfs'
 
 #-------------------------------
 # make a list of all partitions
@@ -437,6 +436,8 @@ swpmem=$( (swapctl -lk; echo 'end') | while read dev size rest
 #-------------------------------
 # prompt for mfs/tmpfs size
 #
+memfstype=${memfstype:-mfs}  # when global.conf unread
+
 while :; do
     echo "available memory: ${maxmem}M"
     [[ 0 < "$swpmem" ]] && echo "total swap size: ${swpmem}M"

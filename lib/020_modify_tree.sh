@@ -52,4 +52,4 @@ rm -f ./staging/root/.ksh_history
 
 mkdir -p ./staging/etc/fuguita
 cp -p ./lib/global.conf.$(uname -m) ./staging/etc/fuguita/global.conf
-cp -p ./lib/mode0symlinks.cpio.gz.$(uname -m) ./staging/etc/fuguita/mode0symlinks.cpio.gz
+cp -p ./lib/mode0symlinks.cpio.gz.$(uname -m) ./staging/etc/fuguita/mode0symlinks.cpio.gz || true

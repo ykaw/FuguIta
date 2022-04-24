@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.87 2022/04/24 03:44:20 kaw Exp $
+# $Id: usbfadm,v 1.88 2022/04/24 05:17:37 kaw Exp $
 #
 #========================================
 
@@ -800,8 +800,6 @@ function clear_vn {
     osrel=`sysctl -n kern.osrelease`
     hwmac=`sysctl -n hw.machine`
   verarch=${osrel}/${hwmac}
-memfstype='mfs'  # 'mfs' or 'tmpfs'
-
 
 #-------------------
 # environment check
@@ -853,10 +851,15 @@ trap 'echo ${0##*/}: interrupted. >&2; clear_exit 1' INT
  fuguita_sys_mb=1024
 fuguita_uefi_kb=512
      enc_ppfile='/tmp/usbfadm_pp'
+      memfstype='mfs'  # mfs or tmpfs
+
 #
 # overwrite defaults
 #
-[ -r /etc/fuguita/global.conf ] && . /etc/fuguita/global.conf
+if [[ -r /etc/fuguita/global.conf ]]; then
+    . /etc/fuguita/global.conf
+fi
+
 
 # command line arguments
 #

@@ -1,2 +1,2 @@
-fuguita_sys_mb=1040    # size of media.img
+fuguita_sys_mb=1033    # size of media.img
 memfstype=mfs          # 'mfs' or 'tmpfs'

@@ -98,12 +98,12 @@ stage:
 sync:
 	make close-all
 	make open-fuguita
-	(cd staging && rsync --progress -avxHS --delete . ../fuguita/.)
+	(cd staging && rsync --progress -avxH --delete . ../fuguita/.)
 
 syncback:
 	make close-all
 	make open-fuguita
-	(cd fuguita && rsync --progress -avxHS --delete . ../staging/.)
+	(cd fuguita && rsync --progress -avxH --delete . ../staging/.)
 
 #========================================
 # generate an ISO file

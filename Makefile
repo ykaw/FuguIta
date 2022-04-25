@@ -190,4 +190,3 @@ gz:
 
 reset:
 	rm -f bsd bsd.mp livecd.iso liveusb.img FuguIta-?.?-*-*.iso.gz FuguIta-?.?-*-*.img.gz
-	> revcount_cdmaster

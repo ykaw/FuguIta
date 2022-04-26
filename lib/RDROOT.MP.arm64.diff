@@ -1,0 +1,10 @@
+--- RDROOT.MP	Wed Apr 27 06:58:50 2022
++++ RDROOT.MP.new	Wed Apr 27 06:58:25 2022
+@@ -1,6 +1,6 @@
+ #	$OpenBSD: GENERIC.MP,v 1.5 2018/07/01 21:05:07 kettenis Exp $
+ 
+-include "arch/arm64/conf/GENERIC"
++include "arch/arm64/conf/RDROOT"
+ 
+ option	MULTIPROCESSOR
+ #option	MP_LOCKDEBUG

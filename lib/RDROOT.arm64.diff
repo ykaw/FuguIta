@@ -1,0 +1,25 @@
+--- RDROOT	Wed Apr 27 06:54:11 2022
++++ RDROOT.new	Wed Apr 27 06:53:14 2022
+@@ -19,7 +19,7 @@
+ # device.
+ 
+ machine		arm64
+-include		"../../../conf/GENERIC"
++include		"../../../conf/RDROOT"
+ maxusers	80
+ 
+ option		PCIVERBOSE
+@@ -29,7 +29,12 @@
+ makeoptions	KERNEL_BASE_PHYS="0x00200000"
+ makeoptions	KERNEL_BASE_VIRT="0xffffff8000200000"
+ 
+-config		bsd	swap generic
++config		bsd root on rd0a swap on rd0b
++option		RAMDISK_HOOKS
++option		MINIROOTSIZE=3800
++option		NKPTP=6
++
++pseudo-device   rd              1 # ramdisk
+ 
+ # The main bus device
+ mainbus0	at root

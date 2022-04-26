@@ -446,7 +446,12 @@ while :; do
     if [[ -n "$noask_umem" ]]; then  # non-interactive value specified
         umem="$noask_umem"
         echo "${memfstype} size -> $umem"
-        unset noask_umem
+        unset noask_umem  # make unset for next loop
+
+        umem=$(parsesize "$umem" $maxmem $swpmem)
+        if [[ -n "$mfs_max_mb" && "$mfs_max_mb" < "$umem" ]]; then
+            umem="$mfs_max_mb"
+        fi
     else  # manual setup
         echo -n "Enter ${memfstype} size"
         if [[ "$memfstype" = 'tmpfs' ]]; then
@@ -470,9 +475,9 @@ while :; do
         if [[ -z "$umem" ]]; then
             umem="$defmem"
         fi
-    fi
 
-    umem=$(parsesize $umem $maxmem $swpmem)
+        umem=$(parsesize $umem $maxmem $swpmem)
+    fi
 
     if [[ -n "$umem" ]]; then
         echo "set ${memfstype} size to ${umem}MB"

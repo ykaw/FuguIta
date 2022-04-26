@@ -147,6 +147,11 @@ kernconfig:
          patch < $(FIBUILD)/lib/RDROOT.MP.$(ARCH).diff && \
          config RDROOT && config RDROOT.MP )
 
+kernclean:
+	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT && \
+         make obj && make clean)
+	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP && \
+         make obj && make clean)
 kern:
 	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT && \
          make obj && make config && make $(MAKEOPT))

@@ -129,10 +129,12 @@ hyb:
 #========================================
 # stuffs on kernel generation
 
-boot: /usr/mdec/cdbr /usr/mdec/cdboot /usr/mdec/boot media/bsd-fi media/bsd-fi.mp
+boot: media/bsd-fi media/bsd-fi.mp
 	make close-all
 	make open-media
-	cp /usr/mdec/cdbr /usr/mdec/cdboot /usr/mdec/boot media/.
+	cp /usr/mdec/cdbr media/.   || touch media/cdbr
+	cp /usr/mdec/cdboot media/. || touch media/cdboot
+	cp /usr/mdec/boot media/.   || touch media/boot
 	[ -d media/etc ] || mkdir media/etc
 	cp lib/boot.conf media/etc/.
 

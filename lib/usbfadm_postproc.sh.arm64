@@ -9,7 +9,7 @@ if [ "$instsys" = UEFI ]; then
 fi
 
 
-#  set source device of 'fuguita.templ' and 'fuguita.default'
+#  set source device of 'fuguita-templ' and 'fuguita-default'
 #
 srcdev=$(mount | sed -e '/\/sysmedia/!d; s/^\/dev\/\([^ ]*\). .*/\1/')  # currently
 srcboot=${srcdev}i  # source of U-BOOT stuffs                          mounted
@@ -27,20 +27,20 @@ else
     if mount -o softdep,noatime /dev/${scandev}d /mnt; then
         if mount -r /dev/${srcpart} /altroot; then
             if [ -d /mnt/livecd-config -a \
-                 -d /altroot/livecd-config/${verarch}/fuguita.templ ]; then
-                (if cd /altroot/livecd-config/${verarch}/fuguita.templ; then
-                     echo "fuguita.templ:"
-                     mkdir -p /mnt/livecd-config/${verarch}/fuguita.templ
-                     copydirs . /mnt/livecd-config/${verarch}/fuguita.templ
-                     chflags -R uchg /mnt/livecd-config/${verarch}/fuguita.templ
+                 -d /altroot/livecd-config/${verarch}/fuguita-templ ]; then
+                (if cd /altroot/livecd-config/${verarch}/fuguita-templ; then
+                     echo "fuguita-templ:"
+                     mkdir -p /mnt/livecd-config/${verarch}/fuguita-templ
+                     copydirs . /mnt/livecd-config/${verarch}/fuguita-templ
+                     chflags -R uchg /mnt/livecd-config/${verarch}/fuguita-templ
 
-                     echo "fuguita.default:"
-                     mkdir -p /mnt/livecd-config/${verarch}/fuguita.default
-                     copydirs . /mnt/livecd-config/${verarch}/fuguita.default
+                     echo "fuguita-default:"
+                     mkdir -p /mnt/livecd-config/${verarch}/fuguita-default
+                     copydirs . /mnt/livecd-config/${verarch}/fuguita-default
                  fi)
             else
                 echo "Directory don't exist:"
-                ls -ld /mnt/livecd-config /altroot/livecd-config/${verarch}/fuguita.templ
+                ls -ld /mnt/livecd-config /altroot/livecd-config/${verarch}/fuguita-templ
             fi
             echo 'noasks:'
             cat <<EOT >/mnt/livecd-config/${verarch}/noasks
@@ -55,7 +55,7 @@ else
 noask_rdev=sd0a
 #
 # tmpfs size in MB
-noask_umem=0
+noask_umem=75%
 #
 # boot mode
 noask_setup_rw_mode=3
@@ -64,7 +64,7 @@ noask_setup_rw_mode=3
 noask_confdev=sd0d
 #
 # data set name in USB flash drive
-noask_confdir=fuguita.default
+noask_confdir=fuguita-default
 EOT
             echo done
             umount /altroot

@@ -441,7 +441,7 @@ memfstype=${memfstype:-mfs}  # when global.conf unread
 
 while :; do
     echo "available memory: ${maxmem}M"
-    [[ 0 -gt "$swpmem" ]] && echo "total swap size: ${swpmem}M"
+    [[ 0 -lt "$swpmem" ]] && echo "total swap size: ${swpmem}M"
     echo
 
     if [[ -n "$noask_umem" ]]; then  # non-interactive value specified
@@ -450,7 +450,7 @@ while :; do
         unset noask_umem  # make unset for next loop
 
         umem=$(parsesize "$umem" $maxmem $swpmem)
-        if [[ -n "$mfs_max_mb" && "$mfs_max_mb" -gt "$umem" ]]; then
+        if [[ -n "$mfs_max_mb" && "$mfs_max_mb" -lt "$umem" ]]; then
             umem="$mfs_max_mb"
         fi
     else  # manual setup
@@ -460,7 +460,7 @@ while :; do
             echo ' (0M is auto).'
         else
             defmem=$(parsesize '75%' $maxmem $swpmem)
-            if [[ -n "$mfs_max_mb" && "$mfs_max_mb" -gt "$defmem" ]]; then
+            if [[ -n "$mfs_max_mb" && "$mfs_max_mb" -lt "$defmem" ]]; then
                 defmem="$mfs_max_mb"
             fi
             echo '.'

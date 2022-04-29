@@ -250,6 +250,22 @@ mkshadowdir() {
 }
 
 
+#-------------------------------
+# return lesser value from two positive integer
+#    returns null string when error occurred
+#
+min () {
+    [[ -z "$1" ]] && return
+    [[ -z "$2" ]] && return
+
+    if [[ "$1" -lt "$2" ]]; then
+        echo "$1"
+    else
+        echo "$2"
+    fi
+}
+
+
 #====================
 # Active code from here
 #====================
@@ -437,7 +453,7 @@ swpmem=$( (swapctl -lk; echo 'end') | while read dev size rest
 #-------------------------------
 # prompt for mfs/tmpfs size
 #
-memfstype=${memfstype:-mfs}  # when global.conf unread
+memfstype=${memfstype:-mfs}  # unless global.conf loaded
 
 while :; do
     echo "available memory: ${maxmem}M"
@@ -449,20 +465,14 @@ while :; do
         echo "${memfstype} size -> $umem"
         unset noask_umem  # make unset for next loop
 
-        umem=$(parsesize "$umem" $maxmem $swpmem)
-        if [[ -n "$mfs_max_mb" && "$mfs_max_mb" -lt "$umem" ]]; then
-            umem="$mfs_max_mb"
-        fi
+        umem=$(min "$mfs_max_mb" $(parsesize "$umem" $maxmem $swpmem))
     else  # manual setup
         echo -n "Enter ${memfstype} size"
         if [[ "$memfstype" = 'tmpfs' ]]; then
             defmem=0
             echo ' (0M is auto).'
         else
-            defmem=$(parsesize '75%' $maxmem $swpmem)
-            if [[ -n "$mfs_max_mb" && "$mfs_max_mb" -lt "$defmem" ]]; then
-                defmem="$mfs_max_mb"
-            fi
+            defmem=$(min "$mfs_max_mb" $(parsesize '75%' $maxmem $swpmem))
             echo '.'
         fi
 
@@ -477,7 +487,7 @@ while :; do
             umem="$defmem"
         fi
 
-        umem=$(parsesize $umem $maxmem $swpmem)
+        umem=$(min "$mfs_max_mb" $(parsesize "$umem" $maxmem $swpmem))
     fi
 
     if [[ -n "$umem" ]]; then

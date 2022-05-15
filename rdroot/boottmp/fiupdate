@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.17 2022/01/03 08:22:13 kaw Exp $
+# $Id: fiupdate,v 1.18 2022/05/15 14:06:38 kaw Exp $
 #
 #========================================
 
@@ -296,11 +296,16 @@ setup_iso_content () {
 setup_rampath () {
     mkdir -p /ram/fiupdate.bin
     cp -p /bin/{cat,echo,mv,rm,rmdir,sync} \
-          /sbin/{reboot,shutdown} \
           /usr/local/bin/pv \
        /ram/fiupdate.bin/.
-    ln /ram/fiupdate.bin/reboot /ram/fiupdate.bin/halt
-    PATH=/ram/fiupdate.bin:/boottmp:$PATH
+
+    # copy only reboot to /boottmp on rd(4) fs
+    # not to corrupt the executable at reboot time
+    #
+    cp -p /sbin/reboot /boottmp/.
+    ln /boottmp/reboot /boottmp/halt
+
+    PATH=/boottmp:/ram/fiupdate.bin:$PATH
     export PATH
 }
 
@@ -721,4 +726,4 @@ fi
 #
 sync; sync; sync; sleep 5
 echo2 "now rebooting..."
-reboot
+/boottmp/reboot

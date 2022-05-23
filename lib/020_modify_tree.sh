@@ -36,7 +36,7 @@
 # 020_extract.sh - modify OpenBSD's file tree for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 020_modify_tree.sh,v 1.5 2022/05/23 17:09:39 kaw Exp $
+# $Id: 020_modify_tree.sh,v 1.6 2022/05/23 23:42:58 kaw Exp $
 #
 #========================================
 
@@ -56,7 +56,7 @@ fi
 rm -f  ./staging/usr/share/relink/kernel.tgz
 rm -rf ./staging/usr/share/relink/kernel
 
-# disable inappropriate commans
+# disable inappropriate commands
 #
 mv ./staging/usr/sbin/sysupgrade{,.orig}
 mv ./staging/usr/sbin/syspatch{,.orig}
@@ -69,7 +69,8 @@ cat <<EOT > ./staging/usr/sbin/syspatch
 echo Sorry, \${0##*/} does not work correctly on FuguIta.
 echo Please use fiupdate utility to apply patch.
 EOT
-chmod +x ./staging/usr/sbin/{sysupgrade,syspatch}
+chown root:bin ./staging/usr/sbin/{sysupgrade,syspatch}
+chmod 0555 ./staging/usr/sbin/{sysupgrade,syspatch}
 
 # fix dangling symlinks
 #

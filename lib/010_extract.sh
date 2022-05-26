@@ -36,7 +36,7 @@
 # 010_extract.sh - Extract OpenBSD's install set to staging directory
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 010_extract.sh,v 1.2 2022/05/23 17:09:39 kaw Exp $
+# $Id: 010_extract.sh,v 1.3 2022/05/26 03:35:44 kaw Exp $
 #
 #========================================
 
@@ -46,17 +46,21 @@ set -x
 ver=$(uname -r)
 shortver=$(echo $ver|tr -dc 0-9)
 
-rm -rf staging
-mkdir staging
+if [ -d staging ]; then
+    rnd=${RANDOM}_${RANDOM}
+    mv staging staging.$rnd
+    rm -rf staging.$rnd &
+fi
 
+mkdir staging
 cd staging
-tar xzpf ../install_sets/base${shortver}.tgz
-tar xzpf ../install_sets/comp${shortver}.tgz
-tar xzpf ../install_sets/game${shortver}.tgz
-tar xzpf ../install_sets/man${shortver}.tgz
-tar xzpf ../install_sets/xbase${shortver}.tgz
-tar xzpf ../install_sets/xfont${shortver}.tgz
-tar xzpf ../install_sets/xserv${shortver}.tgz
-tar xzpf ../install_sets/xshare${shortver}.tgz
-tar xzpf ./var/sysmerge/etc.tgz
-tar xzpf ./var/sysmerge/xetc.tgz
+pv ../install_sets/base${shortver}.tgz   | tar xzpf -
+pv ../install_sets/comp${shortver}.tgz   | tar xzpf -
+pv ../install_sets/game${shortver}.tgz   | tar xzpf -
+pv ../install_sets/man${shortver}.tgz    | tar xzpf -
+pv ../install_sets/xbase${shortver}.tgz  | tar xzpf -
+pv ../install_sets/xfont${shortver}.tgz  | tar xzpf -
+pv ../install_sets/xserv${shortver}.tgz  | tar xzpf -
+pv ../install_sets/xshare${shortver}.tgz | tar xzpf -
+pv ./var/sysmerge/etc.tgz | tar xzpf -
+pv ./var/sysmerge/xetc.tgz | tar xzpf -

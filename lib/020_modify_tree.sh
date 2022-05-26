@@ -36,7 +36,7 @@
 # 020_extract.sh - modify OpenBSD's file tree for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 020_modify_tree.sh,v 1.6 2022/05/23 23:42:58 kaw Exp $
+# $Id: 020_modify_tree.sh,v 1.7 2022/05/26 03:36:32 kaw Exp $
 #
 #========================================
 
@@ -45,7 +45,7 @@ set -x
 
 # apply all issued patches except in kernel
 #
-if [[ -d ./install_patches ]]; then
+if [[ -d ./install_patches && -n "$(ls -A ./install_patches)" ]]; then
     for patch in ./install_patches/binupdate-$(uname -r)-$(uname -m)-*.tgz; do
         tar -C ./staging -xvzpf $patch
     done

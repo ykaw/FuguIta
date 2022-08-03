@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.18 2022/04/20 14:38:05 kaw Exp $
+# $Id: gennetconfs,v 1.19 2022/08/03 03:38:33 kaw Exp $
 #==================================================
 
 # Copyright (c) 2006--2022
@@ -178,7 +178,7 @@ setaddr_4 () {
 
     # set default gateway
     #
-    if [[ -n "$gw" && "$gw" != '[Nn][Oo]*' ]]; then
+    if [[ -n "$gw" && "$gw" = [1-9]*.[1-9]*.[1-9]*.[1-9]* ]]; then
         addvar etc_mygate "$gw"
     fi
 }
@@ -257,7 +257,7 @@ setaddr_6 () {
     # dispose the test device
     ifconfig $testif destroy >/dev/null 2>&1
 
-    if [[ -n "$gw" && "$gw" != '[Nn][Oo]*' ]]; then
+    if [[ -n "$gw" && "$gw" = [:0-9A-Fa-f]*[:0-9A-Fa-f] ]]; then
         addvar etc_mygate "$gw"
     fi
 }

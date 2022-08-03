@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.19 2022/05/23 17:09:39 kaw Exp $
+# $Id: fiupdate,v 1.20 2022/08/03 03:37:06 kaw Exp $
 #
 #========================================
 
@@ -567,8 +567,7 @@ else
 fi
 cat <<EOT
 
-Note: This software is currently in beta testing.
-      Use this at YOUR OWN RISK.
+Note: Use this software at YOUR OWN RISK.
 
       We recommend that you run this command in fresh boot (boot mode
       0, 1, or 2).

@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.88 2022/04/24 05:17:37 kaw Exp $
+# $Id: usbfadm,v 1.89 2022/08/11 05:26:08 kaw Exp $
 #
 #========================================
 
@@ -718,8 +718,12 @@ function setup_fs {
             # adjust inode density for little space
             # because too many symlinks when booted mode 0
             newfs -O 1 -m 0 -o space -i1024 -b4096 -f512 ${datdev}d
-        else
+        elif [ $ps_fidat -lt `byte2sect 4G` ]; then
             newfs -O 2 -m 0 -o space ${datdev}d
+        elif [ $ps_fidat -lt `byte2sect 8G` ]; then
+            newfs -O 2 -m 0 ${datdev}d
+        else
+            newfs -O 2 -m 0 -o time ${datdev}d
         fi
 
         sys_duid=$(dev2duid $scandev)
@@ -1653,8 +1657,12 @@ EOT
                     # adjust inode density for little space
                     # because too many symlinks when booted mode 0
                     newfs -O 1 -m 0 -o space -i1024 -b4096 -f512 /dev/r${expdev}${exppar}
-                else
+                elif [ $expsect -lt `byte2sect 4G` ]; then
                     newfs -O 2 -m 0 -o space /dev/r${expdev}${exppar}
+                elif [ $expsect -lt `byte2sect 8G` ]; then
+                    newfs -O 2 -m 0 /dev/r${expdev}${exppar}
+                else
+                    newfs -O 2 -m 0 -o time /dev/r${expdev}${exppar}
                 fi
 
                 fsck -fy /dev/r${expdev}${exppar}

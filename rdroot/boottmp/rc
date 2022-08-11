@@ -316,7 +316,7 @@ echo '
 =             /___/
 =
 =  Welcome to FuguIta  -  OpenBSD-based Live System
-=                               http://fuguita.org/
+=                              https://fuguita.org/
 ===================================================
 '
 
@@ -893,14 +893,14 @@ FuguIta aims to help popularize OpenBSD operating system by making it easier
 to get started with.
 
 For information on FuguIta's specific features and how to use them, please
-refer to the documentation on http://fuguita.org/.
+refer to the documentation on https://fuguita.org/.
 
 If you have any questions or suggestions for FuguIta, please send an email to
 me or post a message to fuguita.org's message board.
 Please feel free to contact me.
 
 Yoshihiro Kawamata
-kaw@on.rim.or.jp , http://fuguita.org/
+kaw@on.rim.or.jp , https://fuguita.org/
 
 EOT
 

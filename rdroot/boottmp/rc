@@ -877,8 +877,11 @@ usbfadm_r () {
       done )
 }
 
-# To re-sync on shutdown. uncomment the following line.
+# To re-sync on shutdown, uncomment the following line.
 #usbfadm_r
+
+# To avoid reboot/halt abortion, uncomment the following line.
+#/boottmp/umount -f /ram
 EOT
 
         # mtree

@@ -505,7 +505,9 @@ done
 if [[ "$memfstype" = 'tmpfs' ]]; then
     /fuguita/sbin/mount_tmpfs -s ${umem}M -o wxallowed tmpfs /ram || exit
 else
-    /fuguita/sbin/mount_mfs -s $((2*1024*umem)) -o wxallowed swap /ram || exit
+    # mount_mfs exists on in-kernel FS
+    # to be able to umount /fuguita at boot mode 2
+    /boottmp/mount_mfs -s $((2*1024*umem)) -o wxallowed swap /ram || exit
 fi
 
 #-------------------------------

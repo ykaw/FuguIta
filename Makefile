@@ -45,7 +45,7 @@ VERSTAT=
 AUTHOR=Yoshihiro Kawamata <kaw@on.rim.or.jp>
 
 FIBUILD!=pwd
-KERNSRC=/usr/src/sys
+KERNSRC=$(FIBUILD)/sys
 MAKEOPT=-j2
 
 all:
@@ -53,38 +53,38 @@ all:
 
 
 #========================================
-# vncofig stuffs
+# vnconfig related stuffs
 
 close-all: close-media close-rdroot
 
 open-rdroot:
-	@if mount | grep -q ' on $(FIBUILD)/rdroot'; \
+	@if mount | grep -q '$(FIBUILD)/rdroot type '; \
 	then echo rdroot already opened;\
 	else vnconfig vnd0 rdroot.img ; mount /dev/vnd0a rdroot; fi
 
 close-rdroot:
-	@if mount | grep -q ' on $(FIBUILD)/rdroot'; \
+	@if mount | grep -q '$(FIBUILD)/rdroot type '; \
 	then umount rdroot; vnconfig -u vnd0; \
 	else echo rdroot already closed; fi
 
 open-media:
-	@if mount | grep -q ' on $(FIBUILD)/media'; \
+	@if mount | grep -q '$(FIBUILD)/media type '; \
 	then echo media already opened;\
 	else vnconfig vnd1 media.img ; mount -o async,noatime /dev/vnd1a media; fi
 
 close-media:
-	@if mount | grep -q ' on $(FIBUILD)/media'; \
+	@if mount | grep -q '$(FIBUILD)/media type '; \
 	then make close-fuguita; umount media; vnconfig -u vnd1; \
 	else echo media already closed; fi
 
 open-fuguita:
 	make open-media
-	@if mount | grep -q ' on $(FIBUILD)/fuguita'; \
+	@if mount | grep -q '$(FIBUILD)/fuguita type '; \
 	then echo fuguita already opened;\
 	else vnconfig vnd2 $(FIBUILD)/media/fuguita-$(VERSION)-$(ARCH).ffsimg ; mount -o async,noatime /dev/vnd2a fuguita; fi
 
 close-fuguita:
-	@if mount | grep -q ' on $(FIBUILD)/fuguita'; \
+	@if mount | grep -q '$(FIBUILD)/fuguita type '; \
 	then umount fuguita; vnconfig -u vnd2; \
 	else echo fuguita already closed; fi
 
@@ -182,18 +182,8 @@ iso:
 	make hyb
 	make close-all
 
-test:
-	vmctl start -cL -i1 -m256M -r livecd.iso fitest
-
-createimg:
-	dd if=/dev/zero of=liveusb.img bs=1 count=0 seek=2G
-
-testwithimg:
-	vmctl start -cL -i1 -m256M -r livecd.iso -d liveusb.img fitest
-
 gz:
 	pv livecd.iso | gzip -9f -o $(FI_FILENAME)$(VERSTAT).iso.gz
-	-[ -f liveusb.img ] && pv liveusb.img | gzip -9f -o $(FI_FILENAME)$(VERSTAT).img.gz
 
 reset:
 	rm -f bsd bsd.mp livecd.iso liveusb.img FuguIta-?.?-*-*.iso.gz FuguIta-?.?-*-*.img.gz

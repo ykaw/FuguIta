@@ -106,22 +106,6 @@ scan_disks () {
                             part_noask=${part_noask:+"$part_noask "}${part}:/livecd-config/${osrel}/${osmac}/noasks
                         fi
                     fi
-
-                    #=====================================================
-                    # /mnt/noasks is obsolete but leaved for compatibility
-                    # this if block will be removed in a future plan
-                    #=====================================================
-                    if [ -r /mnt/noasks ]; then
-                        # set local parameters to null
-                        local noask_rdev noask_umem noask_setup_rw_mode noask_confdev noask_confdir  # define local parameters
-                        unset noask_rdev noask_umem noask_setup_rw_mode noask_confdev noask_confdir  # after unset, they become global
-                        local noask_rdev noask_umem noask_setup_rw_mode noask_confdev noask_confdir  # so redefine them as local
-                        . /mnt/noasks
-                        if [ "X${noask_rdev}${noask_umem}${noask_setup_rw_mode}${noask_confdev}${noask_confdir}" != X ]; then
-                            # any of noask parameters is set
-                            part_noask=${part_noask:+"$part_noask "}${part}:/noasks
-                        fi
-                    fi
                     umount /dev/$part
                 fi
                 ;;

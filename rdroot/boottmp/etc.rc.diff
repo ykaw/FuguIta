@@ -1,6 +1,6 @@
---- rc	Tue Apr 19 09:55:48 2022
-+++ rc.new	Tue Apr 19 10:04:53 2022
-@@ -177,9 +177,17 @@
+--- rc.orig	Sat Oct 22 02:14:30 2022
++++ rc	Sat Oct 22 21:41:42 2022
+@@ -182,9 +182,17 @@
  	# filesystems, otherwise record which ones are mounted read-only.
  	for _dkdev in $(df /usr/{lib,libexec} $_relink |
  	    sed '1d;s/ .*//' | sort -u); do
@@ -20,7 +20,7 @@
  		fi
  	done
  
-@@ -384,8 +392,9 @@
+@@ -389,8 +397,9 @@
  # Re-mount the root filesystem read/writeable. (root on nfs requires this,
  # others aren't hurt.)
  mount -uw /
@@ -32,7 +32,7 @@
  
  rm -f /fastboot
  
-@@ -632,7 +641,9 @@
+@@ -627,7 +636,9 @@
  
  # Re-link the kernel, placing the objects in a random order.
  # Replace current with relinked kernel and inform root about it.

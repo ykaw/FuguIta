@@ -1,5 +1,5 @@
---- special	Wed Apr  6 11:43:49 2022
-+++ special.fuguita	Wed Apr 13 03:32:18 2022
+--- special.orig	Sat Oct 22 02:14:34 2022
++++ special	Sat Oct 22 22:00:34 2022
 @@ -12,6 +12,8 @@
  mem		type=char mode=0640 uname=root gname=kmem
  ..	#dev

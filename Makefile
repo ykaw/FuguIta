@@ -161,12 +161,16 @@ kern:
          make obj && make config && make $(MAKEOPT))
 
 media/bsd-fi: rdroot.img $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
+	make close-all
+	make open-media
 	cp $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd bsd
 	rdsetroot bsd rdroot.img
 	gzip -c9 bsd > media/bsd-fi
 	-rm bsd
 
 media/bsd-fi.mp: rdroot.img $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
+	make close-all
+	make open-media
 	cp $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd bsd.mp
 	rdsetroot bsd.mp rdroot.img
 	gzip -c9 bsd.mp > media/bsd-fi.mp

@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.22 2022/02/20 05:45:09 kaw Exp $
+# $Id: dtjsetup,v 1.23 2022/10/24 01:59:37 kaw Exp $
 #
 #========================================
 
@@ -375,7 +375,7 @@ if [ $(ask_yn "Will you setup Japanese language environment?" n) = 1 ]; then
         im=$(ask_which "Which input method will you install?" "fcitx-anthy" "fcitx-anthy" "uim-gtk" "ibus-skk" "scim-anthy")
         case "$im" in
             "") ;;
-            fcitx-anthy) pkgs="$pkgs $im fcitx-gtk3";  break;;
+            fcitx-anthy) pkgs="$pkgs $im fcitx-gtk";  break;;
             ibus-skk)    pkgs="$pkgs $im ibus";  break;;
             *) pkgs="$pkgs $im";  break;;
         esac
@@ -501,7 +501,7 @@ if [ "$ja_env" = YES ]; then
         fcitx-anthy)
             xmod="fcitx"
             im_mod="fcitx"
-            im_daemon="fcitx-autostart"
+            im_daemon="fcitx5 &"
             ;;
         ibus-skk)
             xmod="ibus"
@@ -560,13 +560,20 @@ if [ \$? -ne 0 ]; then
 fi
 EOF
 
+# write generated .xsession to /etc/skel
+#
 echo
 if [ $(ask_yn 'Copy this .xsession file to /etc/skel ?' n) -eq 1 ]; then
     check_rootcmd
     _rootcmd cp $HOME/.xsession /etc/skel/.
 fi
 
+# Japanese Specific Setups
+#
 if [ "$ja_env" = YES ]; then
+
+    # set timezone unless already set
+    #
     ls -l /etc/localtime | egrep -q 'zoneinfo/(Japan|Asia/Tokyo)'
     if [ $? -eq 1 ]; then
         echo
@@ -577,6 +584,8 @@ if [ "$ja_env" = YES ]; then
            _rootcmd ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
         fi
 
+        # set localtime offset of kernel clock if wanted
+        #
         echo
         msg When you use this machine both running OpenBSD and Windows.
         msg You can set the hardware clock to JST instead of UTC.
@@ -585,6 +594,18 @@ if [ "$ja_env" = YES ]; then
             _rootcmd echo 'kern.utc_offset=540' '>>' '/etc/fuguita/netconfs/templ.head/sysctl.conf'
             _rootcmd chnetconf -d
             msg This will take effect on the next boot.
+        fi
+    fi
+
+    # Workaround:
+    #   Japanese glyphs are not displayed by IceWm's default.
+    #   Settings suitable for Japanese will be written in personal preferences.
+    #
+    if [[ "$wm" = "icewm" && -f /usr/local/share/icewm/preferences ]]; then
+        mkdir -p $HOME/.icewm
+        if ! grep -qi 'font.*sans' $HOME/.icewm/preferences 2>/dev/null; then
+            grep -i dejavu /usr/local/share/icewm/preferences \
+                | sed -e 's/^# *//; s/[Dd]eja[Vv]u //' >> $HOME/.icewm/preferences
         fi
     fi
 fi

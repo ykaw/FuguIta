@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.89 2022/08/11 05:26:08 kaw Exp $
+# $Id: usbfadm,v 1.90 2022/10/25 13:52:40 kaw Exp $
 #
 #========================================
 
@@ -1261,7 +1261,7 @@ while :; do
             continue
         fi
 
-        if [ `fdisk $newdev | grep -c ' unused      $'` != 4 ]; then
+        if [ `fdisk $newdev | grep -c ' unused$'` != 4 ]; then
             echo
             echo 'This disk seems to have been partitioned already.'
             if [ `ask_yn "Continue anyway?" n` -lt 1 ]; then

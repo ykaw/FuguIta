@@ -39,7 +39,6 @@ ARCH    !=uname -m
 DATE    !=date +%Y%m%d
 REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
 
-FI_FILENAME=$(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$(REVISION)
 #VERSTAT=beta
 VERSTAT=
 AUTHOR=Yoshihiro Kawamata <kaw@on.rim.or.jp>
@@ -49,7 +48,7 @@ KERNSRC=$(FIBUILD)/sys
 MAKEOPT=-j2
 
 all:
-	@echo /$(FI_FILENAME)/ - lets go
+	@echo /$(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$(REVISION)/ - lets go
 
 
 #========================================
@@ -187,8 +186,8 @@ iso:
 	make close-all
 
 gz:
-	pv livecd.iso | gzip -9f -o $(FI_FILENAME)$(VERSTAT).iso.gz
+	pv livecd.iso | gzip -9f -o $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$(REVISION)$(VERSTAT).iso.gz
 
 reset:
 	rm -f bsd bsd.mp livecd.iso liveusb.img FuguIta-?.?-*-*.iso.gz FuguIta-?.?-*-*.img.gz
-	: > revcount_cdmaster
+	echo 0 > revcount_cdmaster

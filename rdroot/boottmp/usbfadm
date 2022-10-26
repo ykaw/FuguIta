@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.90 2022/10/25 13:52:40 kaw Exp $
+# $Id: usbfadm,v 1.91 2022/10/26 01:24:36 kaw Exp $
 #
 #========================================
 
@@ -303,8 +303,8 @@ dev2duid () {
 
     # check device name
     #
-    if ! expr "$1" : '[ws]d[0-9]$' >/dev/null && \
-            ! expr "$1" : '[ws]d[1-9][0-9]$' >/dev/null; then
+    if ! expr "$1" : '[ws]d[0-9]' >/dev/null && \
+       ! expr "$1" : 'vnd[0-9]' >/dev/null; then
         return
     fi
     local _dev="$1"

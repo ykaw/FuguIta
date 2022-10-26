@@ -186,7 +186,7 @@ iso:
 	make close-all
 
 gz:
-	pv livecd.iso | gzip -9f -o $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$(REVISION)$(VERSTAT).iso.gz
+	pv livecd.iso | gzip -9f -o $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$$(($(REVISION)+1))$(VERSTAT).iso.gz
 
 reset:
 	rm -f bsd bsd.mp livecd.iso liveusb.img FuguIta-?.?-*-*.iso.gz FuguIta-?.?-*-*.img.gz

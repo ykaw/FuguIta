@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.23 2022/10/24 01:59:37 kaw Exp $
+# $Id: dtjsetup,v 1.24 2022/10/26 01:24:36 kaw Exp $
 #
 #========================================
 
@@ -533,6 +533,11 @@ cat <<EOF >> $xs
 #
 dt="$dt"
 wm="$wm"
+case "\$wm" in
+    fluxbox)
+        wm="startfluxbox"
+        ;;
+esac
 case "\$dt" in
     no)
         xsetroot -solid gray12

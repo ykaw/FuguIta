@@ -3,7 +3,7 @@
 #----------------------------------------
 # setup_fsimg.sh - setup file system image with specified size
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: setup_fsimg.sh,v 1.2 2022/01/03 08:22:13 kaw Exp $
+# $Id: setup_fsimg.sh,v 1.3 2022/10/27 03:21:32 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2022
@@ -94,9 +94,14 @@ newfs -O 1 -o space -m 0 $idense "/dev/r${vndev}a"
 # display result
 disklabel -pm "$vndev"
 if mount "/dev/${vndev}a" /mnt; then
+    echo
     df -ki
     echo
-    df -k | awk '$1 == "/dev/'${vndev}'a" {print "diff: '$imgsize'MB - " int($2/1024) "MB = " '$((1024*imgsize))'-$2 "KB"}'
+    echo "Summary:"
+    echo "  max files: ${maxfiles:-not given}"
+    idense=${idense#-i }
+    echo "   newfs -i: ${idense:-auto}"
+    df -k | awk '$1 == "/dev/'${vndev}'a" {printf("  specified: %.1fMB\n  allocated: %.1fMB\n   shrinked: %dKB\n", '$imgsize', $2/1024, '$((1024*imgsize))'-$2)}'
     umount /mnt
 fi
 

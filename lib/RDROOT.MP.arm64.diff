@@ -1,5 +1,5 @@
---- RDROOT.MP	Wed Apr 27 06:58:50 2022
-+++ RDROOT.MP.new	Wed Apr 27 06:58:25 2022
+--- RDROOT.MP.orig	Thu Oct 27 10:06:19 2022
++++ RDROOT.MP	Thu Oct 27 10:06:19 2022
 @@ -1,6 +1,6 @@
  #	$OpenBSD: GENERIC.MP,v 1.5 2018/07/01 21:05:07 kettenis Exp $
  

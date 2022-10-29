@@ -186,8 +186,13 @@ iso:
 	make close-all
 
 gz:
-	pv livecd.iso | gzip -9f -o $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$(REVISION)$(VERSTAT).iso.gz
+	@echo generating $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)`cat revcount_cdmaster`$(VERSTAT).iso.gz
+	@pv livecd.iso | gzip -9f -o $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)`cat revcount_cdmaster`$(VERSTAT).iso.gz
+
+clean:
+	make close-all
+	rm -f bsd bsd.mp livecd.iso liveusb.img FuguIta-?.?-*-*.iso.gz FuguIta-?.?-*-*.img.gz
 
 reset:
-	rm -f bsd bsd.mp livecd.iso liveusb.img FuguIta-?.?-*-*.iso.gz FuguIta-?.?-*-*.img.gz
+	make clean
 	echo 0 > revcount_cdmaster

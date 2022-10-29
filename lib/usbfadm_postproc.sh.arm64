@@ -19,6 +19,11 @@ notice "Copying U-BOOT stuffs..."
 
 dd if=/dev/r${srcboot} of=/dev/r${scandev}i bs=1m
 
+#=======================================
+# exit here not to copy fuguita-{templ,default}
+exit
+#=======================================
+
 notice "Copying stuffs for non-interactive boot..."
 
 if [ "${srcpart%?}" = "$scandev" ]; then

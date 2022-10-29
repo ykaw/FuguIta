@@ -97,6 +97,7 @@ stage:
 sync:
 	make close-all
 	make open-fuguita
+	echo "$(VERSION)-$(ARCH)-$(DATE)$$(($(REVISION)+1))" > staging/usr/fuguita/version
 	(cd staging && rsync --progress -avxH --delete . ../fuguita/.)
 
 syncback:
@@ -135,7 +136,7 @@ boot: media/bsd-fi media/bsd-fi.mp
 	cp /usr/mdec/cdboot media/. || touch media/cdboot
 	cp /usr/mdec/boot media/.   || touch media/boot
 	[ -d media/etc ] || mkdir media/etc
-	cp lib/boot.conf media/etc/.
+	cp lib/boot.conf.$(ARCH) media/etc/boot.conf
 
 kernconfig:
 	(cd $(KERNSRC)/conf && \

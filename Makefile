@@ -190,6 +190,10 @@ gz:
 	@echo generating $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)`cat revcount_cdmaster`$(VERSTAT).iso.gz
 	@pv livecd.iso | gzip -9f -o $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)`cat revcount_cdmaster`$(VERSTAT).iso.gz
 
+usbgz:
+	@echo generating $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)`cat revcount_cdmaster`$(VERSTAT).img.gz
+	@pv media.img | gzip -9f -o $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)`cat revcount_cdmaster`$(VERSTAT).iso.gz
+
 clean:
 	make close-all
 	rm -f bsd bsd.mp livecd.iso liveusb.img FuguIta-?.?-*-*.iso.gz FuguIta-?.?-*-*.img.gz

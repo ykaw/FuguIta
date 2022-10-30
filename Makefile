@@ -192,7 +192,7 @@ gz:
 
 usbgz:
 	@echo generating $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$$((`cat revcount_cdmaster`+1))$(VERSTAT).img.gz
-	@pv media.img | gzip -9f -o $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$$((`cat revcount_cdmaster`+1))$(VERSTAT).iso.gz
+	@pv media.img | gzip -9f -o $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$$((`cat revcount_cdmaster`+1))$(VERSTAT).img.gz
 
 clean:
 	make close-all

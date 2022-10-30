@@ -20,35 +20,34 @@ notice "Copying U-BOOT stuffs..."
 dd if=/dev/r${srcboot} of=/dev/r${scandev}i bs=1m
 
 #=======================================
-# exit here not to copy fuguita-{templ,default}
-exit
-#=======================================
-
-notice "Copying stuffs for non-interactive boot..."
-
-if [ "${srcpart%?}" = "$scandev" ]; then
-    echo "src and dest disk are identical."
-else
-    if mount -o softdep,noatime /dev/${scandev}d /mnt; then
-        if mount -r /dev/${srcpart} /altroot; then
-            if [ -d /mnt/livecd-config -a \
-                 -d /altroot/livecd-config/${verarch}/fuguita-templ ]; then
-                (if cd /altroot/livecd-config/${verarch}/fuguita-templ; then
-                     echo "fuguita-templ:"
-                     mkdir -p /mnt/livecd-config/${verarch}/fuguita-templ
-                     copydirs . /mnt/livecd-config/${verarch}/fuguita-templ
-                     chflags -R uchg /mnt/livecd-config/${verarch}/fuguita-templ
-
-                     echo "fuguita-default:"
-                     mkdir -p /mnt/livecd-config/${verarch}/fuguita-default
-                     copydirs . /mnt/livecd-config/${verarch}/fuguita-default
-                 fi)
-            else
-                echo "Directory don't exist:"
-                ls -ld /mnt/livecd-config /altroot/livecd-config/${verarch}/fuguita-templ
-            fi
-            echo 'noasks:'
-            cat <<EOT >/mnt/livecd-config/${verarch}/noasks
+# Now, not copying fuguita-{templ,default}
+#
+if false; then
+    notice "Copying stuffs for non-interactive boot..."
+    
+    if [ "${srcpart%?}" = "$scandev" ]; then
+        echo "src and dest disk are identical."
+    else
+        if mount -o softdep,noatime /dev/${scandev}d /mnt; then
+            if mount -r /dev/${srcpart} /altroot; then
+                if [ -d /mnt/livecd-config -a \
+                     -d /altroot/livecd-config/${verarch}/fuguita-templ ]; then
+                    (if cd /altroot/livecd-config/${verarch}/fuguita-templ; then
+                         echo "fuguita-templ:"
+                         mkdir -p /mnt/livecd-config/${verarch}/fuguita-templ
+                         copydirs . /mnt/livecd-config/${verarch}/fuguita-templ
+                         chflags -R uchg /mnt/livecd-config/${verarch}/fuguita-templ
+    
+                         echo "fuguita-default:"
+                         mkdir -p /mnt/livecd-config/${verarch}/fuguita-default
+                         copydirs . /mnt/livecd-config/${verarch}/fuguita-default
+                     fi)
+                else
+                    echo "Directory don't exist:"
+                    ls -ld /mnt/livecd-config /altroot/livecd-config/${verarch}/fuguita-templ
+                fi
+                echo 'noasks:'
+                cat <<EOT >/mnt/livecd-config/${verarch}/noasks
 #
 # noasks - parameter settings for non-interactive boot
 #
@@ -71,13 +70,14 @@ noask_confdev=sd0d
 # data set name in USB flash drive
 noask_confdir=fuguita-default
 EOT
-            echo done
-            umount /altroot
+                echo done
+                umount /altroot
+            else
+                echo "can't mount source device - $srcpart"
+            fi
+            umount /mnt
         else
-            echo "can't mount source device - $srcpart"
+            echo "can't mount target device - $scandev"
         fi
-        umount /mnt
-    else
-        echo "can't mount target device - $scandev"
     fi
 fi

@@ -1,3 +1,4 @@
+set tty fb0
 echo
 echo >> bsd-fi.mp is for
 echo >> multiprocessor kernel (default).

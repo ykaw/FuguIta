@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.91 2022/10/26 01:24:36 kaw Exp $
+# $Id: usbfadm,v 1.92 2022/10/30 12:24:41 kaw Exp $
 #
 #========================================
 
@@ -627,7 +627,7 @@ function setup_fs {
 
         mount -o async /dev/${scandev}a /mnt
         (cd /sysmedia
-         pax -rwvpe boot bsd-fi bsd-fi.mp boot.catalog cdboot cdbr etc /mnt)
+         pax -rwvpe boot bsd-fi bsd-fi.mp cdboot cdbr etc /mnt)
 
         notice "Transferring filesystem image"
         if [ -r /sysmedia/fuguita-${osrel}-${hwmac}.ffsimg ]; then

@@ -795,7 +795,7 @@ EOT
         # settings on xenodm activation
         #
         case `uname -m` in
-            i386|amd64)
+            i386|amd64|arm64)
                 echo
                 echo 'Do you login with C)onsole or X) Window System?'
                 echo -n '[default: C] -> '; read ans

@@ -816,6 +816,20 @@ EOT
         echo 'https://cdn.openbsd.org/pub/OpenBSD' > /etc/installurl
         echo '/usr/sbin/fw_update -v'              > /etc/rc.firsttime
         cat <<EOT > /etc/rc.shutdown
+force_umount=No  # set Yes for forced umount /ram at shutdown
+force_resync=No  # set Yes to re-sync at shutdown
+
+# stop_all_daemons - to eliminate all daemons at umount /ram
+#
+stop_all_daemons () {
+    echo -n 'stopping all daemons: '
+    for srv in \$(rcctl ls started); do
+        rcctl stop \$srv
+        sleep 1
+    done
+    echo "\ndone."
+}
+
 # usbfadm_r - perform re-sync of the usbfadm utility
 #
 # This function calls usbfadm's sync function on shutdown to
@@ -861,16 +875,10 @@ usbfadm_r () {
       done )
 }
 
-# To re-sync on shutdown, uncomment the following line.
-#usbfadm_r
-
-# To avoid reboot/halt abortion, uncomment the following line.
-#/boottmp/umount -f /ram
+[[ "\$force_umount" = [Yy][Ee][Ss] ]] && stop_all_daemons
+[[ "\$force_resync" = [Yy][Ee][Ss] ]] && usbfadm_r
+[[ "\$force_umount" = [Yy][Ee][Ss] ]] && /boottmp/umount -f /ram
 EOT
-
-        # mtree
-        #
-
         # motd
         #
         cat <<EOT > /etc/motd

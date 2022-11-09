@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.21 2022/11/09 02:09:03 kaw Exp $
+# $Id: fiupdate,v 1.22 2022/11/09 02:38:15 kaw Exp $
 #
 #========================================
 
@@ -596,11 +596,6 @@ echo
 echo2    "Checking..."
 echo2 -n "        checksum: "
 $cksum_cmd -C $cksum ${FI}.iso.gz || exit 1
-
-#========================================
-echo "Stop at testing."
-exit 0
-#========================================
 
 # check file layout
 #

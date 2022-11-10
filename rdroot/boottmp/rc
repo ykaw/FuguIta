@@ -822,10 +822,9 @@ force_resync=No  # set Yes to re-sync at shutdown
 # stop_all_daemons - to eliminate all daemons at umount /ram
 #
 stop_all_daemons () {
-    echo -n 'stopping all daemons: '
+    echo -n 'stopping all daemons:'
     for srv in \$(rcctl ls started); do
         rcctl stop \$srv
-        sleep 1
     done
     echo "\ndone."
 }

@@ -191,6 +191,7 @@ gz:
 	@pv livecd.iso | gzip -9f -o $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)`cat revcount_cdmaster`$(VERSTAT).iso.gz
 
 usbgz:
+	make close-all
 	@echo generating $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$$((`cat revcount_cdmaster`+1))$(VERSTAT).img.gz
 	@pv media.img | gzip -9f -o $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$$((`cat revcount_cdmaster`+1))$(VERSTAT).img.gz
 

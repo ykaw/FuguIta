@@ -3,7 +3,7 @@
 #----------------------------------------
 # remaster_dvd.sh - Remastering FuguIta's LiveDVD
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: remaster_dvd.sh,v 1.4 2022/10/30 12:24:41 kaw Exp $
+# $Id: remaster_dvd.sh,v 1.5 2022/12/03 02:13:53 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2022
@@ -56,16 +56,18 @@ files=$(cat<<EOT
 ./cdboot
 ./cdbr
 ./etc/boot.conf
-./etc/random.seed
 ./$(echo ${projname} | tr A-Z a-z)-${version}-${arch}.ffsimg
 EOT)
 
 # check contents
 #
-if [ "$files" != "$(find . -type f -print | sort)" ]; then
-    echo "$0: it doesn't seem to be ${projname}'s dir:" >&2
-    echo '  shouldbe:' $files
-    echo '  reallyis:' $(find . -type f -print | sort)
+for f in $files; do
+    if [ ! -r $f ]; then
+        nofiles="$nofiles $f"
+    fi
+done
+if [[ -n "$nofiles" ]]; then
+    echo "$0: missing files needed:$nofiles" >&2
     exit 1
 fi
 

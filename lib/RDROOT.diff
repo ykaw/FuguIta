@@ -1,5 +1,14 @@
---- RDROOT.orig	Sat Oct 22 14:24:40 2022
-+++ RDROOT	Sat Oct 22 14:24:40 2022
+--- RDROOT.orig	Fri Dec 16 01:19:12 2022
++++ RDROOT	Fri Dec 16 01:20:22 2022
+@@ -40,7 +40,7 @@
+ option		UDF		# UDF (DVD) file system
+ option		MSDOSFS		# MS-DOS file system
+ option		FIFO		# FIFOs; RECOMMENDED
+-#option		TMPFS		# efficient memory file system
++option		TMPFS		# efficient memory file system
+ option		FUSE		# FUSE
+ 
+ option		SOCKET_SPLICE	# Socket Splicing for TCP and UDP
 @@ -79,7 +79,7 @@
  pseudo-device	nmea	1	# NMEA 0183 line discipline
  pseudo-device	msts	1	# MSTS line discipline

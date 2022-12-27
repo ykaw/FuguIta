@@ -3,7 +3,7 @@
 #----------------------------------------
 # remaster_dvd.sh - Remastering FuguIta's LiveDVD
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: remaster_dvd.sh,v 1.5 2022/12/03 02:13:53 kaw Exp $
+# $Id: remaster_dvd.sh,v 1.6 2022/12/27 03:59:04 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2022
@@ -39,6 +39,23 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# check command-line arguments
+#
+while getopts m: name
+do
+    case $name in
+        m) memfs=$OPTARG ;;
+        ?) echo "Usage: ${0##*/} [-m mfs|tmpfs]"; exit 1 ;;
+    esac
+done
+shift $(($OPTIND - 1))
+
+case $memfs in
+    mfs)   altfs=tmpfs;;
+    tmpfs) altfs=mfs;;
+    ?*) echo "Usage: ${0##*/} [-m mfs|tmpfs]"; exit 1;;
+esac
+
 # parameters
 #
 projname=FuguIta
@@ -46,18 +63,17 @@ projname=FuguIta
     arch=$(uname -m)
     date=$(date +%Y%m%d)
      rev=1
+ imgfile=$(echo ${projname} | tr A-Z a-z)-${version}-${arch}.ffsimg
 
 # files to be remastered
 #
-files=$(cat<<EOT
-./boot
+files="./boot
 ./bsd-fi
 ./bsd-fi.mp
 ./cdboot
 ./cdbr
 ./etc/boot.conf
-./$(echo ${projname} | tr A-Z a-z)-${version}-${arch}.ffsimg
-EOT)
+./$imgfile"
 
 # check contents
 #
@@ -69,6 +85,27 @@ done
 if [[ -n "$nofiles" ]]; then
     echo "$0: missing files needed:$nofiles" >&2
     exit 1
+fi
+
+# change mem-based FS if -m specified
+#
+if [[ -n "memfs" ]]; then
+    vn=$(vnconfig $imgfile)
+    if [ -z "$vn" ]; then
+        echo 'no available vnode device'
+        exit 1
+    fi
+    if mount /dev/${vn}a /mnt; then
+        if grep "memfstype=$memfs" /mnt/etc/fuguita/global.conf; then
+            echo "File system of /ram is already ${memfs}. Not changed."
+        else
+            # rewrite the value
+            echo "Changing file system of /ram: from $altfs to $memfs"
+            sed -i -e '1,$s/memfstype='$altfs'/memfstype='$memfs'/' /mnt/etc/fuguita/global.conf
+        fi
+        umount /mnt
+    fi
+    vnconfig -u $vn
 fi
 
 # do remastering

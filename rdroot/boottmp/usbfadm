@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.92 2022/10/30 12:24:41 kaw Exp $
+# $Id: usbfadm,v 1.93 2022/12/27 03:59:04 kaw Exp $
 #
 #========================================
 
@@ -430,6 +430,11 @@ function showparams {
     # vnode devices
     #
     #    vnfile  : raw disk image file
+    # 
+    # memory-based file systems
+    #
+    #    memfstype  : FS type of /ram on currently running system
+    #    memfs_new  : FS type of /ram for newdrive
 
     echo
     echo "target disk: $scandev"
@@ -639,6 +644,28 @@ function setup_fs {
             fi
         fi
 
+        # To change FS type mounted on /ram,
+        # rewrite setting in file system image
+        #
+        if [[ $instsys != none ]]; then
+            local vn=$(vnconfig /mnt/fuguita-${osrel}-${hwmac}.ffsimg)
+            if [[ -z "$vn" ]]; then
+                echo 'no available vnode device, FS type of /ram not chagned' >&2
+            else
+                mkdir -p /mnt2
+                mount /dev/${vn}a /mnt2
+                if grep -q "memfstype=$memfs_new" /mnt2/etc/fuguita/global.conf; then
+                    :  # same value already - do nothing
+                else
+                    # rewrite the value
+                    sed -i -e '1,$s/memfstype=[a-z][a-z]*fs/memfstype='$memfs_new'/' /mnt2/etc/fuguita/global.conf
+                fi
+                umount /mnt2
+                rmdir /mnt2
+                vnconfig -u $vn
+            fi
+        fi
+
         case $instsys in
             Legacy|Hybrid)
                 notice "Installing BIOS boot loader"
@@ -730,6 +757,8 @@ function setup_fs {
         dat_duid=$(dev2duid $datdev)
         mount -o async /dev/${datdev}d /mnt
         mkdir -p /mnt/livecd-config/${verarch}
+        local umem="75%"
+        [[ "$memfs_new" = 'tmpfs' ]] && umem=0
         cat <<EOT >/mnt/livecd-config/${verarch}/noasks
 #
 # noasks - parameter settings for non-interactive boot
@@ -743,8 +772,8 @@ function setup_fs {
 #noask_rdev=${scandev}a  # device name format
 #${sys_duid:+noask_rdev=${sys_duid}.a  # DUID format}
 #
-# ${memfstype} size in MB
-#noask_umem=75%
+# max ${memfs_new} size
+#noask_umem=${umem}
 #
 # boot mode
 #noask_setup_rw_mode=3
@@ -1378,6 +1407,16 @@ EOT
         esac
         ps_free=$((sects_total-(ps_hgap+ps_uefi+ps_fisys+ps_tgap)))
 
+        # change mem-based fs?
+        #
+        unset memfs_new
+        if [ $instsys != none ]; then
+            echo
+            # want prompt values with upper case
+            # and its string must be lower
+            memfs_new=$(ask_which 'Type of /ram:' MFS MFS TMPFS | tr A-Z a-z)
+        fi
+
         #-------------------
         # ask and calculate User's data area
         # which is prepared as partition d
@@ -1669,6 +1708,8 @@ EOT
                 if mount /dev/${expdev}${exppar} /mnt; then
                     expduid=$(dev2duid $expdev)  # get DUID after disk_scan is OK
                     mkdir -p /mnt/livecd-config/${verarch}
+                    umem="75%"
+                    [[ "$memfstype" = 'tmpfs' ]] && umem=0
                     cat <<EOT >/mnt/livecd-config/${verarch}/noasks
 #
 # noasks - parameter settings for non-interactive boot
@@ -1682,8 +1723,8 @@ EOT
 #noask_rdev=${expdev}a  # device name format
 #${expduid:+noask_rdev=${expduid}.a  # DUID format}
 #
-# ${memfstype} size in MB
-#noask_umem=75%
+# max ${memfstype} size
+#noask_umem=${umem}
 #
 # boot mode
 #noask_setup_rw_mode=3

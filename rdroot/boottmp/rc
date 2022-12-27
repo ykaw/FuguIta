@@ -454,7 +454,7 @@ while :; do
         echo -n "Enter ${memfstype} size"
         if [[ "$memfstype" = 'tmpfs' ]]; then
             defmem=0
-            echo ' (0M is auto).'
+            echo ' (0 is auto).'
         else
             defmem=$(min "$mfs_max_mb" $(parsesize '75%' $maxmem $swpmem))
             echo '.'
@@ -475,7 +475,11 @@ while :; do
     fi
 
     if [[ -n "$umem" ]]; then
-        echo "set ${memfstype} size to ${umem}MB"
+        if [[ "$memfstype" = tmpfs && "$umem" -eq 0 ]]; then
+            echo "set ${memfstype} size to auto"
+        else
+            echo "set ${memfstype} size to ${umem}MB"
+        fi
         break;
     else
         echo "illegal input - try again"

@@ -5,10 +5,10 @@
 #                   for live system authoring
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: compress_man.sh,v 1.2 2022/01/03 08:22:13 kaw Exp $
+# $Id: compress_man.sh,v 1.3 2022/12/31 23:56:13 kaw Exp $
 #========================================
 
-# Copyright (c) 2006--2022
+# Copyright (c) 2006--2023
 # Yoshihiro Kawamata
 #
 # All rights reserved.

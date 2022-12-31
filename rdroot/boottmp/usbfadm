@@ -5,11 +5,11 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.93 2022/12/27 03:59:04 kaw Exp $
+# $Id: usbfadm,v 1.94 2022/12/31 23:56:13 kaw Exp $
 #
 #========================================
 
-# Copyright (c) 2006--2022
+# Copyright (c) 2006--2023
 # Yoshihiro Kawamata
 #
 # All rights reserved.

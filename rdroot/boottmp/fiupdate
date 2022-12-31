@@ -4,11 +4,11 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.23 2022/12/27 12:13:22 kaw Exp $
+# $Id: fiupdate,v 1.24 2022/12/31 23:56:13 kaw Exp $
 #
 #========================================
 
-# Copyright (c) 2020--2022
+# Copyright (c) 2020--2023
 # Yoshihiro Kawamata
 #
 # All rights reserved.

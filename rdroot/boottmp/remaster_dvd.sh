@@ -3,7 +3,7 @@
 #----------------------------------------
 # remaster_dvd.sh - Remastering FuguIta's LiveDVD
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: remaster_dvd.sh,v 1.7 2022/12/31 23:56:13 kaw Exp $
+# $Id: remaster_dvd.sh,v 1.8 2023/01/05 01:21:20 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2023
@@ -39,21 +39,32 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# display help and exit
+#
+usage_exit () {
+    echo "Usage: ${0##*/} [-m mfs|tmpfs]" >&2
+    exit "$1"
+}
+
 # check command-line arguments
 #
 while getopts m: name
 do
     case $name in
         m) memfs=$OPTARG ;;
-        ?) echo "Usage: ${0##*/} [-m mfs|tmpfs]"; exit 1 ;;
+        ?) usage_exit 1 ;;
     esac
 done
 shift $(($OPTIND - 1))
 
+if [[ -n "$1" ]]; then
+    usage_exit 1
+fi
+
 case $memfs in
-    mfs)   altfs=tmpfs;;
-    tmpfs) altfs=mfs;;
-    ?*) echo "Usage: ${0##*/} [-m mfs|tmpfs]"; exit 1;;
+    mfs)   altfs=tmpfs ;;
+    tmpfs) altfs=mfs ;;
+    ?*) usage_exit 1 ;;
 esac
 
 # parameters
@@ -61,8 +72,6 @@ esac
 projname=FuguIta
  version=$(uname -r)
     arch=$(uname -m)
-    date=$(date +%Y%m%d)
-     rev=1
  imgfile=$(echo ${projname} | tr A-Z a-z)-${version}-${arch}.ffsimg
 
 # files to be remastered
@@ -87,36 +96,47 @@ if [[ -n "$nofiles" ]]; then
     exit 1
 fi
 
-# change mem-based FS if -m specified
-#
-if [[ -n "memfs" ]]; then
-    vn=$(vnconfig $imgfile)
-    if [ -z "$vn" ]; then
-        echo 'no available vnode device'
-        exit 1
+vn=$(vnconfig $imgfile)
+if [ -z "$vn" ]; then
+    echo 'no available vnode device' >&2
+    exit 1
+fi
+
+if mount /dev/${vn}a /mnt; then
+    # get version string inside img file
+    #
+    isoname=$(</mnt/usr/fuguita/version)
+    if [[ -n "$isoname" ]]; then
+        isoname=${projname}-${isoname}
+    else
+        # can't get it - generate interim name
+        isoname=${projname}-${version}-${arch}-$((date +%Y%m%d))1
     fi
-    if mount /dev/${vn}a /mnt; then
-        if grep "memfstype=$memfs" /mnt/etc/fuguita/global.conf; then
-            echo "File system of /ram is already ${memfs}. Not changed."
+
+    # change mem-based FS if -m specified
+    #
+    if [[ -n "$memfs" ]]; then
+        if grep -q "memfstype=${memfs}" /mnt/etc/fuguita/global.conf; then
+            echo "File system of /ram is already ${memfs}. Not changed." >&2
         else
             # rewrite the value
-            echo "Changing file system of /ram: from $altfs to $memfs"
+            echo "Changing file system of /ram: from $altfs to $memfs" >&2
             sed -i -e '1,$s/memfstype='$altfs'/memfstype='$memfs'/' /mnt/etc/fuguita/global.conf
         fi
-        umount /mnt
     fi
-    vnconfig -u $vn
+    umount /mnt
 fi
+vnconfig -u $vn
 
 # do remastering
 #
 mkhybrid -a -R -L -l -d -D -N \
-                -o ../${projname}-${version}-${arch}-${date}${rev}.iso \
+                -o ../${isoname}.iso \
                 -v -v \
-                -A "FuguIta - OpenBSD Live System" \
+                -A "FuguIta - OpenBSD-based Live System" \
                 -P "Copyright (c) `date +%Y` Yoshihiro Kawamata" \
                 -p "Yoshihiro Kawamata, https://fuguita.org/" \
-                -V "${projname}-${version}-${arch}-${date}${rev}" \
+                -V "$isoname" \
                 -b cdbr \
                 -c boot.catalog \
                 .

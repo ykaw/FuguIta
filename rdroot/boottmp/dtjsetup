@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.25 2022/12/31 23:56:13 kaw Exp $
+# $Id: dtjsetup,v 1.26 2023/02/10 02:01:21 kaw Exp $
 #
 #========================================
 
@@ -296,6 +296,9 @@ function check_rootcmd {
 #-------------------
 # initializations
 #
+
+export LANG=C  # for rlwrap at unconfigured locale
+
 trap 'echo $0: interrupted. >&2; clear_exit 1' INT
 
 if [ ! -r /usr/fuguita/version ]; then
@@ -579,8 +582,7 @@ if [ "$ja_env" = YES ]; then
 
     # set timezone unless already set
     #
-    ls -l /etc/localtime | egrep -q 'zoneinfo/(Japan|Asia/Tokyo)'
-    if [ $? -eq 1 ]; then
+    if ! ls -l /etc/localtime | egrep -q 'zoneinfo/(Japan|Asia/Tokyo)' ; then
         echo
         msg Japanese environment and related software have been set up.
         msg However, the time zone has not yet been set to JST.
@@ -588,18 +590,18 @@ if [ "$ja_env" = YES ]; then
             check_rootcmd
            _rootcmd ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
         fi
+    fi
 
-        # set localtime offset of kernel clock if wanted
-        #
-        echo
-        msg When you use this machine both running OpenBSD and Windows.
-        msg You can set the hardware clock to JST instead of UTC.
-        if [ $(ask_yn 'Set hardware clock to JST?' n) = 1 ]; then
-            check_rootcmd
-            _rootcmd echo 'kern.utc_offset=540' '>>' '/etc/fuguita/netconfs/templ.head/sysctl.conf'
-            _rootcmd chnetconf -d
-            msg This will take effect on the next boot.
-        fi
+    # set localtime offset of kernel clock if wanted
+    #
+    echo
+    msg When you use this machine both running OpenBSD and Windows.
+    msg You can set the hardware clock to JST instead of UTC.
+    if [ $(ask_yn 'Set hardware clock to JST?' n) = 1 ]; then
+        check_rootcmd
+        _rootcmd echo 'kern.utc_offset=540' '>>' '/etc/fuguita/netconfs/templ.head/sysctl.conf'
+        _rootcmd chnetconf -d
+        msg This will take effect on the next boot.
     fi
 
     # Workaround:

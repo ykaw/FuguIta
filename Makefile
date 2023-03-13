@@ -156,9 +156,9 @@ kernclean:
          make obj && make clean)
 kern:
 	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT && \
-         make obj && make config && make $(MAKEOPT))
+         make obj && make config && make $(MAKEOPT) && make newbsd)
 	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP && \
-         make obj && make config && make $(MAKEOPT))
+         make obj && make config && make $(MAKEOPT) && make newbsd)
 
 media/bsd-fi: rdroot.img $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
 	make close-all

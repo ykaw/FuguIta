@@ -638,17 +638,6 @@ while :; do
             fi
 
             #-------------------------------------------
-            # Replace symlinks to directories and files
-            #
-            for d in \
-                usr/libexec/auth
-            do
-                if [ -d /fuguita/$d ]; then
-                    rm -rf /ram/$d && cd `dirname /fuguita/$d` && pax -rwpe `basename $d` `dirname /ram/$d`
-                fi
-            done
-        
-            #-------------------------------------------
             # Replace symlinks to ordinary files
             #
             for f in \

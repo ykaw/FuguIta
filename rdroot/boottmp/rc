@@ -316,10 +316,6 @@ if [ $# -eq 1 ]; then
     mount -r /dev/${1%%:*} /mnt; then  # strip after ":" from "devname:path"
         if [ -r /mnt/livecd-config/${osrel}/${osmac}/noasks ]; then
             . /mnt/livecd-config/${osrel}/${osmac}/noasks
-                                       #=====================================================
-                                       # /mnt/noasks is obsolete but leaved for compatibility
-        elif [ -r /mnt/noasks ]; then  # this elif block will be removed in a future plan
-            . /mnt/noasks              #=====================================================
         fi
         umount /mnt
     fi

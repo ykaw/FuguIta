@@ -86,7 +86,7 @@ scan_disks () {
                     part_enc=${part_enc:+"$part_enc "}$part
                 fi
                 ;;
-            *)
+            4.2BSD|ISO9660|MSDOS|NTFS|ext2fs)
                 if mount -r /dev/$part /mnt 2> /dev/null; then
                     set -- /mnt/ISO/FuguIta-${osrel}-${osmac}-?????????.iso
                     if [ -f /mnt/fuguita-${osrel}-${osmac}.ffsimg -o ! X"$1" = X"/mnt/ISO/FuguIta-${osrel}-${osmac}-?????????.iso" ]; then

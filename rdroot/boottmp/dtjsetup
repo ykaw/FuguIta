@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.26 2023/02/10 02:01:21 kaw Exp $
+# $Id: dtjsetup,v 1.27 2023/03/17 15:20:02 kaw Exp $
 #
 #========================================
 
@@ -370,7 +370,7 @@ esac
 echo
 if [ $(ask_yn "Will you setup Japanese language environment?" n) = 1 ]; then
     ja_env=YES
-    pkgs="$pkgs ja-kterm ja-fonts-funet ja-fonts-gnu ja-sazanami-ttf mixfont-mplus-ipa mplus-fonts"
+    pkgs="$pkgs hanazono ja-kterm ja-fonts-funet ja-fonts-gnu ja-sazanami-ttf mixfont-mplus-ipa mplus-fonts vlgothic"
 
     # if so, select input method software
     while :; do

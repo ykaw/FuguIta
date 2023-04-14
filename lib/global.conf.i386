@@ -1,4 +1,4 @@
-fuguita_sys_mb=796    # size of media.img
+fuguita_sys_mb=816    # size of media.img
 memfstype=mfs         # 'mfs' or 'tmpfs'
 mfs_max_mb=1024       # mfs hard limit
 disable_uefiboot=Yes  # not prompt at usbfadm/newdrive

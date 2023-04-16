@@ -1,3 +1,3 @@
-fuguita_sys_mb=1010  # size of media.img
+fuguita_sys_mb=1028  # size of media.img
 memfstype=mfs        # 'mfs' or 'tmpfs'
 mfs_max_mb=30720     # mfs hard limit - 30GB

@@ -3,6 +3,6 @@
 disable_legacyboot=Yes  # No legacy BIOS
 disk_head_gap=32768     # space for MBR/GPT in sectors
 fuguita_uefi_kb=16384   # size for UEFI in kilobytes
-fuguita_sys_mb=947      # size of a partiiton in megabytes
+fuguita_sys_mb=958      # size of a partiiton in megabytes
 memfstype=mfs           # type of memory fs - 'mfs' or 'tmpfs'
 mfs_max_mb=15360        # mfs hard limit - 15GB

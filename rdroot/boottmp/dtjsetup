@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.27 2023/03/17 15:20:02 kaw Exp $
+# $Id: dtjsetup,v 1.28 2023/04/16 15:08:44 kaw Exp $
 #
 #========================================
 
@@ -375,7 +375,7 @@ if [ $(ask_yn "Will you setup Japanese language environment?" n) = 1 ]; then
     # if so, select input method software
     while :; do
         echo
-        im=$(ask_which "Which input method will you install?" "fcitx-anthy" "fcitx-anthy" "uim-gtk" "ibus-skk" "scim-anthy")
+        im=$(ask_which "Which input method will you install?" "fcitx-anthy" "fcitx-anthy" "ibus-anthy" "ibus-skk" "scim-anthy" "uim-gtk")
         case "$im" in
             "") ;;
             fcitx-anthy) pkgs="$pkgs $im fcitx-gtk";  break;;
@@ -491,20 +491,25 @@ if [ "$ja_env" = YES ]; then
     echo "# set language locale" >> $xs
     echo "export LANG=ja_JP.UTF-8" >> $xs
     case "$im" in
-        scim-anthy)
-            xmod="SCIM"
-            im_mod="xim"
-            im_daemon="scim -d"
-            ;;
         uim-gtk)
             xmod="uim"
             im_mod="uim"
-            im_daemon="uim-xim & uim-toolbar-gtk &"
+            im_daemon="uim-xim & (sleep 30; uim-toolbar-gtk & ) &"
             ;;
         fcitx-anthy)
             xmod="fcitx"
             im_mod="fcitx"
             im_daemon="fcitx5 &"
+            ;;
+        scim-anthy)
+            xmod="SCIM"
+            im_mod="xim"
+            im_daemon="scim -d"
+            ;;
+        ibus-anthy)
+            xmod="ibus"
+            im_mod="ibus"
+            im_daemon="ibus-daemon -d -x -r"
             ;;
         ibus-skk)
             xmod="ibus"
@@ -524,7 +529,7 @@ if [ "$ja_env" = YES ]; then
 export XMODIFIERS="@im=$xmod"
 export GTK_IM_MODULE="$im_mod"
 export QT_IM_MODULE="$im_mod"
-$im_daemon
+eval "$im_daemon"
 EOF
 fi
 

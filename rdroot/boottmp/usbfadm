@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.94 2022/12/31 23:56:13 kaw Exp $
+# $Id: usbfadm,v 1.95 2023/04/30 02:10:57 kaw Exp $
 #
 #========================================
 
@@ -1430,7 +1430,7 @@ EOT
             echo
             echo "`sect2byte $ps_free` (`sect2byte $ps_free 2`) (${ps_free}sectors) free"
 
-            ans=`rl_wread 'swap' ''`
+            ans=$(rl_wread 'swap' "$newdrive_defswap" "$newdrive_defswap")
             echo
             if [ 1 -lt `expr "X$ans" : 'X[0-9][0-9]*'` ]; then
                 ps_fiswp=`byte2sect "$ans"`

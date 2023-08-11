@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.28 2023/04/16 15:08:44 kaw Exp $
+# $Id: dtjsetup,v 1.29 2023/08/11 04:38:07 kaw Exp $
 #
 #========================================
 
@@ -577,8 +577,11 @@ EOF
 #
 echo
 if [ $(ask_yn 'Copy this .xsession file to /etc/skel ?' n) -eq 1 ]; then
+    copytoskel=yes
     check_rootcmd
     _rootcmd cp $HOME/.xsession /etc/skel/.
+else
+    copytoskel=no
 fi
 
 # Japanese Specific Setups
@@ -618,6 +621,10 @@ if [ "$ja_env" = YES ]; then
         if ! grep -qi 'font.*sans' $HOME/.icewm/preferences 2>/dev/null; then
             grep -i dejavu /usr/local/share/icewm/preferences \
                 | sed -e 's/^# *//; s/[Dd]eja[Vv]u //' >> $HOME/.icewm/preferences
+            if [[ "$copytoskel" = "yes" ]]; then
+                check_rootcmd
+                _rootcmd 'cd && cp -pR .icewm /etc/skel/'
+            fi
         fi
     fi
 fi

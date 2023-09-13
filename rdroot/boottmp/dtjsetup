@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.29 2023/08/11 04:38:07 kaw Exp $
+# $Id: dtjsetup,v 1.30 2023/09/13 19:49:11 kaw Exp $
 #
 #========================================
 
@@ -354,8 +354,8 @@ case "$dt" in
             echo
             wm=$(ask_which "Which window manager will you install?" "icewm" "cwm" "fvwm" "twm" "icewm" "fluxbox" "jwm" $DTJ_WMS)
             case "$wm" in
-                cwm|fvwm|twm)
-                    break;;
+                cwm|fvwm|twm) # already installed
+                    break;;   # on base system
                 *)
                     pkgs="$pkgs $wm"
                     break;;
@@ -370,7 +370,7 @@ esac
 echo
 if [ $(ask_yn "Will you setup Japanese language environment?" n) = 1 ]; then
     ja_env=YES
-    pkgs="$pkgs hanazono ja-kterm ja-fonts-funet ja-fonts-gnu ja-sazanami-ttf mixfont-mplus-ipa mplus-fonts vlgothic"
+    pkgs="$pkgs ja-nkf ja-kterm-- ja-fonts-funet ja-fonts-gnu ja-sazanami-ttf hanazono mixfont-mplus-ipa mplus-fonts vlgothic"
 
     # if so, select input method software
     while :; do
@@ -405,6 +405,12 @@ if [ -n "$pkgs" ]; then
     #
     check_rootcmd
 
+    # adjusting clock for TLS (HTTPS)
+    #
+    echo
+    msg adjusting clock for TLS connection...
+    _rootcmd rdate pool.ntp.org
+
     # check install source
     #
     echo
@@ -436,7 +442,7 @@ if [ -n "$pkgs" ]; then
         exit
     fi
 
-    _rootcmd pkg_add $pkgs
+    _rootcmd pkg_add -I $pkgs
     if [ $? -ne 0 ]; then
         msg "Installing package(s) failed."
         exit 1

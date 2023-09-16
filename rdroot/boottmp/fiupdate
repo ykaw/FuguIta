@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.25 2023/09/13 19:50:42 kaw Exp $
+# $Id: fiupdate,v 1.26 2023/09/16 06:15:02 kaw Exp $
 #
 #========================================
 
@@ -326,6 +326,10 @@ EOT
 # stop all daemons
 #
 stop_all_srvs () {
+    # first argument (keep_daemon)
+    # if YES, don't do this sub
+    [[ "$1" = "YES" ]] && return 0
+
     local daemon
     echo2 "stopping all daemons..."
     for daemon in $(rcctl ls started); do
@@ -570,15 +574,15 @@ Running this on direct console device is highly recommended.
 
 EOT
 
-    kill_daemon=YES
     if [ 1 -ne $(ask_yn "Continue anyway?" n) ]; then
        exit 1
     else
        # if continue, any daemon will not be stopped
        # before system update
-       kill_daemon=NO
+       keep_daemon=YES
     fi
 else
+    keep_daemon=NO
     echo2 "ok"
     echo2
 fi
@@ -640,9 +644,7 @@ case $MNTTYPE in
             cleanups
             exit 1
         fi
-        if [[ "$kill_daemon" = [Yy][Ee][Ss] ]]; then
-            stop_all_srvs
-        fi
+        stop_all_srvs $keep_daemon
         update_liveusb
 
         # detach devices
@@ -679,7 +681,7 @@ case $MNTTYPE in
             cleanups
             exit 1
         fi
-        stop_all_srvs
+        stop_all_srvs $keep_daemon
         update_sys_iso
 
         # detach devices
@@ -716,8 +718,8 @@ EOT
         decompress_iso
         setup_iso_content
         confirm_exec
-        
-        stop_all_srvs
+
+        stop_all_srvs $keep_daemon
         update_boot_dev
         ;;
     *)

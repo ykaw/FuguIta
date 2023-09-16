@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.95 2023/04/30 02:10:57 kaw Exp $
+# $Id: usbfadm,v 1.96 2023/09/16 06:17:57 kaw Exp $
 #
 #========================================
 
@@ -1646,6 +1646,53 @@ EOT
         esac
 
         [[ -z "$partid_obsd" ]] && continue  # fail safe
+
+        # check if another fdisk partition exists after a partition in OpenBSD
+        # ... if so, cannot be expanded (may be unbootable)
+        # 
+        if [[ "YES" == $(echo "$fdisk_output" | awk 'BEGIN { maxstart=-1 }  # max start sector
+
+                                                     # determine type of partition table
+                                                     /geometry: [0-9]/   { tbtype = "mbr"; next }
+                                                     /Usable LBA: [0-9]/ { tbtype = "gpt"; next }
+
+                                                     # OpenBSD on MBR
+                                                     tbtype == "mbr" && /^.[0123]: A6 / {
+                                                         obsdstart = $11 + 0
+                                                         next
+                                                     }
+                                                     # other on MBR
+                                                     tbtype == "mbr" && /^.[0123]: [0-9A-F][0-9A-F] / {
+                                                         if (maxstart < $11 + 0)
+                                                             maxstart = $11 + 0
+                                                     }
+
+                                                     # OpenBSD on GPT
+                                                     tbtype == "gpt" && $2 == "OpenBSD" {
+                                                         obsdstart = $(NF-2) +0
+                                                         next
+                                                     }
+                                                     # other on GPT
+                                                     tbtype == "gpt" && /^ [ 12][ 0-9][0-9]: / {
+                                                         if (maxstart < $(NF-2) + 0)
+                                                             maxstart = $(NF-2) + 0
+                                                     }
+                                                     END {
+                                                         # exist other partition after OpenBSD?
+                                                         if (obsdstart<maxstart)
+                                                             print "YES"
+                                                         else
+                                                             print "NO"
+                                                     }') ]]; then
+            echo "$fdisk_output"
+            cat <<EOT
+
+There is another fdisk partition after the OpenBSD partition.
+If you run expand in this state, partitions may overlap and the system may not boot.
+Rather than expanding the partition on this flash device, consider using the newdrive subcommand to build your FuguIta system on another device.
+EOT
+            continue
+        fi
 
         expcmd=$(ask_which "Select the expansion method for ${expdev}${exppar}:" \
                            'exit without expansion' \

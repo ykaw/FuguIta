@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.96 2023/09/16 06:17:57 kaw Exp $
+# $Id: usbfadm,v 1.97 2023/09/16 19:07:01 kaw Exp $
 #
 #========================================
 
@@ -1665,11 +1665,12 @@ EOT
                                                      tbtype == "mbr" && /^.[0123]: [0-9A-F][0-9A-F] / {
                                                          if (maxstart < $11 + 0)
                                                              maxstart = $11 + 0
+                                                         next
                                                      }
 
                                                      # OpenBSD on GPT
                                                      tbtype == "gpt" && $2 == "OpenBSD" {
-                                                         obsdstart = $(NF-2) +0
+                                                         obsdstart = $(NF-2) + 0
                                                          next
                                                      }
                                                      # other on GPT

@@ -425,6 +425,8 @@ swpmem=$( (swapctl -lk; echo 'end') | while read dev size rest
                   echo $((totsize/1024))
               elif [[ "$dev" = 'Device' ]]; then
                   :
+              elif [[ "$dev" = 'Total' ]]; then
+                  :
               else
                   totsize=$((totsize+size))
               fi

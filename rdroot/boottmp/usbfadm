@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.98 2023/10/20 05:52:31 kaw Exp $
+# $Id: usbfadm,v 1.99 2023/10/22 01:43:10 kaw Exp $
 #
 #========================================
 
@@ -936,7 +936,7 @@ case "$opt_mode" in
             clear_exit 1
         fi
 
-        if mount -o softdep,noatime $devname /mnt; then
+        if mount -o async,noatime $devname /mnt; then
             if [ "$opt_quiet" = 'yes' ]; then
                 rsync -q -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
                 retval=$?
@@ -1047,7 +1047,7 @@ while :; do
         fi
 
         if [ 1 = `ask_yn "Sync current ${memfstype} as \\\`\\\`$uconf'' , OK?" n` ]; then
-            if mount -o softdep,noatime $devname /mnt; then
+            if mount -o async,noatime $devname /mnt; then
                 echo
                 if [ -d /mnt/livecd-config ]; then
                     if [ -d /mnt/livecd-config/$verarch/$uconf ]; then

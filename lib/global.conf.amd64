@@ -1,4 +1,4 @@
-fuguita_sys_mb=1033  # size of media.img
+fuguita_sys_mb=1042  # size of media.img
 newdrive_defswap=16M # default swap size at usbfadm newdrive
 memfstype=mfs        # 'mfs' or 'tmpfs'
 mfs_max_mb=30720     # mfs hard limit - 30GB

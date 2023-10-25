@@ -30,7 +30,7 @@ make close-all
 # make empty ffsimg again
 #
 rm media.img
-./setup_fsimg.sh media.img $((cont_mb+16+30)) 20
+./lib/setup_fsimg.sh media.img $((cont_mb+16+30)) 20
 
 # first, locate filler in media
 #

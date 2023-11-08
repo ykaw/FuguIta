@@ -3,7 +3,7 @@
 #----------------------------------------
 # setup_fsimg.sh - setup file system image with specified size
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: setup_fsimg.sh,v 1.4 2023/10/25 03:31:19 kaw Exp $
+# $Id: setup_fsimg.sh,v 1.5 2023/11/08 00:46:57 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2023
@@ -38,6 +38,9 @@
 # THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+set -e
+set -x
 
 errmsg () {
     echo "$0: $@" >&2

@@ -50,6 +50,8 @@ MAKEOPT=-j2
 all:
 	@echo /$(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$(REVISION)/ - lets go
 
+doall: kern stage imgs sync iso gz
+
 
 #========================================
 # vnconfig related stuffs
@@ -94,16 +96,20 @@ stage:
 	./lib/010_extract.sh
 	./lib/020_modify_tree.sh
 
+imgs:
+	make close-all
+	./lib/create_imgs.sh
+
 sync:
 	make close-all
 	make open-fuguita
 	echo "$(VERSION)-$(ARCH)-$(DATE)$$(($(REVISION)+1))" > staging/usr/fuguita/version
-	(cd staging && rsync --progress -avxH --delete . ../fuguita/.)
+	(cd staging && rsync -avxH --delete . ../fuguita/.)
 
 syncback:
 	make close-all
 	make open-fuguita
-	(cd fuguita && rsync --progress -avxH --delete . ../staging/.)
+	(cd fuguita && rsync -avxH --delete . ../staging/.)
 
 #========================================
 # generate an ISO file

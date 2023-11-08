@@ -36,7 +36,7 @@
 # 020_extract.sh - modify OpenBSD's file tree for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 020_modify_tree.sh,v 1.8 2022/12/31 23:56:13 kaw Exp $
+# $Id: 020_modify_tree.sh,v 1.9 2023/11/08 00:44:28 kaw Exp $
 #
 #========================================
 
@@ -93,7 +93,7 @@ mkdir -p ./staging/usr/fuguita/bin
 ln -sf /boottmp/dtjsetup ./staging/usr/fuguita/bin/dtjsetup
 
 mkdir -p ./staging/usr/fuguita/sbin
-for cmd in chnetconf compress_man.sh fdadm find1so.sh fiupdate gen_mode0sldir gennetconfs remaster_dvd.sh setup_fsimg.sh usbfadm
+for cmd in chnetconf fdadm fiupdate gen_mode0sldir gennetconfs remaster_dvd.sh usbfadm
 do
     ln -sf /boottmp/$cmd ./staging/usr/fuguita/sbin
 done

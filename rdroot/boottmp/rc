@@ -821,14 +821,27 @@ EOT
 force_umount=No  # set Yes for forced umount /ram at shutdown
 force_resync=No  # set Yes to re-sync at shutdown
 
-# stop_all_daemons - to eliminate all daemons at umount /ram
+skip_daemons=' pflogd mountd '  # daemons skipped in stop_daemons()
+kill_daemons=' pflogd mountd '  # daemons -KILLed in kill_daemons()
+
+# stop_daemons - to eliminate all daemons before usbfadm_r
 #
-stop_all_daemons () {
-    echo -n 'stopping all daemons:'
+stop_daemons () {
+    echo -n 'stopping daemons:'
     for srv in \$(rcctl ls started); do
-        rcctl stop \$srv
+        if ! expr "\$skip_daemons" : ".* \$srv " >/dev/null ; then
+            rcctl stop \$srv
+        fi
     done
     echo "\ndone."
+}
+
+# kill_daemons - to eliminate all daemons at umount /ram
+#
+kill_daemons () {
+    for srv in \$kill_daemons; do
+        pkill -KILL \$srv
+    done
 }
 
 # usbfadm_r - perform re-sync of the usbfadm utility
@@ -876,8 +889,9 @@ usbfadm_r () {
       done )
 }
 
-[[ "\$force_umount" = [Yy][Ee][Ss] ]] && stop_all_daemons
+[[ "\$force_umount" = [Yy][Ee][Ss] ]] && stop_daemons
 [[ "\$force_resync" = [Yy][Ee][Ss] ]] && usbfadm_r
+kill_daemons
 [[ "\$force_umount" = [Yy][Ee][Ss] ]] && /boottmp/umount -f /ram
 EOT
         # motd

@@ -1,11 +1,11 @@
-#!/bin/sh
+#!/bin/ksh
 
 #========================================
 # compress_man.sh - compress and link man pages
 #                   for live system authoring
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: compress_man.sh,v 1.4 2023/11/08 00:44:28 kaw Exp $
+# $Id: compress_man.sh,v 1.5 2023/11/29 23:26:39 kaw Exp $
 #========================================
 
 # Copyright (c) 2006--2023

@@ -1,9 +1,9 @@
-#!/bin/sh
+#!/bin/ksh
 
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.20 2022/12/31 23:56:13 kaw Exp $
+# $Id: gennetconfs,v 1.21 2023/11/29 23:26:39 kaw Exp $
 #==================================================
 
 # Copyright (c) 2006--2023

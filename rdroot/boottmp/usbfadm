@@ -1,11 +1,11 @@
-#!/bin/sh
+#!/bin/ksh
 
 #========================================
 #
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.99 2023/10/22 01:43:10 kaw Exp $
+# $Id: usbfadm,v 1.100 2023/11/29 23:26:39 kaw Exp $
 #
 #========================================
 

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ksh
 
 #========================================
 # find1so.sh - generate the command sequence that converts man pages
@@ -6,7 +6,7 @@
 #              hard-linked to the equivalent manpage entry
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: find1so.sh,v 1.3 2023/11/08 00:44:28 kaw Exp $
+# $Id: find1so.sh,v 1.4 2023/11/29 23:26:39 kaw Exp $
 #========================================
 
 # Copyright (c) 2006--2023

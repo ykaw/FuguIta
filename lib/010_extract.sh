@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ksh
 
 # Copyright (c) 2006--2023, Yoshihiro Kawamata
 # All rights reserved.
@@ -36,7 +36,7 @@
 # 010_extract.sh - Extract OpenBSD's install set to staging directory
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 010_extract.sh,v 1.5 2023/11/29 06:02:15 kaw Exp $
+# $Id: 010_extract.sh,v 1.6 2023/11/29 23:26:39 kaw Exp $
 #
 #========================================
 

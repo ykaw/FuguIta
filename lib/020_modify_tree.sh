@@ -36,20 +36,12 @@
 # 020_extract.sh - modify OpenBSD's file tree for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 020_modify_tree.sh,v 1.9 2023/11/08 00:44:28 kaw Exp $
+# $Id: 020_modify_tree.sh,v 1.10 2023/11/29 06:02:15 kaw Exp $
 #
 #========================================
 
 set -e
 set -x
-
-# apply all issued patches except in kernel
-#
-if [[ -d ./install_patches && -n "$(ls -A ./install_patches)" ]]; then
-    for patch in ./install_patches/binupdate-$(uname -r)-$(uname -m)-*.tgz; do
-        tar -C ./staging -xvzpf $patch
-    done
-fi
 
 # remove KARL files ... not needed for R/O filesystem
 #
@@ -98,22 +90,11 @@ do
     ln -sf /boottmp/$cmd ./staging/usr/fuguita/sbin
 done
 
-# install packages needed for FuguIta
-#
-cp ./install_pkgs/rsync-*.tgz  ./staging/tmp/.
-cp ./install_pkgs/rlwrap-*.tgz ./staging/tmp/.
-cp ./install_pkgs/pv-*.tgz     ./staging/tmp/.
-
-(cd ./staging/dev && sh ./MAKEDEV std)
-
-# some setups on chrooted environment
+# some setups in chrooted environment
 #
 cat <<EOT | chroot ./staging /bin/ksh
+set -e
 set -x
-ldconfig /usr/lib /usr/X11R6/lib /usr/local/lib
-pkg_add -D unsigned /tmp/rsync-*.tgz
-pkg_add -D unsigned /tmp/rlwrap-*.tgz
-pkg_add -D unsigned /tmp/pv-*.tgz
 makewhatis
 for dir in 100dpi 75dpi OTF TTF Type1 cyrillic misc
 do
@@ -135,5 +116,4 @@ cp -p ./lib/usbfadm_postproc.sh.$(uname -m) ./staging/etc/fuguita/usbfadm_postpr
 
 # cleanups
 #
-rm ./staging/tmp/*
 rm -f ./staging/root/.ksh_history

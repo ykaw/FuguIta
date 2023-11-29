@@ -36,7 +36,7 @@
 # 010_extract.sh - Extract OpenBSD's install set to staging directory
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 010_extract.sh,v 1.4 2022/12/31 23:56:13 kaw Exp $
+# $Id: 010_extract.sh,v 1.5 2023/11/29 06:02:15 kaw Exp $
 #
 #========================================
 
@@ -53,14 +53,39 @@ if [ -d staging ]; then
 fi
 
 mkdir staging
-cd staging
-pv ../install_sets/base${shortver}.tgz   | tar xzpf -
-pv ../install_sets/comp${shortver}.tgz   | tar xzpf -
-pv ../install_sets/game${shortver}.tgz   | tar xzpf -
-pv ../install_sets/man${shortver}.tgz    | tar xzpf -
-pv ../install_sets/xbase${shortver}.tgz  | tar xzpf -
-pv ../install_sets/xfont${shortver}.tgz  | tar xzpf -
-pv ../install_sets/xserv${shortver}.tgz  | tar xzpf -
-pv ../install_sets/xshare${shortver}.tgz | tar xzpf -
-pv ./var/sysmerge/etc.tgz | tar xzpf -
-pv ./var/sysmerge/xetc.tgz | tar xzpf -
+( cd staging &&
+  pv ../install_sets/base${shortver}.tgz   | tar xzpf -
+  pv ../install_sets/comp${shortver}.tgz   | tar xzpf -
+  pv ../install_sets/game${shortver}.tgz   | tar xzpf -
+  pv ../install_sets/man${shortver}.tgz    | tar xzpf -
+  pv ../install_sets/xbase${shortver}.tgz  | tar xzpf -
+  pv ../install_sets/xfont${shortver}.tgz  | tar xzpf -
+  pv ../install_sets/xserv${shortver}.tgz  | tar xzpf -
+  pv ../install_sets/xshare${shortver}.tgz | tar xzpf -
+  pv ./var/sysmerge/etc.tgz | tar xzpf -
+  pv ./var/sysmerge/xetc.tgz | tar xzpf - )
+
+# install packages needed for FuguIta
+#
+cp ./install_pkgs/*-*.tgz  ./staging/tmp/.
+(cd ./staging/dev && sh ./MAKEDEV std)
+#
+# perform pkg_add in chrooted environment
+#
+cat <<EOT | chroot ./staging /bin/ksh
+set -e
+set -x
+ldconfig /usr/lib /usr/X11R6/lib /usr/local/lib
+pkg_add -D unsigned /tmp/rsync-*.tgz
+pkg_add -D unsigned /tmp/rlwrap-*.tgz
+pkg_add -D unsigned /tmp/pv-*.tgz
+rm /tmp/*
+EOT
+
+# apply all issued patches except in kernel
+#
+if [[ -d ./install_patches && -n "$(ls -A ./install_patches)" ]]; then
+    for patch in ./install_patches/binupdate-$(uname -r)-$(uname -m)-*.tgz; do
+        tar -C ./staging -xvzpf $patch
+    done
+fi

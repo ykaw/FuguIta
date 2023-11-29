@@ -1,9 +1,9 @@
-#!/bin/sh
+#!/bin/ksh
 
 #----------------------------------------
 # create_imgs.sh - create media.img and fuguita-*.ffsimg
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: create_imgs.sh,v 1.4 2023/11/08 00:46:57 kaw Exp $
+# $Id: create_imgs.sh,v 1.5 2023/11/29 06:02:39 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2023
@@ -42,22 +42,40 @@
 set -x
 set -e
 
-cont_files=$(find staging -print|wc -l)           # files under staging
-   cont_mb=$((1+$(du -sk staging|cut -f1)/1024))  # staging in MB
+stage_files=$(find staging -print|wc -l)           # files under staging
+   stage_mb=$((1+$(du -sk staging|cut -f1)/1024))  # staging in MB
 
-   headroom_fs=8   # room in ffsimg
-headroom_media=30  # room in media.img
+ ffs_headroom=8  # room in ffsimg
+ffs_roomminus=4  # lesser offset ffsimg
+     ffs_size=$((stage_mb+ffs_headroom+ffs_roomminus))
 
-   roomminus_fs=4  # lesser offset ffsimg
-roomminus_media=1  # lesser offset media
+  media_kernels=$(($(cat sys/arch/$(uname -m)/compile/{RDROOT,RDROOT.MP}/obj/bsd | gzip -9c | wc -c)/1024/1024))
+                                     # total of compressed kernels size
+ media_headroom=$((media_kernels/2)) # room in media.img
+media_roomminus=1                    # lesser offset media
+     media_size=$((ffs_size+media_kernels+media_headroom+media_roomminus))
+
+cat <<EOT
+stage_files=$stage_files
+   stage_mb=$stage_mb
+
+ ffs_headroom=8
+ffs_roomminus=4
+     ffs_size=$ffs_size
+
+ media_headroom=$media_headroom
+  media_kernels=$media_kernels
+media_roomminus=$media_roomminus
+     media_size=$media_size
+EOT
 
 # create media.img
 #
-./lib/setup_fsimg.sh media.img $((cont_mb+headroom_fs+headroom_media+roomminus_media)) 20
+./lib/setup_fsimg.sh media.img $media_size 20
 
 # create ffsimg in media.img
 #
 make open-media
 ffsimg=fuguita-$(uname -r)-$(uname -m).ffsimg 
-./lib/setup_fsimg.sh media/$ffsimg $((cont_mb+headroom_fs+roomminus_fs)) $cont_files
+./lib/setup_fsimg.sh media/$ffsimg $ffs_size $stage_files
 make close-all

@@ -37,8 +37,8 @@ PROJNAME =FuguIta
 VERSION !=uname -r
 ARCH    !=uname -m
 DATE    !=date +%Y%m%d
-REV     != if [[ -r revcount_cdmaster ]] ; then\
-               rev=$$(cat revcount_cdmaster);\
+REV     != if [[ -r rev-count ]] ; then\
+               rev=$$(cat rev-count);\
            else\
                rev=1;\
            fi;\
@@ -63,19 +63,18 @@ gz: $(FI).iso.gz
 $(FI).iso.gz: livecd.iso
 	@echo generating $(FI).iso.gz
 	@pv livecd.iso | gzip -9f -o $(FI).iso.gz
-	echo $$(($(REV)+1)) > revcount_cdmaster
+	echo $$(($(REV)+1)) > rev-count
 livecd.iso: sync boot hyb close-all
 
 #========================================
 # sync staging to media/fuguita-*.ffsimg
 #
 sync: close-all open-fuguita 
-	echo "$(VERSION)-$(ARCH)-$(DATE)$(REV)" > staging/usr/fuguita/version
-	(cd staging && \
+	cd staging && \
 	if ! rsync -avxH --delete . ../fuguita/.; then\
 	    find ../fuguita/ -type f -size +4096 -print | xargs rm;\
 	    rsync -avxH --delete . ../fuguita/.;\
-	fi)
+	fi
 
 #========================================
 # generate an ISO file
@@ -160,7 +159,11 @@ close-fuguita:
 #========================================
 # setup system filetree
 #
-setup: kernconfig kernclean kern imgs
+setup: initdir kernconfig kernclean kern imgs
+
+initdir:
+	mkdir -p fuguita media rdroot sys
+	(cd sys && lndir /usr/src/sys)
 
 kernconfig:
 	(cd $(KERNSRC)/conf && \
@@ -189,12 +192,23 @@ $(KERN_MP):
 	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP && \
          make obj && make config && make $(KERNOPT))
 
-imgs: close-all stage
+imgs: close-all staging
 	./lib/create_imgs.sh
 
-stage:
+STAGE_FILES != ls -1d install_*/*
+STAGE_FILES += lib/global.conf.$(ARCH)
+.if exists(lib/mode0symlinks.cpio.gz.$(ARCH))
+    STAGE_FILES += lib/mode0symlinks.cpio.gz.$(ARCH)
+.endif
+.if exists(lib/usbfadm_postproc.sh.$(ARCH))
+    STAGE_FILES += lib/usbfadm_postproc.sh.$(ARCH)
+.endif
+
+staging: staging.time
+staging.time: $(STAGE_FILES)
 	./lib/010_extract.sh
 	./lib/020_modify_tree.sh
+	touch staging.time
 
 #========================================
 # packaging controls
@@ -203,12 +217,14 @@ usbgz: close-all
 	@echo generating $(FI).img.gz
 	@pv media.img | gzip -9f -o $(FI).img.gz
 
-clean: close-all
-	rm -f bsd bsd.mp livecd.iso liveusb.img FuguIta-?.?-*-*.iso.gz FuguIta-?.?-*-*.img.gz
-	rm -rf staging.*_* 
+distclean: clean reset kernclean
+	rm -rf media.img staging fuguita media rdroot sys
 
-reset: clean
-	echo 1 > revcount_cdmaster
+clean: close-all
+	rm -f bsd bsd.mp livecd.iso staging.time staging.*_* FuguIta-?.?-*-*.*.gz
+
+reset:
+	rm -f rev-count
 
 #========================================
 # generate LiveUSB from LiveDVD

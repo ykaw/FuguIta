@@ -32,30 +32,99 @@
 
 #========================================
 # global definitions
-
+#
 PROJNAME =FuguIta
 VERSION !=uname -r
 ARCH    !=uname -m
 DATE    !=date +%Y%m%d
-REVISION!=if [ -r revcount_cdmaster ]; then cat revcount_cdmaster; else echo 0; fi
-
+REV     != if [[ -r revcount_cdmaster ]] ; then\
+               rev=$$(cat revcount_cdmaster);\
+           else\
+               rev=1;\
+           fi;\
+           [[ $$rev -le 0 ]] && rev=1;\
+           echo $$rev
 #VERSTAT=beta
 VERSTAT=
 AUTHOR=Yoshihiro Kawamata <kaw@on.rim.or.jp>
+FIBASE=$(VERSION)-$(ARCH)-$(DATE)$(REV)$(VERSTAT)
+FI=$(PROJNAME)-$(FIBASE)
 
 FIBUILD!=pwd
 KERNSRC=$(FIBUILD)/sys
-MAKEOPT=-j2
+KERNOPT=-j2
+KERN_SP=$(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
+KERN_MP=$(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
 
-all:
-	@echo /$(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$(REVISION)/ - lets go
+#========================================
+# final product
+#
+gz: $(FI).iso.gz
+$(FI).iso.gz: livecd.iso
+	@echo generating $(FI).iso.gz
+	@pv livecd.iso | gzip -9f -o $(FI).iso.gz
+	echo $$(($(REV)+1)) > revcount_cdmaster
+livecd.iso: sync boot hyb close-all
 
-doall: kern stage imgs sync iso gz
+#========================================
+# sync staging to media/fuguita-*.ffsimg
+#
+sync: close-all open-fuguita 
+	echo "$(VERSION)-$(ARCH)-$(DATE)$(REV)" > staging/usr/fuguita/version
+	(cd staging && \
+	if ! rsync -avxH --delete . ../fuguita/.; then\
+	    find ../fuguita/ -type f -size +4096 -print | xargs rm;\
+	    rsync -avxH --delete . ../fuguita/.;\
+	fi)
 
+#========================================
+# generate an ISO file
+#
+hyb: close-all open-fuguita
+	echo "$(FIBASE)" > fuguita/usr/fuguita/version
+	$(MAKE) close-fuguita
+
+	mkhybrid -a -R -L -l -d -D -N \
+		-o livecd.iso \
+		-v -v \
+		-A "FuguIta: OpenBSD-based Live System" \
+		-P "Copyright (c) `date +%Y` Yoshihiro Kawamata" \
+		-p "Yoshihiro Kawamata, https://fuguita.org/" \
+		-V "$(FI)" \
+		-b cdbr \
+		-c boot.catalog \
+		media \
+
+#========================================
+# stuffs on kernel generation
+#
+boot: close-all open-media clean-kern media/bsd-fi media/bsd-fi.mp
+	cp /usr/mdec/cdbr media/.   || touch media/cdbr
+	cp /usr/mdec/cdboot media/. || touch media/cdboot
+	cp /usr/mdec/boot media/.   || touch media/boot
+	[ -d media/etc ] || mkdir media/etc
+	cp lib/boot.conf.$(ARCH) media/etc/boot.conf
+
+# to make kernels re-ordered
+#
+clean-kern:
+	rm -f $(KERN_SP) $(KERN_MP)
+
+media/bsd-fi: rdroot.img $(KERN_SP)
+	cp $(KERN_SP) bsd
+	rdsetroot bsd rdroot.img
+	gzip -c9 bsd > media/bsd-fi
+	-rm bsd
+
+media/bsd-fi.mp: rdroot.img $(KERN_MP)
+	cp $(KERN_MP) bsd.mp
+	rdsetroot bsd.mp rdroot.img
+	gzip -c9 bsd.mp > media/bsd-fi.mp
+	-rm bsd.mp
 
 #========================================
 # vnconfig related stuffs
-
+#
 close-all: close-media close-rdroot
 
 open-rdroot:
@@ -75,11 +144,10 @@ open-media:
 
 close-media:
 	@if mount | grep -q '$(FIBUILD)/media type '; \
-	then make close-fuguita; umount media; vnconfig -u vnd1; \
+	then $(MAKE) close-fuguita; umount media; vnconfig -u vnd1; \
 	else echo media already closed; fi
 
-open-fuguita:
-	make open-media
+open-fuguita: open-media
 	@if mount | grep -q '$(FIBUILD)/fuguita type '; \
 	then echo fuguita already opened;\
 	else vnconfig vnd2 $(FIBUILD)/media/fuguita-$(VERSION)-$(ARCH).ffsimg ; mount -o async,noatime /dev/vnd2a fuguita; fi
@@ -91,58 +159,8 @@ close-fuguita:
 
 #========================================
 # setup system filetree
-
-stage:
-	./lib/010_extract.sh
-	./lib/020_modify_tree.sh
-
-imgs:
-	make close-all
-	./lib/create_imgs.sh
-
-sync:
-	make close-all
-	make open-fuguita
-	echo "$(VERSION)-$(ARCH)-$(DATE)$$(($(REVISION)+1))" > staging/usr/fuguita/version
-	(cd staging && rsync -avxH --delete . ../fuguita/.)
-
-syncback:
-	make close-all
-	make open-fuguita
-	(cd fuguita && rsync -avxH --delete . ../staging/.)
-
-#========================================
-# generate an ISO file
-
-hyb:
-	make close-all
-	make open-fuguita
-	echo "$(VERSION)-$(ARCH)-$(DATE)$$(($(REVISION)+1))" > fuguita/usr/fuguita/version
-	make close-fuguita
-
-	mkhybrid -a -R -L -l -d -D -N \
-		-o livecd.iso \
-		-v -v \
-		-A "FuguIta: OpenBSD-based Live System" \
-		-P "Copyright (c) `date +%Y` Yoshihiro Kawamata" \
-		-p "Yoshihiro Kawamata, https://fuguita.org/" \
-		-V "$(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$$(($(REVISION)+1))" \
-		-b cdbr \
-		-c boot.catalog \
-		media \
-	&& echo $$(($(REVISION)+1)) > revcount_cdmaster
-
-#========================================
-# stuffs on kernel generation
-
-boot: media/bsd-fi media/bsd-fi.mp
-	make close-all
-	make open-media
-	cp /usr/mdec/cdbr media/.   || touch media/cdbr
-	cp /usr/mdec/cdboot media/. || touch media/cdboot
-	cp /usr/mdec/boot media/.   || touch media/boot
-	[ -d media/etc ] || mkdir media/etc
-	cp lib/boot.conf.$(ARCH) media/etc/boot.conf
+#
+setup: kernconfig kernclean kern imgs
 
 kernconfig:
 	(cd $(KERNSRC)/conf && \
@@ -160,51 +178,53 @@ kernclean:
          make obj && make clean)
 	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP && \
          make obj && make clean)
-kern:
+
+kern: $(KERN_SP) $(KERN_MP)
+
+$(KERN_SP):
 	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT && \
-         make obj && make config && make $(MAKEOPT))
+         make obj && make config && make $(KERNOPT))
+
+$(KERN_MP):
 	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP && \
-         make obj && make config && make $(MAKEOPT))
+         make obj && make config && make $(KERNOPT))
 
-media/bsd-fi: rdroot.img $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
-	make close-all
-	make open-media
-	cp $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd bsd
-	rdsetroot bsd rdroot.img
-	gzip -c9 bsd > media/bsd-fi
-	-rm bsd
+imgs: close-all stage
+	./lib/create_imgs.sh
 
-media/bsd-fi.mp: rdroot.img $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
-	make close-all
-	make open-media
-	cp $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd bsd.mp
-	rdsetroot bsd.mp rdroot.img
-	gzip -c9 bsd.mp > media/bsd-fi.mp
-	-rm bsd.mp
+stage:
+	./lib/010_extract.sh
+	./lib/020_modify_tree.sh
 
 #========================================
 # packaging controls
+#
+usbgz: close-all
+	@echo generating $(FI).img.gz
+	@pv media.img | gzip -9f -o $(FI).img.gz
 
-iso:
-	make close-all
-	make open-media
-	make boot
-	make hyb
-	make close-all
-
-gz:
-	@echo generating $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)`cat revcount_cdmaster`$(VERSTAT).iso.gz
-	@pv livecd.iso | gzip -9f -o $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)`cat revcount_cdmaster`$(VERSTAT).iso.gz
-
-usbgz:
-	make close-all
-	@echo generating $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$$((`cat revcount_cdmaster`+1))$(VERSTAT).img.gz
-	@pv media.img | gzip -9f -o $(PROJNAME)-$(VERSION)-$(ARCH)-$(DATE)$$((`cat revcount_cdmaster`+1))$(VERSTAT).img.gz
-
-clean:
-	make close-all
+clean: close-all
 	rm -f bsd bsd.mp livecd.iso liveusb.img FuguIta-?.?-*-*.iso.gz FuguIta-?.?-*-*.img.gz
+	rm -rf staging.*_* 
 
-reset:
-	make clean
-	echo 0 > revcount_cdmaster
+reset: clean
+	echo 1 > revcount_cdmaster
+
+#========================================
+# generate LiveUSB from LiveDVD
+#
+IMGMB=2048
+
+.PHONY: imggz imgclean
+
+imggz: $(FI).img.gz
+
+$(FI).img.gz:
+	pv $(FI).iso.gz | gzip -d -o $(FI).iso
+	dd if=/dev/zero bs=1m count=$(IMGMB) | pv -s $(IMGMB)M > $(FI).img
+	doas vmctl start -cL -i1 -m2G -r $(FI).iso -d $(FI).img fi74
+	doas vmctl start -cL -i1 -m2G -d $(FI).img fi74
+	pv $(FI).img | gzip -o $(FI).img.gz -9
+
+imgclean:
+	rm -f $(FI).img.gz $(FI).img $(FI).iso

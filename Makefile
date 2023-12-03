@@ -64,12 +64,12 @@ $(FI).iso.gz: livecd.iso
 	@echo generating $(FI).iso.gz
 	@pv livecd.iso | gzip -9f -o $(FI).iso.gz
 	echo $$(($(REV)+1)) > rev-count
-livecd.iso: sync boot hyb close-all
+livecd.iso: boot sync hyb close-all
 
 #========================================
 # sync staging to media/fuguita-*.ffsimg
 #
-sync: close-all open-fuguita 
+sync: close-all open-fuguita staging
 	cd staging && \
 	if ! rsync -avxH --delete . ../fuguita/.; then\
 	    find ../fuguita/ -type f -size +4096 -print | xargs rm;\
@@ -162,8 +162,8 @@ close-fuguita:
 setup: initdir kernconfig kernclean kern imgs
 
 initdir:
-	mkdir -p fuguita media rdroot sys
-	(cd sys && lndir /usr/src/sys)
+	mkdir -p fuguita media rdroot sys install_sets install_pkgs install_patches
+	if [ ! -d sys/arch/$(ARCH) ]; then (cd sys && lndir /usr/src/sys); fi
 
 kernconfig:
 	(cd $(KERNSRC)/conf && \
@@ -217,8 +217,8 @@ usbgz: close-all
 	@echo generating $(FI).img.gz
 	@pv media.img | gzip -9f -o $(FI).img.gz
 
-distclean: clean reset kernclean
-	rm -rf media.img staging fuguita media rdroot sys
+distclean: clean reset
+	rm -rf media.img staging fuguita media rdroot sys install_sets install_pkgs install_patches
 
 clean: close-all
 	rm -f bsd bsd.mp livecd.iso staging.time staging.*_* FuguIta-?.?-*-*.*.gz

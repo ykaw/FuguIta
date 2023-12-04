@@ -69,7 +69,9 @@ livecd.iso: boot sync hyb close-all
 #========================================
 # sync staging to media/fuguita-*.ffsimg
 #
-sync: close-all open-fuguita staging
+sync: staging
+	$(MAKE) close-all
+	$(MAKE) open-fuguita
 	cd staging && \
 	if ! rsync -avxH --delete . ../fuguita/.; then\
 	    find ../fuguita/ -type f -size +4096 -print | xargs rm;\
@@ -79,7 +81,9 @@ sync: close-all open-fuguita staging
 #========================================
 # generate an ISO file
 #
-hyb: close-all open-fuguita
+hyb:
+	$(MAKE) close-all
+	$(MAKE) open-fuguita
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
 	$(MAKE) close-fuguita
 
@@ -97,7 +101,10 @@ hyb: close-all open-fuguita
 #========================================
 # stuffs on kernel generation
 #
-boot: close-all open-media clean-kern media/bsd-fi media/bsd-fi.mp
+boot: media/bsd-fi media/bsd-fi.mp
+	$(MAKE) close-all
+	$(MAKE) open-media
+	$(MAKE) clean-kern
 	cp /usr/mdec/cdbr media/.   || touch media/cdbr
 	cp /usr/mdec/cdboot media/. || touch media/cdboot
 	cp /usr/mdec/boot media/.   || touch media/boot
@@ -192,7 +199,8 @@ $(KERN_MP):
 	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP && \
          make obj && make config && make $(KERNOPT))
 
-imgs: close-all staging
+imgs: staging
+	$(MAKE) close-all
 	./lib/create_imgs.sh
 
 STAGE_FILES != ls -1d install_*/*
@@ -213,14 +221,18 @@ staging.time: $(STAGE_FILES)
 #========================================
 # packaging controls
 #
-usbgz: close-all
+usbgz:
+	$(MAKE) close-all
 	@echo generating $(FI).img.gz
 	@pv media.img | gzip -9f -o $(FI).img.gz
 
-distclean: clean reset
+distclean:
+	$(MAKE) clean
+	$(MAKE) reset
 	rm -rf media.img staging fuguita media rdroot sys install_sets install_pkgs install_patches
 
-clean: close-all
+clean:
+	$(MAKE) close-all
 	rm -f bsd bsd.mp livecd.iso staging.time staging.*_* FuguIta-?.?-*-*.*.gz
 
 reset:

@@ -36,7 +36,7 @@
 # 010_extract.sh - Extract OpenBSD's install set to staging directory
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 010_extract.sh,v 1.6 2023/11/29 23:26:39 kaw Exp $
+# $Id: 010_extract.sh,v 1.7 2023/12/05 16:00:02 kaw Exp $
 #
 #========================================
 
@@ -53,22 +53,35 @@ if [ -d staging ]; then
 fi
 
 mkdir staging
-( cd staging &&
-  pv ../install_sets/base${shortver}.tgz   | tar xzpf -
-  pv ../install_sets/comp${shortver}.tgz   | tar xzpf -
-  pv ../install_sets/game${shortver}.tgz   | tar xzpf -
-  pv ../install_sets/man${shortver}.tgz    | tar xzpf -
-  pv ../install_sets/xbase${shortver}.tgz  | tar xzpf -
-  pv ../install_sets/xfont${shortver}.tgz  | tar xzpf -
-  pv ../install_sets/xserv${shortver}.tgz  | tar xzpf -
-  pv ../install_sets/xshare${shortver}.tgz | tar xzpf -
-  pv ./var/sysmerge/etc.tgz | tar xzpf -
-  pv ./var/sysmerge/xetc.tgz | tar xzpf - )
+cd staging
+pv ../install_sets/base${shortver}.tgz   | tar xzpf -
+pv ../install_sets/comp${shortver}.tgz   | tar xzpf -
+pv ../install_sets/game${shortver}.tgz   | tar xzpf -
+pv ../install_sets/man${shortver}.tgz    | tar xzpf -
+pv ../install_sets/xbase${shortver}.tgz  | tar xzpf -
+pv ../install_sets/xfont${shortver}.tgz  | tar xzpf -
+pv ../install_sets/xserv${shortver}.tgz  | tar xzpf -
+pv ../install_sets/xshare${shortver}.tgz | tar xzpf -
+pv ./var/sysmerge/etc.tgz | tar xzpf -
+pv ./var/sysmerge/xetc.tgz | tar xzpf -
 
 # install packages needed for FuguIta
 #
-cp ./install_pkgs/*-*.tgz  ./staging/tmp/.
-(cd ./staging/dev && sh ./MAKEDEV std)
+cp ../install_pkgs/*-*.tgz  ./tmp/.
+(cd dev && sh ./MAKEDEV std)
+
+# add user's customization, if any
+#
+if [ -f ../install_sets/site${shortver}.tgz ]; then
+    pv ../install_sets/xshare${shortver}.tgz | tar xzpf -
+    if [ -f install.site ]; then
+        cat install.site >> etc/rc.firsttime
+        rm install.site
+    fi
+fi
+
+cd .. # back to top of build tools
+
 #
 # perform pkg_add in chrooted environment
 #

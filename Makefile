@@ -119,12 +119,16 @@ force-build-kern:
 	$(MAKE) media/bsd-fi media/bsd-fi.mp
 
 media/bsd-fi: rdroot.img $(KERN_SP)
+	$(MAKE) close-all
+	$(MAKE) open-media
 	cp $(KERN_SP) bsd
 	rdsetroot bsd rdroot.img
 	gzip -c9 bsd > media/bsd-fi
 	-rm bsd
 
 media/bsd-fi.mp: rdroot.img $(KERN_MP)
+	$(MAKE) close-all
+	$(MAKE) open-media
 	cp $(KERN_MP) bsd.mp
 	rdsetroot bsd.mp rdroot.img
 	gzip -c9 bsd.mp > media/bsd-fi.mp

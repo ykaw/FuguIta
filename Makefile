@@ -64,7 +64,6 @@ $(FI).iso.gz: livecd.iso
 	@echo generating $(FI).iso.gz
 	@pv livecd.iso | gzip -9f -o $(FI).iso.gz
 	echo $$(($(REV)+1)) > rev.count
-livecd.iso: boot sync hyb close-all
 
 #========================================
 # sync staging to media/fuguita-*.ffsimg
@@ -83,7 +82,7 @@ sync.time: staging
 #========================================
 # generate an ISO file
 #
-hyb:
+livecd.iso: boot sync
 	$(MAKE) close-all
 	$(MAKE) open-fuguita
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version

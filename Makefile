@@ -37,8 +37,8 @@ PROJNAME =FuguIta
 VERSION !=uname -r
 ARCH    !=uname -m
 DATE    !=date +%Y%m%d
-REV     != if [[ -r rev-count ]] ; then\
-               rev=$$(cat rev-count);\
+REV     != if [[ -r rev.count ]] ; then\
+               rev=$$(cat rev.count);\
            else\
                rev=1;\
            fi;\
@@ -63,13 +63,14 @@ gz: $(FI).iso.gz
 $(FI).iso.gz: livecd.iso
 	@echo generating $(FI).iso.gz
 	@pv livecd.iso | gzip -9f -o $(FI).iso.gz
-	echo $$(($(REV)+1)) > rev-count
+	echo $$(($(REV)+1)) > rev.count
 livecd.iso: boot sync hyb close-all
 
 #========================================
 # sync staging to media/fuguita-*.ffsimg
 #
-sync: staging
+sync: sync.time
+sync.time: staging
 	$(MAKE) close-all
 	$(MAKE) open-fuguita
 	cd staging && \
@@ -77,6 +78,7 @@ sync: staging
 	    find ../fuguita/ -type f -size +4096 -print | xargs rm;\
 	    rsync -avxH --delete . ../fuguita/.;\
 	fi
+	touch sync.time
 
 #========================================
 # generate an ISO file
@@ -101,10 +103,9 @@ hyb:
 #========================================
 # stuffs on kernel generation
 #
-boot: media/bsd-fi media/bsd-fi.mp
+boot: force-build-kern
 	$(MAKE) close-all
 	$(MAKE) open-media
-	$(MAKE) clean-kern
 	cp /usr/mdec/cdbr media/.   || touch media/cdbr
 	cp /usr/mdec/cdboot media/. || touch media/cdboot
 	cp /usr/mdec/boot media/.   || touch media/boot
@@ -113,8 +114,9 @@ boot: media/bsd-fi media/bsd-fi.mp
 
 # to make kernels re-ordered
 #
-clean-kern:
+force-build-kern:
 	rm -f $(KERN_SP) $(KERN_MP)
+	$(MAKE) media/bsd-fi media/bsd-fi.mp
 
 media/bsd-fi: rdroot.img $(KERN_SP)
 	cp $(KERN_SP) bsd
@@ -229,14 +231,16 @@ usbgz: boot sync
 distclean:
 	$(MAKE) clean
 	$(MAKE) reset
-	rm -rf media.img staging fuguita media rdroot sys install_sets install_pkgs install_patches
+	rm -f media.img
+	rm -rf staging fuguita media rdroot sys install_sets install_pkgs install_patches
 
 clean:
 	$(MAKE) close-all
-	rm -f bsd bsd.mp livecd.iso staging.time staging.*_* FuguIta-?.?-*-*.*.gz
+	rm -f bsd bsd.mp livecd.iso staging.time sync.time FuguIta-?.?-*-*.*.gz
+	rm -rf staging.*_*
 
 reset:
-	rm -f rev-count
+	rm -f rev.count
 
 #========================================
 # generate LiveUSB from LiveDVD

@@ -36,7 +36,7 @@
 # 010_extract.sh - Extract OpenBSD's install set to staging directory
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 010_extract.sh,v 1.7 2023/12/05 16:00:02 kaw Exp $
+# $Id: 010_extract.sh,v 1.8 2023/12/06 18:12:44 kaw Exp $
 #
 #========================================
 
@@ -70,16 +70,6 @@ pv ./var/sysmerge/xetc.tgz | tar xzpf -
 cp ../install_pkgs/*-*.tgz  ./tmp/.
 (cd dev && sh ./MAKEDEV std)
 
-# add user's customization, if any
-#
-if [ -f ../install_sets/site${shortver}.tgz ]; then
-    pv ../install_sets/xshare${shortver}.tgz | tar xzpf -
-    if [ -f install.site ]; then
-        cat install.site >> etc/rc.firsttime
-        rm install.site
-    fi
-fi
-
 cd .. # back to top of build tools
 
 #
@@ -94,6 +84,20 @@ pkg_add -D unsigned /tmp/rlwrap-*.tgz
 pkg_add -D unsigned /tmp/pv-*.tgz
 rm /tmp/*
 EOT
+
+cd staging
+
+# add user's customization, if any
+#
+if [ -f ../install_sets/site${shortver}.tgz ]; then
+    pv ../install_sets/site${shortver}.tgz | tar xzpf -
+    if [ -f install.site ]; then
+        cat install.site >> etc/rc.firsttime
+        rm install.site
+    fi
+fi
+
+cd .. # back to top of build tools
 
 # apply all issued patches except in kernel
 #

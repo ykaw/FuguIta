@@ -3,7 +3,7 @@
 #----------------------------------------
 # create_imgs.sh - create media.img and fuguita-*.ffsimg
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: create_imgs.sh,v 1.5 2023/11/29 06:02:39 kaw Exp $
+# $Id: create_imgs.sh,v 1.6 2023/12/08 23:30:18 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2023
@@ -71,7 +71,9 @@ EOT
 
 # create media.img
 #
-./lib/setup_fsimg.sh media.img $media_size 20
+if [ -n "$CREATE_MEDIA_IMG" ]; then
+    ./lib/setup_fsimg.sh media.img $media_size 20
+fi
 
 # create ffsimg in media.img
 #

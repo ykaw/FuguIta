@@ -149,14 +149,25 @@ close-rdroot:
 	else echo rdroot already closed; fi
 
 open-media:
-	@if mount | grep -q '$(FIBUILD)/media type '; \
-	then echo media already opened;\
-	else vnconfig vnd1 media.img ; mount -o async,noatime /dev/vnd1a media; fi
+	@if [ -f media.img ]; then \
+	    if mount | grep -q '$(FIBUILD)/media type '; then \
+	        echo media already opened; \
+	    else \
+	        vnconfig vnd1 media.img; \
+	        mount -o async,noatime /dev/vnd1a media; \
+	    fi; \
+	fi
 
 close-media:
-	@if mount | grep -q '$(FIBUILD)/media type '; \
-	then $(MAKE) close-fuguita; umount media; vnconfig -u vnd1; \
-	else echo media already closed; fi
+	@if [ -f media.img ]; then \
+	    if mount | grep -q '$(FIBUILD)/media type '; then \
+	        $(MAKE) close-fuguita; \
+	        umount media; \
+	        vnconfig -u vnd1; \
+	    else \
+	        echo media already closed; \
+	    fi; \
+	fi
 
 open-fuguita: open-media
 	@if mount | grep -q '$(FIBUILD)/fuguita type '; \

@@ -247,6 +247,7 @@ usbgz: boot sync
 	$(MAKE) close-all
 	@echo generating $(FI).img.gz
 	@pv media.img | gzip -9f -o $(FI).img.gz
+	echo $$(($(REV)+1)) > rev.count
 
 distclean:
 	$(MAKE) clean

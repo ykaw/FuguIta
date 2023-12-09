@@ -87,7 +87,6 @@ livecd.iso: boot sync
 	$(MAKE) open-fuguita
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
 	$(MAKE) close-fuguita
-
 	mkhybrid -a -R -L -l -d -D -N \
 		-o livecd.iso \
 		-v -v \
@@ -243,6 +242,9 @@ staging.time: $(STAGE_FILES)
 #
 usbgz: boot sync
 	$(MAKE) close-all
+	$(MAKE) open-fuguita
+	echo "$(FIBASE)" > fuguita/usr/fuguita/version
+	$(MAKE) close-fuguita
 	@echo generating $(FI).img.gz
 	@pv media.img | gzip -9f -o $(FI).img.gz
 

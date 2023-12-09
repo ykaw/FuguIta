@@ -182,11 +182,15 @@ close-fuguita:
 #========================================
 # setup system filetree
 #
-setup: initdir kernconfig kernclean kern imgs
-
-initdir:
+init:
 	mkdir -p fuguita media rdroot sys install_sets install_pkgs install_patches
 	if [ ! -d sys/arch/$(ARCH) ]; then (cd sys && lndir /usr/src/sys); fi
+
+setup:
+	$(MAKE) kernconfig
+	$(MAKE) kernclean
+	$(MAKE) kern
+	$(MAKE) imgs
 
 kernconfig:
 	(cd $(KERNSRC)/conf && \

@@ -35,6 +35,7 @@
 #
 PROJNAME =FuguIta
 VERSION !=uname -r
+VER     !=uname -r | tr -d .
 ARCH    !=uname -m
 DATE    !=date +%Y%m%d
 REV     != if [[ -r rev.count ]] ; then\
@@ -222,7 +223,10 @@ imgs: staging
 	$(MAKE) close-all
 	./lib/create_imgs.sh
 
-STAGE_FILES != ls -1d install_*/*
+.if exists(install_sets/base$(VER).tgz)
+    STAGE_FILES != ls -1d install_*/*
+.endif
+
 STAGE_FILES += lib/global.conf.$(ARCH)
 .if exists(lib/mode0symlinks.cpio.gz.$(ARCH))
     STAGE_FILES += lib/mode0symlinks.cpio.gz.$(ARCH)

@@ -1,9 +1,9 @@
 #!/bin/ksh
 
 #----------------------------------------
-# create_imgs.sh - create media.img and fuguita-*.ffsimg
+# create_imgs.sh - create sysmedia.img and fuguita-*.ffsimg
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: create_imgs.sh,v 1.6 2023/12/08 23:30:18 kaw Exp $
+# $Id: create_imgs.sh,v 1.7 2023/12/11 17:36:21 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2023
@@ -51,8 +51,8 @@ ffs_roomminus=4  # lesser offset ffsimg
 
   media_kernels=$(($(cat sys/arch/$(uname -m)/compile/{RDROOT,RDROOT.MP}/obj/bsd | gzip -9c | wc -c)/1024/1024))
                                      # total of compressed kernels size
- media_headroom=$((media_kernels/2)) # room in media.img
-media_roomminus=1                    # lesser offset media
+ media_headroom=$((media_kernels/2)) # room in sysmedia.img
+media_roomminus=1                    # lesser offset sysmedia
      media_size=$((ffs_size+media_kernels+media_headroom+media_roomminus))
 
 cat <<EOT
@@ -69,15 +69,15 @@ media_roomminus=$media_roomminus
      media_size=$media_size
 EOT
 
-# create media.img
+# create sysmedia.img
 #
-if [ -n "$CREATE_MEDIA_IMG" ]; then
-    ./lib/setup_fsimg.sh media.img $media_size 20
+if [ -n "$CREATE_SYSMEDIA_IMG" ]; then
+    ./lib/setup_fsimg.sh sysmedia.img $media_size 20
 fi
 
-# create ffsimg in media.img
+# create ffsimg in sysmedia.img
 #
-make open-media
+make open-sysmedia
 ffsimg=fuguita-$(uname -r)-$(uname -m).ffsimg 
-./lib/setup_fsimg.sh media/$ffsimg $ffs_size $stage_files
+./lib/setup_fsimg.sh sysmedia/$ffsimg $ffs_size $stage_files
 make close-all

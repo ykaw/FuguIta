@@ -67,7 +67,7 @@ $(FI).iso.gz: livecd.iso
 	echo $$(($(REV)+1)) > rev.count
 
 #========================================
-# sync staging to media/fuguita-*.ffsimg
+# sync staging to sysmedia/fuguita-*.ffsimg
 #
 sync: sync.time
 sync.time: staging
@@ -97,46 +97,46 @@ livecd.iso: boot sync
 		-V "$(FI)" \
 		-b cdbr \
 		-c boot.catalog \
-		media \
+		sysmedia \
 
 #========================================
 # stuffs on kernel generation
 #
 boot: force-build-kern
 	$(MAKE) close-all
-	$(MAKE) open-media
-	cp /usr/mdec/cdbr media/.   || touch media/cdbr
-	cp /usr/mdec/cdboot media/. || touch media/cdboot
-	cp /usr/mdec/boot media/.   || touch media/boot
-	[ -d media/etc ] || mkdir media/etc
-	cp lib/boot.conf.$(ARCH) media/etc/boot.conf
+	$(MAKE) open-sysmedia
+	cp /usr/mdec/cdbr sysmedia/.   || touch sysmedia/cdbr
+	cp /usr/mdec/cdboot sysmedia/. || touch sysmedia/cdboot
+	cp /usr/mdec/boot sysmedia/.   || touch sysmedia/boot
+	[ -d sysmedia/etc ] || mkdir sysmedia/etc
+	cp lib/boot.conf.$(ARCH) sysmedia/etc/boot.conf
 
 # to make kernels re-ordered
 #
 force-build-kern:
 	rm -f $(KERN_SP) $(KERN_MP)
-	$(MAKE) media/bsd-fi media/bsd-fi.mp
+	$(MAKE) sysmedia/bsd-fi sysmedia/bsd-fi.mp
 
-media/bsd-fi: rdroot.img $(KERN_SP)
+sysmedia/bsd-fi: rdroot.img $(KERN_SP)
 	$(MAKE) close-all
-	$(MAKE) open-media
+	$(MAKE) open-sysmedia
 	cp $(KERN_SP) bsd
 	rdsetroot bsd rdroot.img
-	gzip -c9 bsd > media/bsd-fi
+	gzip -c9 bsd > sysmedia/bsd-fi
 	-rm bsd
 
-media/bsd-fi.mp: rdroot.img $(KERN_MP)
+sysmedia/bsd-fi.mp: rdroot.img $(KERN_MP)
 	$(MAKE) close-all
-	$(MAKE) open-media
+	$(MAKE) open-sysmedia
 	cp $(KERN_MP) bsd.mp
 	rdsetroot bsd.mp rdroot.img
-	gzip -c9 bsd.mp > media/bsd-fi.mp
+	gzip -c9 bsd.mp > sysmedia/bsd-fi.mp
 	-rm bsd.mp
 
 #========================================
 # vnconfig related stuffs
 #
-close-all: close-media close-rdroot
+close-all: close-sysmedia close-rdroot
 
 open-rdroot:
 	@if mount | grep -q '$(FIBUILD)/rdroot type '; \
@@ -148,31 +148,31 @@ close-rdroot:
 	then umount rdroot; vnconfig -u vnd0; \
 	else echo rdroot already closed; fi
 
-open-media:
-	@if [ -f media.img ]; then \
-	    if mount | grep -q '$(FIBUILD)/media type '; then \
+open-sysmedia:
+	@if [ -f sysmedia.img ]; then \
+	    if mount | grep -q '$(FIBUILD)/sysmedia type '; then \
 	        echo media already opened; \
 	    else \
-	        vnconfig vnd1 media.img; \
-	        mount -o async,noatime /dev/vnd1a media; \
+	        vnconfig vnd1 sysmedia.img; \
+	        mount -o async,noatime /dev/vnd1a sysmedia; \
 	    fi; \
 	fi
 
-close-media:
-	@if [ -f media.img ]; then \
-	    if mount | grep -q '$(FIBUILD)/media type '; then \
+close-sysmedia:
+	@if [ -f sysmedia.img ]; then \
+	    if mount | grep -q '$(FIBUILD)/sysmedia type '; then \
 	        $(MAKE) close-fuguita; \
-	        umount media; \
+	        umount sysmedia; \
 	        vnconfig -u vnd1; \
 	    else \
 	        echo media already closed; \
 	    fi; \
 	fi
 
-open-fuguita: open-media
+open-fuguita: open-sysmedia
 	@if mount | grep -q '$(FIBUILD)/fuguita type '; \
 	then echo fuguita already opened;\
-	else vnconfig vnd2 $(FIBUILD)/media/fuguita-$(VERSION)-$(ARCH).ffsimg ; mount -o async,noatime /dev/vnd2a fuguita; fi
+	else vnconfig vnd2 $(FIBUILD)/sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg ; mount -o async,noatime /dev/vnd2a fuguita; fi
 
 close-fuguita:
 	@if mount | grep -q '$(FIBUILD)/fuguita type '; \
@@ -183,7 +183,7 @@ close-fuguita:
 # setup system filetree
 #
 init:
-	mkdir -p fuguita media rdroot sys install_sets install_pkgs install_patches
+	mkdir -p fuguita sysmedia rdroot sys install_sets install_pkgs install_patches
 	if [ ! -d sys/arch/$(ARCH) ]; then (cd sys && lndir /usr/src/sys); fi
 
 setup:
@@ -250,14 +250,14 @@ usbgz: boot sync
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
 	$(MAKE) close-all
 	@echo generating $(FI).img.gz
-	@pv media.img | gzip -9f -o $(FI).img.gz
+	@pv sysmedia.img | gzip -9f -o $(FI).img.gz
 	echo $$(($(REV)+1)) > rev.count
 
 distclean:
 	$(MAKE) clean
 	$(MAKE) reset
-	rm -f media.img
-	rm -rf staging fuguita media rdroot sys install_sets install_pkgs install_patches
+	rm -f sysmedia.img
+	rm -rf staging fuguita sysmedia rdroot sys install_sets install_pkgs install_patches
 
 clean:
 	$(MAKE) close-all

@@ -3,7 +3,7 @@
 #----------------------------------------
 # mkrdroot.sh - create rdroot.ffsimg
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: mkrdroot.sh,v 1.1 2023/12/12 08:54:35 kaw Exp $
+# $Id: mkrdroot.sh,v 1.2 2023/12/12 16:32:59 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2023
@@ -73,9 +73,9 @@ mkdir -p /mnt/{dev,fuguita,mnt,ram,sysmedia,sysmedia-iso,tmp}
 chmod go-rwx /mnt/sysmedia-iso
 chmod 1777 /mnt/tmp
 (cd /mnt/dev
- cp -p /dev/MAKEDEV .
+ cp -p /usr/src/etc/etc.$(uname -m)/MAKEDEV .
  sh ./MAKEDEV all vnd4 vnd5)
-cp -p /etc/login.conf /mnt/boottmp/.
+cp -p /usr/src/etc/etc.$(uname -m)/login.conf /mnt/boottmp/.
 cp -p lib/bootbin/bootbin /mnt/boottmp
 for prog in disklabel halt init ksh ln mount mount_cd9660 mount_ext2fs \
             mount_ffs mount_mfs mount_msdos mount_ntfs mount_vnd newfs \

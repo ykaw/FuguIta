@@ -66,6 +66,17 @@ $(FI).iso.gz: livecd.iso
 	@pv livecd.iso | gzip -9f -o $(FI).iso.gz
 	echo $$(($(REV)+1)) > rev.count
 
+# now, only for arm64
+#
+usbgz: boot sync
+	$(MAKE) close-all
+	$(MAKE) open-fuguita
+	echo "$(FIBASE)" > fuguita/usr/fuguita/version
+	$(MAKE) close-all
+	@echo generating $(FI).img.gz
+	@pv sysmedia.img | gzip -9f -o $(FI).img.gz
+	echo $$(($(REV)+1)) > rev.count
+
 #========================================
 # sync staging to sysmedia/fuguita-*.ffsimg
 #
@@ -132,6 +143,17 @@ sysmedia/bsd-fi.mp: rdroot.ffsimg $(KERN_MP)
 	rdsetroot bsd.mp rdroot.ffsimg
 	gzip -c9 bsd.mp > sysmedia/bsd-fi.mp
 	-rm bsd.mp
+
+.if exists(rdroot/boottmp/rc)
+    BOOTTMPS != echo rdroot/boottmp/*
+.endif
+
+rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV /usr/src/etc/etc.$(ARCH)/login.conf lib/bootbin/bootbin $(BOOTTMPS)
+	$(MAKE) close-all
+	./lib/mkrdroot.sh
+
+lib/bootbin/bootbin:
+	./lib/mkrdroot.sh
 
 #========================================
 # vnconfig related stuffs
@@ -244,28 +266,26 @@ staging.time: $(STAGE_FILES)
 #========================================
 # packaging controls
 #
-usbgz: boot sync
-	$(MAKE) close-all
-	$(MAKE) open-fuguita
-	echo "$(FIBASE)" > fuguita/usr/fuguita/version
-	$(MAKE) close-all
-	@echo generating $(FI).img.gz
-	@pv sysmedia.img | gzip -9f -o $(FI).img.gz
-	echo $$(($(REV)+1)) > rev.count
-
 distclean:
-	$(MAKE) clean
 	$(MAKE) reset
+	$(MAKE) clean
 	rm -f sysmedia.img
 	rm -rf staging fuguita sysmedia sys install_sets install_pkgs install_patches
+	$(MAKE) rdclean
+
+reset:
+	rm -f rev.count
 
 clean:
 	$(MAKE) close-all
 	rm -f bsd bsd.mp livecd.iso staging.time sync.time FuguIta-?.?-*-*.*.gz
 	rm -rf staging.*_*
 
-reset:
-	rm -f rev.count
+rdclean:
+	rm -f rdroot.ffsimg lib/bootbin/!(CVS)
+	cd lib/special && $(MAKE) clean
+	rm -rf lib/special/*/obj
+	find lib/special -type l -print | xargs rm -f
 
 #========================================
 # generate LiveUSB from LiveDVD

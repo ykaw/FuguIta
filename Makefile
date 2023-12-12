@@ -117,19 +117,19 @@ force-build-kern:
 	rm -f $(KERN_SP) $(KERN_MP)
 	$(MAKE) sysmedia/bsd-fi sysmedia/bsd-fi.mp
 
-sysmedia/bsd-fi: rdroot.img $(KERN_SP)
+sysmedia/bsd-fi: rdroot.ffsimg $(KERN_SP)
 	$(MAKE) close-all
 	$(MAKE) open-sysmedia
 	cp $(KERN_SP) bsd
-	rdsetroot bsd rdroot.img
+	rdsetroot bsd rdroot.ffsimg
 	gzip -c9 bsd > sysmedia/bsd-fi
 	-rm bsd
 
-sysmedia/bsd-fi.mp: rdroot.img $(KERN_MP)
+sysmedia/bsd-fi.mp: rdroot.ffsimg $(KERN_MP)
 	$(MAKE) close-all
 	$(MAKE) open-sysmedia
 	cp $(KERN_MP) bsd.mp
-	rdsetroot bsd.mp rdroot.img
+	rdsetroot bsd.mp rdroot.ffsimg
 	gzip -c9 bsd.mp > sysmedia/bsd-fi.mp
 	-rm bsd.mp
 
@@ -139,13 +139,13 @@ sysmedia/bsd-fi.mp: rdroot.img $(KERN_MP)
 close-all: close-sysmedia close-rdroot
 
 open-rdroot:
-	@if mount | grep -q '$(FIBUILD)/rdroot type '; \
+	@if mount | grep -q '^/dev/vnd0a on '; \
 	then echo rdroot already opened;\
-	else vnconfig vnd0 rdroot.img ; mount /dev/vnd0a rdroot; fi
+	else vnconfig vnd0 rdroot.ffsimg ; mount /dev/vnd0a /mnt; fi
 
 close-rdroot:
-	@if mount | grep -q '$(FIBUILD)/rdroot type '; \
-	then umount rdroot; vnconfig -u vnd0; \
+	@if mount | grep -q '^/dev/vnd0a on '; \
+	then umount /mnt; vnconfig -u vnd0; \
 	else echo rdroot already closed; fi
 
 open-sysmedia:

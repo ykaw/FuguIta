@@ -3,7 +3,7 @@
 #----------------------------------------
 # setup_fsimg.sh - setup file system image with specified size
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: setup_fsimg.sh,v 1.7 2023/12/12 05:12:48 kaw Exp $
+# $Id: setup_fsimg.sh,v 1.8 2023/12/12 05:41:30 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2023
@@ -88,6 +88,7 @@ defactor () {
    fsimg="$1"
  imgsize=$(defactor "$2")
 maxfiles="$3"
+ fs_opts="$4"
 
 if [ -z "$imgsize" ]; then
    err_exit "more argument required"
@@ -119,7 +120,7 @@ if [ -n "$maxfiles" ]; then
 fi
 
 # format file system
-newfs -O 1 -o space -m 0 $idense "/dev/r${vndev}a"
+newfs -O 1 -o space -m 0 $fs_opts $idense "/dev/r${vndev}a"
 
 # display result
 disklabel -pm "$vndev"

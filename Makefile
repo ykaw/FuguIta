@@ -183,7 +183,7 @@ close-fuguita:
 # setup system filetree
 #
 init:
-	mkdir -p fuguita sysmedia rdroot sys install_sets install_pkgs install_patches
+	mkdir -p fuguita sysmedia sys install_sets install_pkgs install_patches
 	if [ ! -d sys/arch/$(ARCH) ]; then (cd sys && lndir /usr/src/sys); fi
 
 setup:
@@ -257,7 +257,7 @@ distclean:
 	$(MAKE) clean
 	$(MAKE) reset
 	rm -f sysmedia.img
-	rm -rf staging fuguita sysmedia rdroot sys install_sets install_pkgs install_patches
+	rm -rf staging fuguita sysmedia sys install_sets install_pkgs install_patches
 
 clean:
 	$(MAKE) close-all

@@ -3,7 +3,7 @@
 #----------------------------------------
 # mkrdroot.sh - create rdroot.ffsimg
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: mkrdroot.sh,v 1.2 2023/12/12 16:32:59 kaw Exp $
+# $Id: mkrdroot.sh,v 1.3 2023/12/12 17:00:29 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2023
@@ -53,6 +53,7 @@ set -x
   make obj
   make)
 
+ mkdir -p bootbin
  (cd bootbin
   sh ../doit_bootbin))
 

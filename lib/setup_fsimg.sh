@@ -3,7 +3,7 @@
 #----------------------------------------
 # setup_fsimg.sh - setup file system image with specified size
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: setup_fsimg.sh,v 1.6 2023/11/29 23:26:39 kaw Exp $
+# $Id: setup_fsimg.sh,v 1.7 2023/12/12 05:12:48 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2023
@@ -47,7 +47,7 @@ errmsg () {
 }
 
 usage () {
-    echo "usage: $0 img_file fs_img_mb [max_files_in_fs]" >&2
+    echo "usage: $0 img_file fs_img[KMG] [max_files_in_fs]" >&2
 }
 
 err_exit () {
@@ -59,18 +59,39 @@ err_exit () {
     exit 1
 }
 
+
+# normalize size value with factor suffix
+#
+defactor () {
+    local valstr=$(echo "$1"|tr kmg KMG)  # capitalize factor
+
+    # check argument format
+    #
+    if ! $(expr "$valstr" : '[1-9][0-9]*[KMG]\{0,1\}$' >/dev/null); then
+        err_exit illegal str: "'$valstr'"
+    fi
+
+    local val=${valstr%%[KMG]}
+    local fac=${valstr##*[0-9]}
+
+    case "$fac" in
+        "") echo "$val";;
+        K) echo "$((1024*val))";;
+        M) echo "$((1024*1024*val))";;
+        G) echo "$((1024*1024*1024*val))";;
+        *) err_exit "can't be happen:" val="'$val'" fac="'$fac'"
+    esac
+}
+
 # main from here
 #
    fsimg="$1"
- imgsize="$2"
+ imgsize=$(defactor "$2")
 maxfiles="$3"
 
 if [ -z "$imgsize" ]; then
    err_exit "more argument required"
 fi
-
-# normalize as an integer
-imgsize=$((imgsize + 0))
 
 # find unused vnode device
 vndev=$(vnconfig -l | grep 'not in use' | head -n 1 | cut -d: -f1)
@@ -79,7 +100,13 @@ if [ -z "$vndev" ]; then
 fi
 
 # create an image file
-dd if=/dev/zero bs=1m count="$imgsize" | pv -s "$imgsize"M > "$fsimg"
+# Properly utilize buffering to write faster
+  size_m=$(( imgsize / (1024*1024) ))  # image size in MB
+size_rem=$(( imgsize % (1024*1024) ))  # remainder divided by 1MB
+  size_k=$(( size_rem / 1024 ))        # remainder in KB
+# write to file: note that less than 1KB will be truncated
+(dd if=/dev/zero bs=1m count="$size_m"
+ dd if=/dev/zero bs=1k count="$size_k") | pv -s "$((imgsize/1024/1024))"M > "$fsimg"
 vnconfig "$vndev" "$fsimg"
 
 # setup fdisk and disklabel partition
@@ -88,7 +115,7 @@ echo "a a\n64\n*\n4.2BSD\nw\nq" | disklabel -E "$vndev"
 
 # calculate appropriate inode density
 if [ -n "$maxfiles" ]; then
-    idense="-i $((1024*1024*imgsize/maxfiles))"
+    idense="-i $((imgsize/maxfiles))"
 fi
 
 # format file system
@@ -104,7 +131,10 @@ if mount "/dev/${vndev}a" /mnt; then
     echo "  max files: ${maxfiles:-not given}"
     idense=${idense#-i }
     echo "   newfs -i: ${idense:-auto}"
-    df -k | awk '$1 == "/dev/'${vndev}'a" {printf("  specified: %.1fMB\n  allocated: %.1fMB\n   shrinked: %dKB\n", '$imgsize', $2/1024, '$((1024*imgsize))'-$2)}'
+    df -k | awk '$1 == "/dev/'${vndev}'a" {printf("  specified: %.1fMB\n  allocated: %.1fMB\n   shrinked: %dKB\n",
+                                                  '$((imgsize/1024/1024))',
+                                                   $2/1024,
+                                                  '$((imgsize/1024))'-$2)}'
     umount /mnt
 fi
 

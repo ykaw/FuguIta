@@ -3,7 +3,7 @@
 #----------------------------------------
 # create_imgs.sh - create sysmedia.img and fuguita-*.ffsimg
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: create_imgs.sh,v 1.7 2023/12/11 17:36:21 kaw Exp $
+# $Id: create_imgs.sh,v 1.8 2023/12/12 05:12:48 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2023
@@ -72,12 +72,12 @@ EOT
 # create sysmedia.img
 #
 if [ -n "$CREATE_SYSMEDIA_IMG" ]; then
-    ./lib/setup_fsimg.sh sysmedia.img $media_size 20
+    ./lib/setup_fsimg.sh sysmedia.img ${media_size}M 20
 fi
 
 # create ffsimg in sysmedia.img
 #
 make open-sysmedia
 ffsimg=fuguita-$(uname -r)-$(uname -m).ffsimg 
-./lib/setup_fsimg.sh sysmedia/$ffsimg $ffs_size $stage_files
+./lib/setup_fsimg.sh sysmedia/$ffsimg ${ffs_size}M $stage_files
 make close-all

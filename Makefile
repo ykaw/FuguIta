@@ -150,10 +150,36 @@ sysmedia/bsd-fi.mp: rdroot.ffsimg $(KERN_MP)
 
 rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV /usr/src/etc/etc.$(ARCH)/login.conf lib/bootbin/bootbin $(BOOTTMPS)
 	$(MAKE) close-all
-	./lib/mkrdroot.sh
+	#
+	# create rdroot.ffsimg
+	#
+	./lib/setup_fsimg.sh rdroot.ffsimg 1900K 1500 '-b 4096 -f 512'
+	            # parameters for minimum resources ^^^^^^^^^^^^^^
+	vnconfig vnd0 rdroot.ffsimg
+	mount /dev/vnd0a /mnt
+	(cd rdroot && pax -rwvpe . /mnt/.)
+	#
+	# setup inside rdroot.ffsimg
+	#
+	ln -sf boottmp /mnt/bin
+	ln -sf boottmp /mnt/etc
+	ln -sf boottmp /mnt/sbin
+	mkdir -p /mnt/{dev,fuguita,mnt,ram,sysmedia,sysmedia-iso,tmp}
+	chmod go-rwx /mnt/sysmedia-iso
+	chmod 1777 /mnt/tmp
+	cd /mnt/dev && cp -p /usr/src/etc/etc.$$(uname -m)/MAKEDEV . && sh ./MAKEDEV all vnd4 vnd5
+	cp -p /usr/src/etc/etc.$$(uname -m)/login.conf /mnt/boottmp/.
+	cp -p lib/bootbin/bootbin /mnt/boottmp
+	for prog in disklabel halt init ksh ln mount mount_cd9660 mount_ext2fs \
+	            mount_ffs mount_mfs mount_msdos mount_ntfs mount_vnd newfs \
+	            reboot sed sh sleep swapctl swapon sysctl umount vnconfig; do\
+	    ln -f /mnt/boottmp/bootbin /mnt/boottmp/$$prog;\
+	done
+	umount /mnt
+	vnconfig -u vnd0
 
 lib/bootbin/bootbin:
-	./lib/mkrdroot.sh
+	cd lib/bootbin && sh ../doit_bootbin
 
 #========================================
 # vnconfig related stuffs
@@ -205,13 +231,21 @@ close-fuguita:
 # setup system filetree
 #
 init:
-	mkdir -p fuguita sysmedia sys install_sets install_pkgs install_patches
+	mkdir -p sys install_sets install_pkgs install_patches fuguita sysmedia
 	if [ ! -d sys/arch/$(ARCH) ]; then (cd sys && lndir /usr/src/sys); fi
+	cd lib; \
+	mkdir -p bootbin; \
+	cd special; \
+	make obj; \
+	for prog in init mount_* newfs swapctl sysctl vnconfig; do \
+	    (cd $$prog && ln -sf /usr/src/sbin/$$prog/*.[ch] .); \
+	done
 
 setup:
 	$(MAKE) kernconfig
 	$(MAKE) kernclean
 	$(MAKE) kern
+	$(MAKE) rdroot.ffsimg
 	$(MAKE) imgs
 
 kernconfig:

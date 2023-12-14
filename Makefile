@@ -333,8 +333,8 @@ imggz: $(FI).img.gz
 $(FI).img.gz:
 	pv $(FI).iso.gz | gzip -d -o $(FI).iso
 	dd if=/dev/zero bs=1m count=$(IMGMB) | pv -s $(IMGMB)M > $(FI).img
-	doas vmctl start -cL -i1 -m2G -r $(FI).iso -d $(FI).img fi74
-	doas vmctl start -cL -i1 -m2G -d $(FI).img fi74
+	vmctl start -cL -i1 -m2G -r $(FI).iso -d $(FI).img fi74
+	vmctl start -cL -i1 -m2G -d $(FI).img fi74
 	pv $(FI).img | gzip -o $(FI).img.gz -9
 
 imgclean:

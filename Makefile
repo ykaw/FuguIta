@@ -300,20 +300,33 @@ staging.time: $(STAGE_FILES)
 #========================================
 # packaging controls
 #
+
+# On arm64, cannot generate automatically yet
+#
+.if $(ARCH) == arm64
+    DISTCLEANFILES=
+    .PRECIOUS: sysmedia.img
+.else
+    DISTCLEANFILES=sysmedia.img
+.endif
+DISTCLEANDIRS=staging fuguita sysmedia sys install_sets install_pkgs install_patches
+
 distclean:
 	$(MAKE) reset
 	$(MAKE) clean
-	rm -f sysmedia.img
-	rm -rf staging fuguita sysmedia sys install_sets install_pkgs install_patches
+	rm -f $(DISTCLEANFILES)
+	rm -rf $(DISTCLEANDIRS)
 	$(MAKE) rdclean
 
 reset:
 	rm -f rev.count
 
+CLEANFILES=bsd bsd.mp livecd.iso staging.time sync.time FuguIta-?.?-*-*.*.gz
+CLEANDIRS=staging.*_*
 clean:
 	$(MAKE) close-all
-	rm -f bsd bsd.mp livecd.iso staging.time sync.time FuguIta-?.?-*-*.*.gz
-	rm -rf staging.*_*
+	rm -f $(CLEANFILES)
+	rm -rf $(CLEANDIRS)
 
 rdclean:
 	rm -f rdroot.ffsimg lib/bootbin/!(CVS)
@@ -339,3 +352,15 @@ $(FI).img.gz:
 
 imgclean:
 	rm -f $(FI).img.gz $(FI).img $(FI).iso
+
+#========================================
+# for test
+#
+.if $(ARCH) == i386
+SAY=yes
+.else
+SAY=no
+.endif
+
+maketest:
+	@echo $(SAY)

@@ -60,6 +60,12 @@ KERN_MP=$(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
 #========================================
 # final product
 #
+.if $(ARCH) == arm64
+    all: usbgz
+.else
+    all: gz
+.endif
+
 gz: $(FI).iso.gz
 $(FI).iso.gz: livecd.iso
 	@echo generating $(FI).iso.gz

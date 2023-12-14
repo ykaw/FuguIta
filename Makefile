@@ -247,7 +247,9 @@ setup:
 	$(MAKE) kernclean
 	$(MAKE) kern
 	$(MAKE) rdroot.ffsimg
+.if $(ARCH) != arm64
 	$(MAKE) imgs
+.endif
 
 kernconfig:
 	(cd $(KERNSRC)/conf && \
@@ -353,15 +355,3 @@ $(FI).img.gz:
 
 imgclean:
 	rm -f $(FI).img.gz $(FI).img $(FI).iso
-
-#========================================
-# for test
-#
-.if $(ARCH) == i386
-SAY=yes
-.else
-SAY=no
-.endif
-
-maketest:
-	@echo $(SAY)

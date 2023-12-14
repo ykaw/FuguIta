@@ -148,7 +148,7 @@ sysmedia/bsd-fi.mp: rdroot.ffsimg $(KERN_MP)
     BOOTTMPS != echo rdroot/boottmp/*
 .endif
 
-rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV lib/login.conf.$(ARCH) lib/bootbin/bootbin $(BOOTTMPS)
+rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV /usr/src/etc/etc.$(ARCH)/login.conf lib/bootbin/bootbin $(BOOTTMPS)
 	$(MAKE) close-all
 	#
 	# create rdroot.ffsimg
@@ -168,7 +168,8 @@ rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV lib/login.conf.$(ARCH) lib/bootb
 	chmod go-rwx /mnt/sysmedia-iso
 	chmod 1777 /mnt/tmp
 	cd /mnt/dev && cp -p /usr/src/etc/etc.$$(uname -m)/MAKEDEV . && sh ./MAKEDEV all vnd4 vnd5
-	cp -p lib/login.conf.$$(uname -m) /mnt/boottmp/.
+	sed '/^daemon:/,/:tc=default:/ s/:datasize=[^:][^:]*:/:datasize=infinity:/' \
+	    /usr/src/etc/etc.$(ARCH)/login.conf > /mnt/boottmp/login.conf
 	cp -p lib/bootbin/bootbin /mnt/boottmp
 	for prog in disklabel halt init ksh ln mount mount_cd9660 mount_ext2fs \
 	            mount_ffs mount_mfs mount_msdos mount_ntfs mount_vnd newfs \

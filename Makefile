@@ -51,22 +51,29 @@ AUTHOR=Yoshihiro Kawamata <kaw@on.rim.or.jp>
 FIBASE=$(VERSION)-$(ARCH)-$(DATE)$(REV)$(VERSTAT)
 FI=$(PROJNAME)-$(FIBASE)
 
-FIBUILD!=pwd
-KERNSRC=$(FIBUILD)/sys
-KERNOPT=-j2
-KERN_SP=$(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
-KERN_MP=$(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
+BLDDIR!=realpath $$(pwd)
+
+.PHONY: all isogz usbgz sync boot \
+        close-all open-rdroot close-rdroot open-sysmedia close-sysmedia \
+        open-fuguita close-fuguita \
+        init setup \
+        force-build-kern kernconfig kernclean kern \
+        imgs staging \
+        distclean reset clean rdclean \
+        dvd2usb imgclean
 
 #========================================
 # final product
 #
 .if $(ARCH) == arm64
-    all: usbgz
+all: usbgz
 .else
-    all: gz
+all: isogz
 .endif
 
-gz: $(FI).iso.gz
+# for i386/amd64
+#
+isogz: $(FI).iso.gz
 $(FI).iso.gz: livecd.iso
 	@echo generating $(FI).iso.gz
 	@pv livecd.iso | gzip -9f -o $(FI).iso.gz
@@ -83,7 +90,6 @@ usbgz: boot sync
 	@pv sysmedia.img | gzip -9f -o $(FI).img.gz
 	echo $$(($(REV)+1)) > rev.count
 
-#========================================
 # sync staging to sysmedia/fuguita-*.ffsimg
 #
 sync: sync.time
@@ -97,7 +103,6 @@ sync.time: staging
 	fi
 	touch sync.time
 
-#========================================
 # generate an ISO file
 #
 livecd.iso: boot sync
@@ -117,7 +122,7 @@ livecd.iso: boot sync
 		sysmedia \
 
 #========================================
-# stuffs on kernel generation
+# stuffs on boot loaders and kernels
 #
 boot: force-build-kern
 	$(MAKE) close-all
@@ -127,6 +132,11 @@ boot: force-build-kern
 	cp /usr/mdec/boot sysmedia/.   || touch sysmedia/boot
 	[ -d sysmedia/etc ] || mkdir sysmedia/etc
 	cp lib/boot.conf.$(ARCH) sysmedia/etc/boot.conf
+
+KERNSRC=$(BLDDIR)/sys
+KERNOPT=-j2
+KERN_SP=$(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
+KERN_MP=$(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
 
 # to make kernels re-ordered
 #
@@ -150,8 +160,41 @@ sysmedia/bsd-fi.mp: rdroot.ffsimg $(KERN_MP)
 	gzip -c9 bsd.mp > sysmedia/bsd-fi.mp
 	-rm bsd.mp
 
+#========================================
+# stuffs on kernel compilation
+#
+kernconfig:
+	(cd $(KERNSRC)/conf && \
+	 cp GENERIC RDROOT && \
+         patch < $(BLDDIR)/lib/RDROOT.diff)
+	(cd $(KERNSRC)/arch/$(ARCH)/conf && \
+	 cp GENERIC RDROOT && \
+         patch < $(BLDDIR)/lib/RDROOT.$(ARCH).diff && \
+	 cp GENERIC.MP RDROOT.MP && \
+         patch < $(BLDDIR)/lib/RDROOT.MP.$(ARCH).diff && \
+         config RDROOT && config RDROOT.MP)
+
+kernclean:
+	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT && \
+         make obj && make clean)
+	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP && \
+         make obj && make clean)
+
+kern: $(KERN_SP) $(KERN_MP)
+
+$(KERN_SP):
+	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT && \
+         make obj && make config && make $(KERNOPT))
+
+$(KERN_MP):
+	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP && \
+         make obj && make config && make $(KERNOPT))
+
+#========================================
+# generating RAM disk root filesystem image
+#
 .if exists(rdroot/boottmp/rc)
-    BOOTTMPS != echo rdroot/boottmp/*
+BOOTTMPS != echo rdroot/boottmp/*
 .endif
 
 rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV /usr/src/etc/etc.$(ARCH)/login.conf lib/bootbin/bootbin $(BOOTTMPS)
@@ -203,9 +246,12 @@ close-rdroot:
 	then umount /mnt; vnconfig -u vnd0; \
 	else echo rdroot already closed; fi
 
+# if sysmedia.img exists , mount the vnode vnd1 bound to it.
+# otherwise, work in directory sysmedia
+#
 open-sysmedia:
 	@if [ -f sysmedia.img ]; then \
-	    if mount | grep -q '$(FIBUILD)/sysmedia type '; then \
+	    if mount | grep -q '$(BLDDIR)/sysmedia type '; then \
 	        echo media already opened; \
 	    else \
 	        vnconfig vnd1 sysmedia.img; \
@@ -215,7 +261,7 @@ open-sysmedia:
 
 close-sysmedia:
 	@if [ -f sysmedia.img ]; then \
-	    if mount | grep -q '$(FIBUILD)/sysmedia type '; then \
+	    if mount | grep -q '$(BLDDIR)/sysmedia type '; then \
 	        $(MAKE) close-fuguita; \
 	        umount sysmedia; \
 	        vnconfig -u vnd1; \
@@ -225,17 +271,16 @@ close-sysmedia:
 	fi
 
 open-fuguita: open-sysmedia
-	@if mount | grep -q '$(FIBUILD)/fuguita type '; \
+	@if mount | grep -q '$(BLDDIR)/fuguita type '; \
 	then echo fuguita already opened;\
-	else vnconfig vnd2 $(FIBUILD)/sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg ; mount -o async,noatime /dev/vnd2a fuguita; fi
+	else vnconfig vnd2 $(BLDDIR)/sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg ; mount -o async,noatime /dev/vnd2a fuguita; fi
 
 close-fuguita:
-	@if mount | grep -q '$(FIBUILD)/fuguita type '; \
+	@if mount | grep -q '$(BLDDIR)/fuguita type '; \
 	then umount fuguita; vnconfig -u vnd2; \
 	else echo fuguita already closed; fi
 
-#========================================
-# setup system filetree
+# create fundamental files and directories
 #
 init:
 	mkdir -p sys install_sets install_pkgs install_patches fuguita sysmedia
@@ -248,6 +293,9 @@ init:
 	    (cd $$prog && ln -sf /usr/src/sbin/$$prog/*.[ch] .); \
 	done
 
+# full compilation kernels
+# and setup for RAM disk filesystem image
+#
 setup:
 	$(MAKE) kernconfig
 	$(MAKE) kernclean
@@ -257,47 +305,30 @@ setup:
 	$(MAKE) imgs
 .endif
 
-kernconfig:
-	(cd $(KERNSRC)/conf && \
-	 cp GENERIC RDROOT && \
-         patch < $(FIBUILD)/lib/RDROOT.diff)
-	(cd $(KERNSRC)/arch/$(ARCH)/conf && \
-	 cp GENERIC RDROOT && \
-         patch < $(FIBUILD)/lib/RDROOT.$(ARCH).diff && \
-	 cp GENERIC.MP RDROOT.MP && \
-         patch < $(FIBUILD)/lib/RDROOT.MP.$(ARCH).diff && \
-         config RDROOT && config RDROOT.MP )
 
-kernclean:
-	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT && \
-         make obj && make clean)
-	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP && \
-         make obj && make clean)
-
-kern: $(KERN_SP) $(KERN_MP)
-
-$(KERN_SP):
-	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT && \
-         make obj && make config && make $(KERNOPT))
-
-$(KERN_MP):
-	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP && \
-         make obj && make config && make $(KERNOPT))
-
+# creating media.img
+# and fuguita-REV-ARCH.ffsimg located in media.img (or media)
+#
 imgs: staging
 	$(MAKE) close-all
 	./lib/create_imgs.sh
 
+#========================================
+# create staging directory
+# and file tree which is modified for the Live System
+#
 .if exists(install_sets/base$(VER).tgz)
-    STAGE_FILES != ls -1d install_*/*
+STAGE_FILES != ls -1d install_*/*
 .endif
 
 STAGE_FILES += lib/global.conf.$(ARCH)
+
 .if exists(lib/mode0symlinks.cpio.gz.$(ARCH))
-    STAGE_FILES += lib/mode0symlinks.cpio.gz.$(ARCH)
+STAGE_FILES += lib/mode0symlinks.cpio.gz.$(ARCH)
 .endif
+
 .if exists(lib/usbfadm_postproc.sh.$(ARCH))
-    STAGE_FILES += lib/usbfadm_postproc.sh.$(ARCH)
+STAGE_FILES += lib/usbfadm_postproc.sh.$(ARCH)
 .endif
 
 staging: staging.time
@@ -313,10 +344,10 @@ staging.time: $(STAGE_FILES)
 # On arm64, cannot generate automatically yet
 #
 .if $(ARCH) == arm64
-    DISTCLEANFILES=
-    .PRECIOUS: sysmedia.img
+DISTCLEANFILES=
+.PRECIOUS: sysmedia.img
 .else
-    DISTCLEANFILES=sysmedia.img
+DISTCLEANFILES=sysmedia.img
 .endif
 DISTCLEANDIRS=staging fuguita sysmedia sys install_sets install_pkgs install_patches
 
@@ -348,16 +379,14 @@ rdclean:
 #
 IMGMB=2048
 
-.PHONY: imggz imgclean
+dvd2usb: $(FIBASE).img.gz
 
-imggz: $(FI).img.gz
-
-$(FI).img.gz:
-	pv $(FI).iso.gz | gzip -d -o $(FI).iso
-	dd if=/dev/zero bs=1m count=$(IMGMB) | pv -s $(IMGMB)M > $(FI).img
-	vmctl start -cL -i1 -m2G -r $(FI).iso -d $(FI).img fi74
-	vmctl start -cL -i1 -m2G -d $(FI).img fi74
-	pv $(FI).img | gzip -o $(FI).img.gz -9
+$(FIBASE).img.gz:
+	pv $(FIBASE).iso.gz | gzip -d -o $(FIBASE).iso
+	dd if=/dev/zero bs=1m count=$(IMGMB) | pv -s $(IMGMB)M > $(FIBASE).img
+	vmctl start -cL -i1 -m2G -r $(FIBASE).iso -d $(FIBASE).img fi74
+	vmctl start -cL -i1 -m2G -d $(FIBASE).img fi74
+	pv $(FIBASE).img | gzip -o $(FIBASE).img.gz -9
 
 imgclean:
-	rm -f $(FI).img.gz $(FI).img $(FI).iso
+	rm -f $(FIBASE).img.gz $(FIBASE).img $(FIBASE).iso

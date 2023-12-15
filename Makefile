@@ -57,7 +57,7 @@ BLDDIR!=realpath $$(pwd)
         close-all open-rdroot close-rdroot open-sysmedia close-sysmedia \
         open-fuguita close-fuguita \
         init setup \
-        force-build-kern kernconfig kernclean kern \
+        kernconfig kernclean kern \
         imgs staging \
         distclean reset clean rdclean \
         dvd2usb imgclean
@@ -124,7 +124,8 @@ livecd.iso: boot sync
 #========================================
 # stuffs on boot loaders and kernels
 #
-boot: force-build-kern
+boot:
+	$(MAKE) sysmedia/bsd-fi sysmedia/bsd-fi.mp
 	$(MAKE) close-all
 	$(MAKE) open-sysmedia
 	cp /usr/mdec/cdbr sysmedia/.   || touch sysmedia/cdbr
@@ -137,12 +138,6 @@ KERNSRC=$(BLDDIR)/sys
 KERNOPT=-j2
 KERN_SP=$(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
 KERN_MP=$(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
-
-# to make kernels re-ordered
-#
-force-build-kern:
-	rm -f $(KERN_SP) $(KERN_MP)
-	$(MAKE) sysmedia/bsd-fi sysmedia/bsd-fi.mp
 
 sysmedia/bsd-fi: rdroot.ffsimg $(KERN_SP)
 	$(MAKE) close-all
@@ -283,6 +278,7 @@ close-fuguita:
 # create fundamental files and directories
 #
 init:
+	echo 1 > rev.count
 	mkdir -p sys install_sets install_pkgs install_patches fuguita sysmedia
 	if [ ! -d sys/arch/$(ARCH) ]; then (cd sys && lndir /usr/src/sys); fi
 	cd lib; \
@@ -317,22 +313,26 @@ imgs: staging
 # create staging directory
 # and file tree which is modified for the Live System
 #
-.if exists(install_sets/base$(VER).tgz)
-STAGE_FILES != ls -1d install_*/*
-.endif
+STAGE_DEPENDS=
+.for dir in install_sets install_pkgs install_patches
+    files != ls $(dir) 2>/dev/null | grep -v '^\.' || true
+.   for file in $(files)
+        STAGE_DEPENDS += $(dir)/$(file)
+.   endfor
+.endfor
 
-STAGE_FILES += lib/global.conf.$(ARCH)
+STAGE_DEPENDS += lib/global.conf.$(ARCH)
 
 .if exists(lib/mode0symlinks.cpio.gz.$(ARCH))
-STAGE_FILES += lib/mode0symlinks.cpio.gz.$(ARCH)
+STAGE_DEPENDS += lib/mode0symlinks.cpio.gz.$(ARCH)
 .endif
 
 .if exists(lib/usbfadm_postproc.sh.$(ARCH))
-STAGE_FILES += lib/usbfadm_postproc.sh.$(ARCH)
+STAGE_DEPENDS += lib/usbfadm_postproc.sh.$(ARCH)
 .endif
 
 staging: staging.time
-staging.time: $(STAGE_FILES)
+staging.time: $(STAGE_DEPENDS)
 	./lib/010_extract.sh
 	./lib/020_modify_tree.sh
 	touch staging.time
@@ -359,9 +359,10 @@ distclean:
 	$(MAKE) rdclean
 
 reset:
-	rm -f rev.count
+	echo 1 > rev.count
 
-CLEANFILES=bsd bsd.mp livecd.iso staging.time sync.time FuguIta-?.?-*-*.*.gz
+CLEANFILES=bsd bsd.mp livecd.iso staging.time sync.time FuguIta-?.?-*-*.*.gz \
+           $(KERN_SP) $(KERN_MP)# to build reorderd kernels
 CLEANDIRS=staging.*_*
 clean:
 	$(MAKE) close-all

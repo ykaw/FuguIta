@@ -77,7 +77,7 @@ $(FI).iso.gz: livecd.iso
 usbgz: boot sync
 	$(MAKE) open-fuguita
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
-	$(MAKE) close-fuguita
+	$(MAKE) close-all
 	@echo generating $(FI).img.gz
 	@pv sysmedia.img | gzip -9f -o $(FI).img.gz
 	echo $$(($(REV)+1)) > rev.count
@@ -243,7 +243,8 @@ open-rdroot:
 	@if vnconfig -l | grep -q '^vnd0: not in use'; then\
 	    vnconfig vnd0 rdroot.ffsimg;\
 	fi
-	@if vnconfig -l | grep -q '^vnd0: covering '; then\
+	@if vnconfig -l | grep -q '^vnd0: covering ' &&\
+	    ! mount | grep -q '^/dev/vnd0a on '; then\
 	    mount /dev/vnd0a /mnt;\
 	fi
 
@@ -267,7 +268,8 @@ open-sysmedia:
 	    if vnconfig -l | grep -q '^vnd1: not in use'; then\
 	        vnconfig vnd1 sysmedia.img;\
 	    fi;\
-	    if vnconfig -l | grep -q '^vnd1: covering '; then\
+	    if vnconfig -l | grep -q '^vnd1: covering ' &&\
+	       ! mount | grep -q '^/dev/vnd1a on '; then\
 	        mount /dev/vnd1a $(BLDDIR)/sysmedia;\
 	    fi;\
 	fi
@@ -290,7 +292,8 @@ open-fuguita: open-sysmedia
 	@if vnconfig -l | grep -q '^vnd2: not in use'; then\
 	    vnconfig vnd2 $(BLDDIR)/sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg;\
 	fi
-	@if vnconfig -l | grep -q '^vnd2: covering '; then\
+	@if vnconfig -l | grep -q '^vnd2: covering ' &&\
+	    ! mount | grep -q '^/dev/vnd2a on '; then\
 	    mount /dev/vnd2a $(BLDDIR)/fuguita;\
 	fi
 

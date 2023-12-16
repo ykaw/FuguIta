@@ -53,15 +53,6 @@ FI = $(PROJNAME)-$(FIBASE)
 
 BLDDIR != realpath $$(pwd)
 
-.PHONY: all isogz usbgz sync boot \
-        close-all open-rdroot close-rdroot open-sysmedia close-sysmedia \
-        open-fuguita close-fuguita \
-        init setup \
-        kernconfig kernclean kern kernreset \
-        imgs staging \
-        distclean reset clean rdclean \
-        dvd2usb imgclean
-
 #========================================
 # final product
 #
@@ -73,6 +64,7 @@ all: isogz
 
 # for i386/amd64
 #
+.PHONY: isogz
 isogz: $(FI).iso.gz
 $(FI).iso.gz: livecd.iso
 	@echo generating $(FI).iso.gz
@@ -81,28 +73,30 @@ $(FI).iso.gz: livecd.iso
 
 # now, only for arm64
 #
+.PHONY: usbgz
 usbgz: boot sync
 	$(MAKE) open-fuguita
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
-	$(MAKE) close-all
+	$(MAKE) close-fuguita
 	@echo generating $(FI).img.gz
 	@pv sysmedia.img | gzip -9f -o $(FI).img.gz
 	echo $$(($(REV)+1)) > rev.count
 
 # sync staging to sysmedia/fuguita-*.ffsimg
 #
+.PHONY: sync
 sync: sync.time
 sync.time: staging.time
-	$(MAKE) close-all
 	$(MAKE) open-fuguita
 	# equalize fuguita directory to staging:
 	# When applying a patch and resynchronizing, media.img may overflow,
 	# so in that case, delete some large files and rerun rsync.
-	cd staging && \
+	cd staging &&\
 	if ! rsync -avxH --delete . ../fuguita/.; then\
 	    find ../fuguita/ -type f -size +4096 -print | xargs rm;\
 	    rsync -avxH --delete . ../fuguita/.;\
 	fi
+	$(MAKE) close-fuguita
 	touch sync.time
 
 # generate an ISO file
@@ -110,86 +104,94 @@ sync.time: staging.time
 livecd.iso: boot sync
 	$(MAKE) open-fuguita
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
-	$(MAKE) close-all
-	mkhybrid -a -R -L -l -d -D -N \
-		-o livecd.iso \
-		-v -v \
-		-A "FuguIta: OpenBSD-based Live System" \
-		-P "Copyright (c) `date +%Y` Yoshihiro Kawamata" \
-		-p "Yoshihiro Kawamata, https://fuguita.org/" \
-		-V "$(FI)" \
-		-b cdbr \
-		-c boot.catalog \
-		sysmedia \
+	$(MAKE) close-fuguita
+	mkhybrid -a -R -L -l -d -D -N\
+		-o livecd.iso\
+		-v -v\
+		-A "FuguIta: OpenBSD-based Live System"\
+		-P "Copyright (c) `date +%Y` Yoshihiro Kawamata"\
+		-p "Yoshihiro Kawamata, https://fuguita.org/"\
+		-V "$(FI)"\
+		-b cdbr\
+		-c boot.catalog\
+		sysmedia\
 
 #========================================
 # stuffs on boot loaders and kernels
 #
+.PHONY: boot
 boot:
-	$(MAKE) sysmedia/bsd-fi sysmedia/bsd-fi.mp
-	$(MAKE) close-all
+	$(MAKE) kernreset
+	$(MAKE) kern
 	$(MAKE) open-sysmedia
 	cp /usr/mdec/cdbr sysmedia/.   || touch sysmedia/cdbr
 	cp /usr/mdec/cdboot sysmedia/. || touch sysmedia/cdboot
 	cp /usr/mdec/boot sysmedia/.   || touch sysmedia/boot
 	[ -d sysmedia/etc ] || mkdir sysmedia/etc
 	cp lib/boot.conf.$(ARCH) sysmedia/etc/boot.conf
+	$(MAKE) close-sysmedia
 
 sysmedia/bsd-fi: rdroot.ffsimg $(KERN_SP)
-	$(MAKE) close-all
 	$(MAKE) open-sysmedia
 	cp $(KERN_SP) bsd
 	rdsetroot bsd rdroot.ffsimg
 	gzip -c9 bsd > sysmedia/bsd-fi
 	-rm bsd
+	$(MAKE) close-sysmedia
 
 sysmedia/bsd-fi.mp: rdroot.ffsimg $(KERN_MP)
-	$(MAKE) close-all
 	$(MAKE) open-sysmedia
 	cp $(KERN_MP) bsd.mp
 	rdsetroot bsd.mp rdroot.ffsimg
 	gzip -c9 bsd.mp > sysmedia/bsd-fi.mp
 	-rm bsd.mp
+	$(MAKE) close-sysmedia
 
 #========================================
 # stuffs on kernel compilation
 #
-KERNSRC = $(BLDDIR)/sys
-KERNOPT = -j2
-KERN_SP = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
-KERN_MP = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
+KERNSRC  = $(BLDDIR)/sys
+KERNOPT  = -j2
+KERN_SP  = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
+KERN_MP  = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
+KERN_SGP = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/gapdummy.o
+KERN_MGP = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/gapdummy.o
 
+.PHONY: kernconfig
 kernconfig:
-	(cd $(KERNSRC)/conf && \
-	 cp GENERIC RDROOT && \
+	(cd $(KERNSRC)/conf &&\
+	 cp GENERIC RDROOT &&\
          patch < $(BLDDIR)/lib/RDROOT.diff)
-	(cd $(KERNSRC)/arch/$(ARCH)/conf && \
-	 cp GENERIC RDROOT && \
-         patch < $(BLDDIR)/lib/RDROOT.$(ARCH).diff && \
-	 cp GENERIC.MP RDROOT.MP && \
-         patch < $(BLDDIR)/lib/RDROOT.MP.$(ARCH).diff && \
+	(cd $(KERNSRC)/arch/$(ARCH)/conf &&\
+	 cp GENERIC RDROOT &&\
+         patch < $(BLDDIR)/lib/RDROOT.$(ARCH).diff &&\
+	 cp GENERIC.MP RDROOT.MP &&\
+         patch < $(BLDDIR)/lib/RDROOT.MP.$(ARCH).diff &&\
          config RDROOT && config RDROOT.MP)
 
+.PHONY: kernclean
 kernclean:
-	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT && \
-         make obj && make clean)
-	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP && \
-         make obj && make clean)
+	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT &&\
+         make clean)
+	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP &&\
+         make clean)
 
+.PHONY: kern
 kern: $(KERN_SP) $(KERN_MP)
 
 $(KERN_SP):
-	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT && \
-         make obj && make config && make $(KERNOPT))
+	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT &&\
+         make $(KERNOPT))
 
 $(KERN_MP):
-	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP && \
-         make obj && make config && make $(KERNOPT))
+	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP &&\
+         make $(KERNOPT))
 
 # This is because it causes kernel reordering by hand.
 #
+.PHONY: kernreset
 kernreset:
-	rm -f $(KERN_SP) $(KERN_MP)
+	rm -f $(KERN_SP) $(KERN_SGP) $(KERN_MP) $(KERN_MGP)
 
 #========================================
 # generating RAM disk root filesystem image
@@ -199,7 +201,7 @@ BOOTTMPS != echo rdroot/boottmp/*
 .endif
 
 rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV /usr/src/etc/etc.$(ARCH)/login.conf lib/bootbin/bootbin $(BOOTTMPS)
-	$(MAKE) close-all
+	$(MAKE) close-rdroot
 	#
 	# create rdroot.ffsimg
 	#
@@ -218,11 +220,11 @@ rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV /usr/src/etc/etc.$(ARCH)/login.c
 	chmod go-rwx /mnt/sysmedia-iso
 	chmod 1777 /mnt/tmp
 	cd /mnt/dev && cp -p /usr/src/etc/etc.$$(uname -m)/MAKEDEV . && sh ./MAKEDEV all vnd4 vnd5
-	sed '/^daemon:/,/:tc=default:/ s/:datasize=[^:][^:]*:/:datasize=infinity:/' \
+	sed '/^daemon:/,/:tc=default:/ s/:datasize=[^:][^:]*:/:datasize=infinity:/'\
 	    /usr/src/etc/etc.$(ARCH)/login.conf > /mnt/boottmp/login.conf
 	cp -p lib/bootbin/bootbin /mnt/boottmp
-	for prog in disklabel halt init ksh ln mount mount_cd9660 mount_ext2fs \
-	            mount_ffs mount_mfs mount_msdos mount_ntfs mount_vnd newfs \
+	for prog in disklabel halt init ksh ln mount mount_cd9660 mount_ext2fs\
+	            mount_ffs mount_mfs mount_msdos mount_ntfs mount_vnd newfs\
 	            reboot sed sh sleep swapctl swapon sysctl umount vnconfig; do\
 	    ln -f /mnt/boottmp/bootbin /mnt/boottmp/$$prog;\
 	done
@@ -235,73 +237,106 @@ lib/bootbin/bootbin:
 #========================================
 # vnconfig related stuffs
 #
-close-all: close-sysmedia close-rdroot
-
+.PHONY: open-rdroot
 open-rdroot:
-	@if mount | grep -q '^/dev/vnd0a on '; \
-	then echo rdroot already opened;\
-	else vnconfig vnd0 rdroot.ffsimg ; mount /dev/vnd0a /mnt; fi
+	if mount | grep -q '^/dev/vnd0a on ';\
+	then\
+	    echo rdroot already opened;\
+	else\
+	    vnconfig vnd0 rdroot.ffsimg;\
+	     mount /dev/vnd0a /mnt;\
+	fi
 
+.PHONY: close-rdroot
 close-rdroot:
-	@if mount | grep -q '^/dev/vnd0a on '; \
-	then umount /mnt; vnconfig -u vnd0; \
-	else echo rdroot already closed; fi
+	-if mount | grep -q '^/dev/vnd0a on ';\
+	then\
+	    umount /mnt;\
+	    sync;\
+	    vnconfig -u vnd0;\
+	else\
+	    echo rdroot already closed;\
+	fi
 
 # if sysmedia.img exists , mount the vnode vnd1 bound to it.
 # otherwise, work in directory sysmedia
 #
+.PHONY: open-sysmedia
 open-sysmedia:
-	@if [ -f sysmedia.img ]; then \
-	    if mount | grep -q '$(BLDDIR)/sysmedia type '; then \
-	        echo media already opened; \
-	    else \
-	        vnconfig vnd1 sysmedia.img; \
-	        mount -o async,noatime /dev/vnd1a sysmedia; \
-	    fi; \
+	if [ -f sysmedia.img ];\
+	then\
+	    if mount | grep -q '$(BLDDIR)/sysmedia type ';\
+	    then\
+	        echo media already opened;\
+	    else\
+	        vnconfig vnd1 sysmedia.img;\
+	        mount -o async,noatime /dev/vnd1a sysmedia;\
+	    fi;\
 	fi
 
+.PHONY: close-sysmedia
 close-sysmedia:
-	@if [ -f sysmedia.img ]; then \
-	    if mount | grep -q '$(BLDDIR)/sysmedia type '; then \
-	        $(MAKE) close-fuguita; \
-	        umount sysmedia; \
-	        vnconfig -u vnd1; \
-	    else \
-	        echo media already closed; \
-	    fi; \
+	-if [ -f sysmedia.img ];\
+	then\
+	    if mount | grep -q '$(BLDDIR)/sysmedia type ';\
+	    then\
+	        $(MAKE) close-fuguita;\
+	        sync;\
+	        umount sysmedia;\
+	        vnconfig -u vnd1;\
+	    else\
+	        echo media already closed;\
+	    fi;\
 	fi
 
+.PHONY: open-fuguita
 open-fuguita: open-sysmedia
-	@if mount | grep -q '$(BLDDIR)/fuguita type '; \
-	then echo fuguita already opened;\
-	else vnconfig vnd2 $(BLDDIR)/sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg ; mount -o async,noatime /dev/vnd2a fuguita; fi
+	if mount | grep -q '$(BLDDIR)/fuguita type ';\
+	then\
+	    echo fuguita already opened;\
+	else\
+	    vnconfig vnd2 $(BLDDIR)/sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg;\
+	    mount -o async,noatime /dev/vnd2a fuguita;\
+	fi
 
+.PHONY: close-fuguita
 close-fuguita:
-	@if mount | grep -q '$(BLDDIR)/fuguita type '; \
-	then umount fuguita; vnconfig -u vnd2; \
-	else echo fuguita already closed; fi
+	-if mount | grep -q '$(BLDDIR)/fuguita type ';\
+	then\
+	    umount fuguita;\
+	    sync;\
+	    vnconfig -u vnd2;\
+	else\
+	    echo fuguita already closed;\
+	fi
+
+.PHONY: close-all
+close-all:
+	$(MAKE) close-rdroot
+	$(MAKE) close-sysmedia
 
 # create fundamental files and directories
 #
+.PHONY: init
 init:
 	$(MAKE) reset
 	mkdir -p sys install_sets install_pkgs install_patches fuguita sysmedia
 	if [ ! -d sys/arch/$(ARCH) ]; then (cd sys && lndir /usr/src/sys); fi
-	cd lib; \
-	mkdir -p bootbin; \
-	cd special; \
-	make obj; \
-	for prog in init mount_* newfs swapctl sysctl vnconfig; do \
-	    (cd $$prog && ln -sf /usr/src/sbin/$$prog/*.[ch] .); \
+	cd lib;\
+	mkdir -p bootbin;\
+	cd special;\
+	make obj;\
+	for prog in init mount_* newfs swapctl sysctl vnconfig; do\
+	    (cd $$prog && ln -sf /usr/src/sbin/$$prog/*.[ch] .);\
 	done
 
 # full compilation kernels
 # and setup for RAM disk filesystem image
 #
+.PHONY: setup
 setup:
 	$(MAKE) kernconfig
 	$(MAKE) kernclean
-	$(MAKE) kern
 	$(MAKE) rdroot.ffsimg
 .if $(ARCH) != arm64
 	$(MAKE) imgs
@@ -311,8 +346,8 @@ setup:
 # creating media.img
 # and fuguita-REV-ARCH.ffsimg located in media.img (or media)
 #
+.PHONY: imgs
 imgs: staging
-	$(MAKE) close-all
 	./lib/create_imgs.sh
 
 #========================================
@@ -337,6 +372,7 @@ STAGE_DEPENDS += lib/mode0symlinks.cpio.gz.$(ARCH)
 STAGE_DEPENDS += lib/usbfadm_postproc.sh.$(ARCH)
 .endif
 
+.PHONY: staging
 staging: staging.time
 staging.time: $(STAGE_DEPENDS)
 	./lib/010_extract.sh
@@ -357,23 +393,27 @@ DISTCLEANFILES += sysmedia.img
 .endif
 DISTCLEANDIRS = staging fuguita sysmedia sys install_sets install_pkgs install_patches
 
+.PHONY: distclean
 distclean:
 	$(MAKE) clean
 	rm -f $(DISTCLEANFILES)
 	rm -rf $(DISTCLEANDIRS)
 	$(MAKE) rdclean
 
+.PHONY: reset
 reset:
 	echo 1 > rev.count
 
-CLEANFILES = bsd bsd.mp livecd.iso staging.time sync.time FuguIta-?.?-*-*.*.gz \
-             $(KERN_SP) $(KERN_MP)# to build reorderd kernels
+CLEANFILES = bsd bsd.mp livecd.iso staging.time sync.time FuguIta-?.?-*-*.*.gz\
+             $(KERN_SP) $(KERN_SGP) $(KERN_MP) $(KERN_MGP)# to build reorderd kernels
 CLEANDIRS = staging.*_*
+.PHONY: clean
 clean:
 	$(MAKE) close-all
 	rm -f $(CLEANFILES)
 	rm -rf $(CLEANDIRS)
 
+.PHONY: rdclean
 rdclean:
 	rm -f rdroot.ffsimg lib/bootbin/!(CVS)
 	cd lib/special && $(MAKE) clean
@@ -385,6 +425,7 @@ rdclean:
 #
 IMGMB = 2048 # size of uncompressed LiveUSB in MB
 
+.PHONY: dvd2usb
 dvd2usb: $(FIBASE).img.gz
 
 $(FIBASE).img.gz:
@@ -394,5 +435,6 @@ $(FIBASE).img.gz:
 	vmctl start -cL -i1 -m2G -d $(FIBASE).img fi74
 	pv $(FIBASE).img | gzip -o $(FIBASE).img.gz -9
 
+.PHONY: imgclean
 imgclean:
 	rm -f $(FIBASE).img.gz $(FIBASE).img $(FIBASE).iso

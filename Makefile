@@ -228,6 +228,7 @@ rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV /usr/src/etc/etc.$(ARCH)/login.c
 	            reboot sed sh sleep swapctl swapon sysctl umount vnconfig; do\
 	    ln -f /mnt/boottmp/bootbin /mnt/boottmp/$$prog;\
 	done
+	sync
 	umount /mnt
 	vnconfig -u vnd0
 
@@ -239,23 +240,21 @@ lib/bootbin/bootbin:
 #
 .PHONY: open-rdroot
 open-rdroot:
-	if mount | grep -q '^/dev/vnd0a on ';\
-	then\
-	    echo rdroot already opened;\
-	else\
+	@if vnconfig -l | grep -q '^vnd0: not in use'; then\
 	    vnconfig vnd0 rdroot.ffsimg;\
-	     mount /dev/vnd0a /mnt;\
+	fi
+	@if vnconfig -l | grep -q '^vnd0: covering '; then\
+	    mount /dev/vnd0a /mnt;\
 	fi
 
 .PHONY: close-rdroot
 close-rdroot:
-	-if mount | grep -q '^/dev/vnd0a on ';\
-	then\
-	    umount /mnt;\
+	@if mount | grep -q '^/dev/vnd0a on '; then\
 	    sync;\
+	    umount /dev/vnd0a;\
+	fi
+	@if vnconfig -l | grep -q '^vnd0: covering '; then\
 	    vnconfig -u vnd0;\
-	else\
-	    echo rdroot already closed;\
 	fi
 
 # if sysmedia.img exists , mount the vnode vnd1 bound to it.
@@ -263,57 +262,52 @@ close-rdroot:
 #
 .PHONY: open-sysmedia
 open-sysmedia:
-	if [ -f sysmedia.img ];\
+	@if [ -f sysmedia.img ];\
 	then\
-	    if mount | grep -q '$(BLDDIR)/sysmedia type ';\
-	    then\
-	        echo media already opened;\
-	    else\
+	    if vnconfig -l | grep -q '^vnd1: not in use'; then\
 	        vnconfig vnd1 sysmedia.img;\
-	        mount -o async,noatime /dev/vnd1a sysmedia;\
+	    fi;\
+	    if vnconfig -l | grep -q '^vnd1: covering '; then\
+	        mount /dev/vnd1a $(BLDDIR)/sysmedia;\
 	    fi;\
 	fi
 
 .PHONY: close-sysmedia
-close-sysmedia:
-	-if [ -f sysmedia.img ];\
+close-sysmedia: close-fuguita
+	@if [ -f sysmedia.img ];\
 	then\
-	    if mount | grep -q '$(BLDDIR)/sysmedia type ';\
-	    then\
-	        $(MAKE) close-fuguita;\
+	    if mount | grep -q '^/dev/vnd1a on '; then\
 	        sync;\
-	        umount sysmedia;\
+	        umount /dev/vnd1a;\
+	    fi;\
+	    if vnconfig -l | grep -q '^vnd1: covering '; then\
 	        vnconfig -u vnd1;\
-	    else\
-	        echo media already closed;\
 	    fi;\
 	fi
 
 .PHONY: open-fuguita
 open-fuguita: open-sysmedia
-	if mount | grep -q '$(BLDDIR)/fuguita type ';\
-	then\
-	    echo fuguita already opened;\
-	else\
+	@if vnconfig -l | grep -q '^vnd2: not in use'; then\
 	    vnconfig vnd2 $(BLDDIR)/sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg;\
-	    mount -o async,noatime /dev/vnd2a fuguita;\
+	fi
+	@if vnconfig -l | grep -q '^vnd2: covering '; then\
+	    mount /dev/vnd2a $(BLDDIR)/fuguita;\
 	fi
 
 .PHONY: close-fuguita
 close-fuguita:
-	-if mount | grep -q '$(BLDDIR)/fuguita type ';\
-	then\
-	    umount fuguita;\
+	@if mount | grep -q '^/dev/vnd2a on '; then\
 	    sync;\
+	    umount /dev/vnd2a;\
+	fi
+	@if vnconfig -l | grep -q '^vnd2: covering '; then\
 	    vnconfig -u vnd2;\
-	else\
-	    echo fuguita already closed;\
 	fi
 
 .PHONY: close-all
 close-all:
-	$(MAKE) close-rdroot
-	$(MAKE) close-sysmedia
+	-$(MAKE) close-rdroot
+	-$(MAKE) close-sysmedia
 
 # create fundamental files and directories
 #

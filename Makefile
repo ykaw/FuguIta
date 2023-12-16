@@ -34,10 +34,10 @@
 # global definitions
 #
 PROJNAME =FuguIta
-VERSION !=uname -r
-VER     !=uname -r | tr -d .
-ARCH    !=uname -m
-DATE    !=date +%Y%m%d
+VERSION != uname -r
+VER     != uname -r | tr -d .
+ARCH    != uname -m
+DATE    != date +%Y%m%d
 REV     != if [[ -r rev.count ]] ; then\
                rev=$$(cat rev.count);\
            else\
@@ -46,18 +46,18 @@ REV     != if [[ -r rev.count ]] ; then\
            [[ $$rev -le 0 ]] && rev=1;\
            echo $$rev
 #VERSTAT=beta
-VERSTAT=
-AUTHOR=Yoshihiro Kawamata <kaw@on.rim.or.jp>
-FIBASE=$(VERSION)-$(ARCH)-$(DATE)$(REV)$(VERSTAT)
-FI=$(PROJNAME)-$(FIBASE)
+VERSTAT =
+AUTHOR = Yoshihiro Kawamata <kaw@on.rim.or.jp>
+FIBASE = $(VERSION)-$(ARCH)-$(DATE)$(REV)$(VERSTAT)
+FI = $(PROJNAME)-$(FIBASE)
 
-BLDDIR!=realpath $$(pwd)
+BLDDIR != realpath $$(pwd)
 
 .PHONY: all isogz usbgz sync boot \
         close-all open-rdroot close-rdroot open-sysmedia close-sysmedia \
         open-fuguita close-fuguita \
         init setup \
-        kernconfig kernclean kern \
+        kernconfig kernclean kern kernreset \
         imgs staging \
         distclean reset clean rdclean \
         dvd2usb imgclean
@@ -82,7 +82,6 @@ $(FI).iso.gz: livecd.iso
 # now, only for arm64
 #
 usbgz: boot sync
-	$(MAKE) close-all
 	$(MAKE) open-fuguita
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
 	$(MAKE) close-all
@@ -93,9 +92,12 @@ usbgz: boot sync
 # sync staging to sysmedia/fuguita-*.ffsimg
 #
 sync: sync.time
-sync.time: staging
+sync.time: staging.time
 	$(MAKE) close-all
 	$(MAKE) open-fuguita
+	# equalize fuguita directory to staging:
+	# When applying a patch and resynchronizing, media.img may overflow,
+	# so in that case, delete some large files and rerun rsync.
 	cd staging && \
 	if ! rsync -avxH --delete . ../fuguita/.; then\
 	    find ../fuguita/ -type f -size +4096 -print | xargs rm;\
@@ -106,10 +108,9 @@ sync.time: staging
 # generate an ISO file
 #
 livecd.iso: boot sync
-	$(MAKE) close-all
 	$(MAKE) open-fuguita
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
-	$(MAKE) close-fuguita
+	$(MAKE) close-all
 	mkhybrid -a -R -L -l -d -D -N \
 		-o livecd.iso \
 		-v -v \
@@ -134,11 +135,6 @@ boot:
 	[ -d sysmedia/etc ] || mkdir sysmedia/etc
 	cp lib/boot.conf.$(ARCH) sysmedia/etc/boot.conf
 
-KERNSRC=$(BLDDIR)/sys
-KERNOPT=-j2
-KERN_SP=$(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
-KERN_MP=$(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
-
 sysmedia/bsd-fi: rdroot.ffsimg $(KERN_SP)
 	$(MAKE) close-all
 	$(MAKE) open-sysmedia
@@ -158,6 +154,11 @@ sysmedia/bsd-fi.mp: rdroot.ffsimg $(KERN_MP)
 #========================================
 # stuffs on kernel compilation
 #
+KERNSRC = $(BLDDIR)/sys
+KERNOPT = -j2
+KERN_SP = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
+KERN_MP = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
+
 kernconfig:
 	(cd $(KERNSRC)/conf && \
 	 cp GENERIC RDROOT && \
@@ -184,6 +185,11 @@ $(KERN_SP):
 $(KERN_MP):
 	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP && \
          make obj && make config && make $(KERNOPT))
+
+# This is because it causes kernel reordering by hand.
+#
+kernreset:
+	rm -f $(KERN_SP) $(KERN_MP)
 
 #========================================
 # generating RAM disk root filesystem image
@@ -278,7 +284,7 @@ close-fuguita:
 # create fundamental files and directories
 #
 init:
-	echo 1 > rev.count
+	$(MAKE) reset
 	mkdir -p sys install_sets install_pkgs install_patches fuguita sysmedia
 	if [ ! -d sys/arch/$(ARCH) ]; then (cd sys && lndir /usr/src/sys); fi
 	cd lib; \
@@ -313,7 +319,7 @@ imgs: staging
 # create staging directory
 # and file tree which is modified for the Live System
 #
-STAGE_DEPENDS=
+STAGE_DEPENDS =
 .for dir in install_sets install_pkgs install_patches
     files != ls $(dir) 2>/dev/null | grep -v '^\.' || true
 .   for file in $(files)
@@ -343,16 +349,15 @@ staging.time: $(STAGE_DEPENDS)
 
 # On arm64, cannot generate automatically yet
 #
+DISTCLEANFILES = rev.count
 .if $(ARCH) == arm64
-DISTCLEANFILES=
 .PRECIOUS: sysmedia.img
 .else
-DISTCLEANFILES=sysmedia.img
+DISTCLEANFILES += sysmedia.img
 .endif
-DISTCLEANDIRS=staging fuguita sysmedia sys install_sets install_pkgs install_patches
+DISTCLEANDIRS = staging fuguita sysmedia sys install_sets install_pkgs install_patches
 
 distclean:
-	$(MAKE) reset
 	$(MAKE) clean
 	rm -f $(DISTCLEANFILES)
 	rm -rf $(DISTCLEANDIRS)
@@ -361,9 +366,9 @@ distclean:
 reset:
 	echo 1 > rev.count
 
-CLEANFILES=bsd bsd.mp livecd.iso staging.time sync.time FuguIta-?.?-*-*.*.gz \
-           $(KERN_SP) $(KERN_MP)# to build reorderd kernels
-CLEANDIRS=staging.*_*
+CLEANFILES = bsd bsd.mp livecd.iso staging.time sync.time FuguIta-?.?-*-*.*.gz \
+             $(KERN_SP) $(KERN_MP)# to build reorderd kernels
+CLEANDIRS = staging.*_*
 clean:
 	$(MAKE) close-all
 	rm -f $(CLEANFILES)
@@ -378,7 +383,7 @@ rdclean:
 #========================================
 # generate LiveUSB from LiveDVD
 #
-IMGMB=2048
+IMGMB = 2048 # size of uncompressed LiveUSB in MB
 
 dvd2usb: $(FIBASE).img.gz
 

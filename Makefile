@@ -29,11 +29,12 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# $Id: Makefile,v 1.106 2023/12/17 16:28:58 kaw Exp $
 
 #========================================
 # global definitions
 #
-PROJNAME =FuguIta
+PROJNAME = FuguIta
 VERSION != uname -r
 VER     != uname -r | tr -d .
 ARCH    != uname -m
@@ -53,19 +54,26 @@ FI = $(PROJNAME)-$(FIBASE)
 
 BLDDIR != realpath $$(pwd)
 
+KERNSRC = $(BLDDIR)/sys
+KERNOPT = -j5
+BSD_SP  = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
+BSD_MP  = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
+BSD_SGP = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/gapdummy.o
+BSD_MGP = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/gapdummy.o
+KERN_SP = sysmedia/bsd-fi
+KERN_MP = sysmedia/bsd-fi.mp
+
 #========================================
 # final product
 #
 .if $(ARCH) == arm64
-all: usbgz
+all: $(FI).img.gz
 .else
-all: isogz
+all: $(FI).iso.gz
 .endif
 
 # for i386/amd64
 #
-.PHONY: isogz
-isogz: $(FI).iso.gz
 $(FI).iso.gz: livecd.iso
 	@echo generating $(FI).iso.gz
 	@pv livecd.iso | gzip -9f -o $(FI).iso.gz
@@ -73,8 +81,11 @@ $(FI).iso.gz: livecd.iso
 
 # now, only for arm64
 #
-.PHONY: usbgz
-usbgz: boot sync
+$(FI).img.gz:
+	$(MAKE) open-sysmedia
+	$(MAKE) sysmedia/boot sysmedia/cdboot sysmedia/cdbr sysmedia/etc/boot.conf\
+                $(KERN_SP) $(KERN_MP)\
+                sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg
 	$(MAKE) open-fuguita
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
 	$(MAKE) close-all
@@ -82,26 +93,33 @@ usbgz: boot sync
 	@pv sysmedia.img | gzip -9f -o $(FI).img.gz
 	echo $$(($(REV)+1)) > rev.count
 
+# it's contents must be identical to staging's one
+#
+sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg: sync
+
 # sync staging to sysmedia/fuguita-*.ffsimg
 #
 .PHONY: sync
-sync: sync.time
-sync.time: staging.time
+sync: staging.time
 	$(MAKE) open-fuguita
-	# equalize fuguita directory to staging:
-	# When applying a patch and resynchronizing, media.img may overflow,
-	# so in that case, delete some large files and rerun rsync.
+#	 equalize fuguita directory to staging:
+#	 When applying a patch and resynchronizing, media.img may overflow,
+#	 so in that case, delete some large files and rerun rsync.
 	cd staging &&\
 	if ! rsync -avxH --delete . ../fuguita/.; then\
 	    find ../fuguita/ -type f -size +4096 -print | xargs rm;\
 	    rsync -avxH --delete . ../fuguita/.;\
 	fi
 	$(MAKE) close-fuguita
-	touch sync.time
 
 # generate an ISO file
 #
-livecd.iso: boot sync
+livecd.iso:
+	$(MAKE) open-fuguita
+	$(MAKE) sysmedia/boot sysmedia/cdboot sysmedia/cdbr sysmedia/etc/boot.conf\
+                $(KERN_SP) $(KERN_MP)\
+                sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg
+#	fuguita closed in above rules, then reopen it
 	$(MAKE) open-fuguita
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
 	$(MAKE) close-fuguita
@@ -116,13 +134,26 @@ livecd.iso: boot sync
 		-c boot.catalog\
 		sysmedia\
 
+.for bootstuff in boot cdboot cdbr
+sysmedia/$(bootstuff): /usr/mdec/$(bootstuff)
+	cp /usr/mdec/$(bootstuff) sysmedia/. || touch sysmedia/$(bootstuff)
+.endfor
+
+sysmedia/etc/boot.conf: lib/boot.conf.$(ARCH)
+	[ -d sysmedia/etc ] || mkdir sysmedia/etc
+	cp lib/boot.conf.$(ARCH) sysmedia/etc/boot.conf
+
+sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg: staging.time
+	$(MAKE) sync
+
 #========================================
 # stuffs on boot loaders and kernels
 #
-.PHONY: boot
-boot:
-	$(MAKE) kernreset
+.PHONY: bootx
+bootx:
 	$(MAKE) kern
+	$(MAKE) $(KERN_SP)
+	$(MAKE) $(KERN_MP)
 	$(MAKE) open-sysmedia
 	cp /usr/mdec/cdbr sysmedia/.   || touch sysmedia/cdbr
 	cp /usr/mdec/cdboot sysmedia/. || touch sysmedia/cdboot
@@ -131,32 +162,25 @@ boot:
 	cp lib/boot.conf.$(ARCH) sysmedia/etc/boot.conf
 	$(MAKE) close-sysmedia
 
-sysmedia/bsd-fi: rdroot.ffsimg $(KERN_SP)
+$(KERN_SP): rdroot.ffsimg $(BSD_SP)
 	$(MAKE) open-sysmedia
-	cp $(KERN_SP) bsd
+	cp $(BSD_SP) bsd
 	rdsetroot bsd rdroot.ffsimg
-	gzip -c9 bsd > sysmedia/bsd-fi
-	-rm bsd
+	gzip -c9 bsd > $(KERN_SP)
+	rm bsd
 	$(MAKE) close-sysmedia
 
-sysmedia/bsd-fi.mp: rdroot.ffsimg $(KERN_MP)
+$(KERN_MP): rdroot.ffsimg $(BSD_MP)
 	$(MAKE) open-sysmedia
-	cp $(KERN_MP) bsd.mp
+	cp $(BSD_MP) bsd.mp
 	rdsetroot bsd.mp rdroot.ffsimg
-	gzip -c9 bsd.mp > sysmedia/bsd-fi.mp
-	-rm bsd.mp
+	gzip -c9 bsd.mp > $(KERN_MP)
+	rm bsd.mp
 	$(MAKE) close-sysmedia
 
 #========================================
 # stuffs on kernel compilation
 #
-KERNSRC  = $(BLDDIR)/sys
-KERNOPT  = -j2
-KERN_SP  = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
-KERN_MP  = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
-KERN_SGP = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/gapdummy.o
-KERN_MGP = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/gapdummy.o
-
 .PHONY: kernconfig
 kernconfig:
 	(cd $(KERNSRC)/conf &&\
@@ -177,21 +201,21 @@ kernclean:
          make clean)
 
 .PHONY: kern
-kern: $(KERN_SP) $(KERN_MP)
+kern: $(BSD_SP) $(BSD_MP)
 
-$(KERN_SP):
+$(BSD_SP):
+	rm -f $(BSD_SP) $(BSD_SGP)# let the kernel reordered
 	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT &&\
          make $(KERNOPT))
 
-$(KERN_MP):
+$(BSD_MP):
+	rm -f $(BSD_MP) $(BSD_MGP)# let the kernel reordered
 	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP &&\
          make $(KERNOPT))
 
-# This is because it causes kernel reordering by hand.
-#
 .PHONY: kernreset
 kernreset:
-	rm -f $(KERN_SP) $(KERN_SGP) $(KERN_MP) $(KERN_MGP)
+	rm -f $(BSD_SP) $(BSD_SGP) $(BSD_MP) $(BSD_MGP)
 
 #========================================
 # generating RAM disk root filesystem image
@@ -202,17 +226,17 @@ BOOTTMPS != echo rdroot/boottmp/*
 
 rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV /usr/src/etc/etc.$(ARCH)/login.conf lib/bootbin/bootbin $(BOOTTMPS)
 	$(MAKE) close-rdroot
-	#
-	# create rdroot.ffsimg
-	#
+#
+# create rdroot.ffsimg
+#
 	./lib/setup_fsimg.sh rdroot.ffsimg 1900K 1500 '-b 4096 -f 512'
 	            # parameters for minimum resources ^^^^^^^^^^^^^^
 	vnconfig vnd0 rdroot.ffsimg
 	mount /dev/vnd0a /mnt
 	(cd rdroot && pax -rwvpe . /mnt/.)
-	#
-	# setup inside rdroot.ffsimg
-	#
+#
+# setup inside rdroot.ffsimg
+#
 	ln -sf boottmp /mnt/bin
 	ln -sf boottmp /mnt/etc
 	ln -sf boottmp /mnt/sbin
@@ -228,8 +252,7 @@ rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV /usr/src/etc/etc.$(ARCH)/login.c
 	            reboot sed sh sleep swapctl swapon sysctl umount vnconfig; do\
 	    ln -f /mnt/boottmp/bootbin /mnt/boottmp/$$prog;\
 	done
-	sync
-	umount /mnt
+	umount /mnt || { sync; sleep 15; sync; umount /mnt; }
 	vnconfig -u vnd0
 
 lib/bootbin/bootbin:
@@ -251,8 +274,7 @@ open-rdroot:
 .PHONY: close-rdroot
 close-rdroot:
 	@if mount | grep -q '^/dev/vnd0a on '; then\
-	    sync;\
-	    umount /dev/vnd0a;\
+	    umount /dev/vnd0a || { sync; sleep 15; sync; umount /dev/vnd0a; };\
 	fi
 	@if vnconfig -l | grep -q '^vnd0: covering '; then\
 	    vnconfig -u vnd0;\
@@ -279,8 +301,7 @@ close-sysmedia: close-fuguita
 	@if [ -f sysmedia.img ];\
 	then\
 	    if mount | grep -q '^/dev/vnd1a on '; then\
-	        sync;\
-	        umount /dev/vnd1a;\
+	        umount /dev/vnd1a || { sync; sleep 15; sync; umount /dev/vnd1a; };\
 	    fi;\
 	    if vnconfig -l | grep -q '^vnd1: covering '; then\
 	        vnconfig -u vnd1;\
@@ -300,8 +321,7 @@ open-fuguita: open-sysmedia
 .PHONY: close-fuguita
 close-fuguita:
 	@if mount | grep -q '^/dev/vnd2a on '; then\
-	    sync;\
-	    umount /dev/vnd2a;\
+	    umount /dev/vnd2a || { sync; sleep 15; sync; umount /dev/vnd2a; };\
 	fi
 	@if vnconfig -l | grep -q '^vnd2: covering '; then\
 	    vnconfig -u vnd2;\
@@ -333,18 +353,21 @@ init:
 .PHONY: setup
 setup:
 	$(MAKE) kernconfig
-	$(MAKE) kernclean
+#	$(MAKE) kernclean
 	$(MAKE) rdroot.ffsimg
 .if $(ARCH) != arm64
 	$(MAKE) imgs
 .endif
 
-
 # creating media.img
 # and fuguita-REV-ARCH.ffsimg located in media.img (or media)
 #
 .PHONY: imgs
+.if defined(CREATE_SYSMEDIA_IMG)
+imgs: staging $(BSD_SP) $(BSD_MP)
+.else
 imgs: staging
+.endif
 	./lib/create_imgs.sh
 
 #========================================
@@ -401,8 +424,8 @@ distclean:
 reset:
 	echo 1 > rev.count
 
-CLEANFILES = bsd bsd.mp livecd.iso staging.time sync.time FuguIta-?.?-*-*.*.gz\
-             $(KERN_SP) $(KERN_SGP) $(KERN_MP) $(KERN_MGP)# to build reorderd kernels
+CLEANFILES = bsd bsd.mp livecd.iso staging.time FuguIta-?.?-*-*.*.gz\
+             $(BSD_SP) $(BSD_MP)
 CLEANDIRS = staging.*_*
 .PHONY: clean
 clean:

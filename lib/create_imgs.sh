@@ -3,7 +3,7 @@
 #----------------------------------------
 # create_imgs.sh - create sysmedia.img and fuguita-*.ffsimg
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: create_imgs.sh,v 1.8 2023/12/12 05:12:48 kaw Exp $
+# $Id: create_imgs.sh,v 1.9 2023/12/17 16:28:58 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2023
@@ -49,12 +49,6 @@ stage_files=$(find staging -print|wc -l)           # files under staging
 ffs_roomminus=4  # lesser offset ffsimg
      ffs_size=$((stage_mb+ffs_headroom+ffs_roomminus))
 
-  media_kernels=$(($(cat sys/arch/$(uname -m)/compile/{RDROOT,RDROOT.MP}/obj/bsd | gzip -9c | wc -c)/1024/1024))
-                                     # total of compressed kernels size
- media_headroom=$((media_kernels/2)) # room in sysmedia.img
-media_roomminus=1                    # lesser offset sysmedia
-     media_size=$((ffs_size+media_kernels+media_headroom+media_roomminus))
-
 cat <<EOT
 stage_files=$stage_files
    stage_mb=$stage_mb
@@ -62,16 +56,28 @@ stage_files=$stage_files
  ffs_headroom=8
 ffs_roomminus=4
      ffs_size=$ffs_size
-
- media_headroom=$media_headroom
-  media_kernels=$media_kernels
-media_roomminus=$media_roomminus
-     media_size=$media_size
 EOT
 
 # create sysmedia.img
 #
 if [ -n "$CREATE_SYSMEDIA_IMG" ]; then
+    if [[ -f sys/arch/$(uname -m)/compile/RDROOT/obj/bsd &&
+          -f sys/arch/$(uname -m)/compile/RDROOT.MP/obj/bsd ]]; then
+        media_kernels=$(($(cat sys/arch/$(uname -m)/compile/{RDROOT,RDROOT.MP}/obj/bsd | gzip -9c | wc -c)/1024/1024))
+        # total of compressed kernels size
+    else
+        echo "${0##*/}: non-existent kernel"
+        exit 1
+    fi
+    media_headroom=$((media_kernels/2)) # room in sysmedia.img
+    media_roomminus=1                   # lesser offset sysmedia
+    media_size=$((ffs_size+media_kernels+media_headroom+media_roomminus))
+    cat <<EOT
+ media_headroom=$media_headroom
+  media_kernels=$media_kernels
+media_roomminus=$media_roomminus
+     media_size=$media_size
+EOT
     ./lib/setup_fsimg.sh sysmedia.img ${media_size}M 20
 fi
 

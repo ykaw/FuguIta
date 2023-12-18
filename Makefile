@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.107 2023/12/18 00:48:45 kaw Exp $
+# $Id: Makefile,v 1.108 2023/12/18 06:17:32 kaw Exp $
 
 #========================================
 # global definitions
@@ -55,7 +55,7 @@ FI = $(PROJNAME)-$(FIBASE)
 BLDDIR != realpath $$(pwd)
 
 KERNSRC = $(BLDDIR)/sys
-KERNOPT = -j5
+KERNOPT = -j2
 BSD_SP  = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
 BSD_MP  = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
 BSD_SGP = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/gapdummy.o
@@ -135,7 +135,11 @@ livecd.iso:
 		sysmedia\
 
 .for bootstuff in boot cdboot cdbr
+.    if exists($(bootstuff))
 sysmedia/$(bootstuff): /usr/mdec/$(bootstuff)
+.    else
+sysmedia/$(bootstuff):
+.    endif
 	cp /usr/mdec/$(bootstuff) sysmedia/. || touch sysmedia/$(bootstuff)
 .endfor
 
@@ -353,7 +357,7 @@ init:
 .PHONY: setup
 setup:
 	$(MAKE) kernconfig
-#	$(MAKE) kernclean
+	$(MAKE) kernclean
 	$(MAKE) rdroot.ffsimg
 .if $(ARCH) != arm64
 	$(MAKE) imgs

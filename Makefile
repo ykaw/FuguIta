@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.108 2023/12/18 06:17:32 kaw Exp $
+# $Id: Makefile,v 1.109 2023/12/18 12:18:08 kaw Exp $
 
 #========================================
 # global definitions
@@ -71,13 +71,16 @@ all: $(FI).img.gz
 .else
 all: $(FI).iso.gz
 .endif
+# increase revision
+	echo $$(($(REV)+1)) > rev.count
+# reorder kernel at next compilation
+	$(MAKE) kernreset
 
 # for i386/amd64
 #
 $(FI).iso.gz: livecd.iso
 	@echo generating $(FI).iso.gz
 	@pv livecd.iso | gzip -9f -o $(FI).iso.gz
-	echo $$(($(REV)+1)) > rev.count
 
 # now, only for arm64
 #
@@ -91,7 +94,6 @@ $(FI).img.gz:
 	$(MAKE) close-all
 	@echo generating $(FI).img.gz
 	@pv sysmedia.img | gzip -9f -o $(FI).img.gz
-	echo $$(($(REV)+1)) > rev.count
 
 # it's contents must be identical to staging's one
 #
@@ -208,12 +210,10 @@ kernclean:
 kern: $(BSD_SP) $(BSD_MP)
 
 $(BSD_SP):
-	rm -f $(BSD_SP) $(BSD_SGP)# let the kernel reordered
 	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT &&\
          make $(KERNOPT))
 
 $(BSD_MP):
-	rm -f $(BSD_MP) $(BSD_MGP)# let the kernel reordered
 	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP &&\
          make $(KERNOPT))
 

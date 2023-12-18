@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.106 2023/12/17 16:28:58 kaw Exp $
+# $Id: Makefile,v 1.107 2023/12/18 00:48:45 kaw Exp $
 
 #========================================
 # global definitions
@@ -443,18 +443,19 @@ rdclean:
 #========================================
 # generate LiveUSB from LiveDVD
 #
-IMGMB = 2048 # size of uncompressed LiveUSB in MB
+IMGMB =2048# size of uncompressed LiveUSB in MB
 
 .PHONY: dvd2usb
-dvd2usb: $(FIBASE).img.gz
-
-$(FIBASE).img.gz:
-	pv $(FIBASE).iso.gz | gzip -d -o $(FIBASE).iso
-	dd if=/dev/zero bs=1m count=$(IMGMB) | pv -s $(IMGMB)M > $(FIBASE).img
-	vmctl start -cL -i1 -m2G -r $(FIBASE).iso -d $(FIBASE).img fi74
-	vmctl start -cL -i1 -m2G -d $(FIBASE).img fi74
-	pv $(FIBASE).img | gzip -o $(FIBASE).img.gz -9
+dvd2usb:
+	pv $(FI).iso.gz | gzip -d -o $(FI).iso
+	dd if=/dev/zero bs=1m count=$(IMGMB) | pv -s $(IMGMB)M > $(FI).img
+	vmctl start -cL -i1 -m2G -r $(FI).iso -d $(FI).img fi74
+	vmctl start -cL -i1 -m2G -d $(FI).img fi74
+	pv $(FI).img | gzip -o $(FI).img.gz -9
 
 .PHONY: imgclean
 imgclean:
-	rm -f $(FIBASE).img.gz $(FIBASE).img $(FIBASE).iso
+	rm -f $(FI).img.gz $(FI).img $(FI).iso
+
+test:
+	echo hello

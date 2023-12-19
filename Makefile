@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.109 2023/12/18 12:18:08 kaw Exp $
+# $Id: Makefile,v 1.110 2023/12/19 04:03:36 kaw Exp $
 
 #========================================
 # global definitions
@@ -57,11 +57,13 @@ BLDDIR != realpath $$(pwd)
 KERNSRC = $(BLDDIR)/sys
 KERNOPT = -j2
 BSD_SP  = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
+BSD_SPG = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/gapdummy.o
+BSD_SPV = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/vers.o
 BSD_MP  = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/bsd
-BSD_SGP = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/gapdummy.o
-BSD_MGP = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/gapdummy.o
-KERN_SP = sysmedia/bsd-fi
-KERN_MP = sysmedia/bsd-fi.mp
+BSD_MPG = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/gapdummy.o
+BSD_MPV = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/vers.o
+KERN_SP = $(BLDDIR)/sysmedia/bsd-fi
+KERN_MP = $(BLDDIR)/sysmedia/bsd-fi.mp
 
 #========================================
 # final product
@@ -219,7 +221,7 @@ $(BSD_MP):
 
 .PHONY: kernreset
 kernreset:
-	rm -f $(BSD_SP) $(BSD_SGP) $(BSD_MP) $(BSD_MGP)
+	rm -f $(BSD_SP) $(BSD_SPG) $(BSD_SPV) $(BSD_MP) $(BSD_MPG) $(BSD_MPV)
 
 #========================================
 # generating RAM disk root filesystem image

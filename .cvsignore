@@ -1,0 +1,14 @@
+.cvsignore
+FuguIta-*-*-*.iso.gz
+fuguita
+install_patches
+install_pkgs
+install_sets
+livecd.iso
+rdroot.ffsimg
+rev.count
+staging
+staging.time
+sync.time
+sys
+sysmedia

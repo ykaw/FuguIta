@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.110 2023/12/19 04:03:36 kaw Exp $
+# $Id: Makefile,v 1.111 2023/12/19 17:03:26 kaw Exp $
 
 #========================================
 # global definitions
@@ -352,6 +352,9 @@ init:
 	for prog in init mount_* newfs swapctl sysctl vnconfig; do\
 	    (cd $$prog && ln -sf /usr/src/sbin/$$prog/*.[ch] .);\
 	done
+.if $(ARCH) == arm64
+	gzip -fd -o sysmedia.img sysmedia-$(VERSION)-$(ARCH).img.gz
+.endif
 
 # full compilation kernels
 # and setup for RAM disk filesystem image
@@ -408,15 +411,7 @@ staging.time: $(STAGE_DEPENDS)
 #========================================
 # packaging controls
 #
-
-# On arm64, cannot generate automatically yet
-#
-DISTCLEANFILES = rev.count
-.if $(ARCH) == arm64
-.PRECIOUS: sysmedia.img
-.else
-DISTCLEANFILES += sysmedia.img
-.endif
+DISTCLEANFILES = rev.count sysmedia.img
 DISTCLEANDIRS = staging fuguita sysmedia sys install_sets install_pkgs install_patches
 
 .PHONY: distclean

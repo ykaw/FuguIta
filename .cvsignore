@@ -14,4 +14,4 @@ sync.time
 sys
 sysmedia
 sysmedia.img
-sysmedia.img-*-arm64.img.gz
+sysmedia-*-*.img.gz

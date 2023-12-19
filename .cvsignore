@@ -1,5 +1,6 @@
 .cvsignore
 FuguIta-*-*-*.iso.gz
+FuguIta-*-*-*.img.gz
 fuguita
 install_patches
 install_pkgs
@@ -12,3 +13,5 @@ staging.time
 sync.time
 sys
 sysmedia
+sysmedia.img
+sysmedia.img-*-arm64.img.gz

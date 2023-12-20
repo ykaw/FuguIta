@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.111 2023/12/19 17:03:26 kaw Exp $
+# $Id: Makefile,v 1.112 2023/12/20 05:16:24 kaw Exp $
 
 #========================================
 # global definitions
@@ -46,7 +46,7 @@ REV     != if [[ -r rev.count ]] ; then\
            fi;\
            [[ $$rev -le 0 ]] && rev=1;\
            echo $$rev
-#VERSTAT=beta
+# e.g. VERSTAT=beta
 VERSTAT =
 AUTHOR = Yoshihiro Kawamata <kaw@on.rim.or.jp>
 FIBASE = $(VERSION)-$(ARCH)-$(DATE)$(REV)$(VERSTAT)
@@ -75,7 +75,7 @@ all: $(FI).iso.gz
 .endif
 # increase revision
 	echo $$(($(REV)+1)) > rev.count
-# reorder kernel at next compilation
+# to reorder kernel at next compilation
 	$(MAKE) kernreset
 
 # for i386/amd64
@@ -84,7 +84,7 @@ $(FI).iso.gz: livecd.iso
 	@echo generating $(FI).iso.gz
 	@pv livecd.iso | gzip -9f -o $(FI).iso.gz
 
-# now, only for arm64
+# for arm64
 #
 $(FI).img.gz:
 	$(MAKE) open-sysmedia
@@ -138,6 +138,9 @@ livecd.iso:
 		-c boot.catalog\
 		sysmedia\
 
+# on arm64, following boot loaders are not required
+# but null (dummy) files must be exist for usbfadm newdrive
+#
 .for bootstuff in boot cdboot cdbr
 .    if exists($(bootstuff))
 sysmedia/$(bootstuff): /usr/mdec/$(bootstuff)
@@ -155,21 +158,9 @@ sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg: staging.time
 	$(MAKE) sync
 
 #========================================
-# stuffs on boot loaders and kernels
+# merging a RAM disk root filesystem image
+# into a kernel
 #
-.PHONY: bootx
-bootx:
-	$(MAKE) kern
-	$(MAKE) $(KERN_SP)
-	$(MAKE) $(KERN_MP)
-	$(MAKE) open-sysmedia
-	cp /usr/mdec/cdbr sysmedia/.   || touch sysmedia/cdbr
-	cp /usr/mdec/cdboot sysmedia/. || touch sysmedia/cdboot
-	cp /usr/mdec/boot sysmedia/.   || touch sysmedia/boot
-	[ -d sysmedia/etc ] || mkdir sysmedia/etc
-	cp lib/boot.conf.$(ARCH) sysmedia/etc/boot.conf
-	$(MAKE) close-sysmedia
-
 $(KERN_SP): rdroot.ffsimg $(BSD_SP)
 	$(MAKE) open-sysmedia
 	cp $(BSD_SP) bsd
@@ -219,9 +210,12 @@ $(BSD_MP):
 	(cd $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP &&\
          make $(KERNOPT))
 
+# reorder kernel at next compilation
+#
 .PHONY: kernreset
 kernreset:
-	rm -f $(BSD_SP) $(BSD_SPG) $(BSD_SPV) $(BSD_MP) $(BSD_MPG) $(BSD_MPV)
+	rm -f $(BSD_SP) $(BSD_SPG) $(BSD_SPV)\
+	      $(BSD_MP) $(BSD_MPG) $(BSD_MPV)
 
 #========================================
 # generating RAM disk root filesystem image
@@ -230,7 +224,9 @@ kernreset:
 BOOTTMPS != echo rdroot/boottmp/*
 .endif
 
-rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV /usr/src/etc/etc.$(ARCH)/login.conf lib/bootbin/bootbin $(BOOTTMPS)
+rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV\
+               /usr/src/etc/etc.$(ARCH)/login.conf\
+               lib/bootbin/bootbin $(BOOTTMPS)
 	$(MAKE) close-rdroot
 #
 # create rdroot.ffsimg
@@ -250,6 +246,7 @@ rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV /usr/src/etc/etc.$(ARCH)/login.c
 	chmod go-rwx /mnt/sysmedia-iso
 	chmod 1777 /mnt/tmp
 	cd /mnt/dev && cp -p /usr/src/etc/etc.$$(uname -m)/MAKEDEV . && sh ./MAKEDEV all vnd4 vnd5
+#       datasize in login.conf determines the max limit of mfs
 	sed '/^daemon:/,/:tc=default:/ s/:datasize=[^:][^:]*:/:datasize=infinity:/'\
 	    /usr/src/etc/etc.$(ARCH)/login.conf > /mnt/boottmp/login.conf
 	cp -p lib/bootbin/bootbin /mnt/boottmp
@@ -261,6 +258,8 @@ rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV /usr/src/etc/etc.$(ARCH)/login.c
 	umount /mnt || { sync; sleep 15; sync; umount /mnt; }
 	vnconfig -u vnd0
 
+# build a crunched binary
+#
 lib/bootbin/bootbin:
 	cd lib/bootbin && sh ../doit_bootbin
 
@@ -373,6 +372,7 @@ setup:
 #
 .PHONY: imgs
 .if defined(CREATE_SYSMEDIA_IMG)
+# kernels are needed for get the size of media.img
 imgs: staging $(BSD_SP) $(BSD_MP)
 .else
 imgs: staging
@@ -382,6 +382,9 @@ imgs: staging
 #========================================
 # create staging directory
 # and file tree which is modified for the Live System
+#
+
+# set files under install_*/*
 #
 STAGE_DEPENDS =
 .for dir in install_sets install_pkgs install_patches
@@ -421,6 +424,8 @@ distclean:
 	rm -rf $(DISTCLEANDIRS)
 	$(MAKE) rdclean
 
+# reset revision sequece numnber to 1
+#
 .PHONY: reset
 reset:
 	echo 1 > rev.count
@@ -434,6 +439,8 @@ clean:
 	rm -f $(CLEANFILES)
 	rm -rf $(CLEANDIRS)
 
+# remove all requisites to build RAM disk filesystem image
+#
 .PHONY: rdclean
 rdclean:
 	rm -f rdroot.ffsimg lib/bootbin/!(CVS)
@@ -457,6 +464,3 @@ dvd2usb:
 .PHONY: imgclean
 imgclean:
 	rm -f $(FI).img.gz $(FI).img $(FI).iso
-
-test:
-	echo hello

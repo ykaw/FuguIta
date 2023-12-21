@@ -3,7 +3,7 @@
 #----------------------------------------
 # create_imgs.sh - create sysmedia.img and fuguita-*.ffsimg
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: create_imgs.sh,v 1.9 2023/12/17 16:28:58 kaw Exp $
+# $Id: create_imgs.sh,v 1.10 2023/12/21 14:08:00 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2023
@@ -39,8 +39,8 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set -x
 set -e
+#set -x
 
 stage_files=$(find staging -print|wc -l)           # files under staging
    stage_mb=$((1+$(du -sk staging|cut -f1)/1024))  # staging in MB
@@ -53,8 +53,8 @@ cat <<EOT
 stage_files=$stage_files
    stage_mb=$stage_mb
 
- ffs_headroom=8
-ffs_roomminus=4
+ ffs_headroom=$ffs_headroom
+ffs_roomminus=$ffs_roomminus
      ffs_size=$ffs_size
 EOT
 

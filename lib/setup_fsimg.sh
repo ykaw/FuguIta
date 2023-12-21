@@ -3,7 +3,7 @@
 #----------------------------------------
 # setup_fsimg.sh - setup file system image with specified size
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: setup_fsimg.sh,v 1.8 2023/12/12 05:41:30 kaw Exp $
+# $Id: setup_fsimg.sh,v 1.9 2023/12/21 14:08:00 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2006--2023
@@ -40,7 +40,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set -e
-set -x
+#set -x
 
 errmsg () {
     echo "$0: $@" >&2
@@ -107,7 +107,7 @@ size_rem=$(( imgsize % (1024*1024) ))  # remainder divided by 1MB
   size_k=$(( size_rem / 1024 ))        # remainder in KB
 # write to file: note that less than 1KB will be truncated
 (dd if=/dev/zero bs=1m count="$size_m"
- dd if=/dev/zero bs=1k count="$size_k") | pv -s "$((imgsize/1024/1024))"M > "$fsimg"
+ dd if=/dev/zero bs=1k count="$size_k") | pv -N "$fsimg" -s "$((imgsize/1024/1024))"M > "$fsimg"
 vnconfig "$vndev" "$fsimg"
 
 # setup fdisk and disklabel partition

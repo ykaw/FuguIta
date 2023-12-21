@@ -36,12 +36,12 @@
 # 010_extract.sh - Extract OpenBSD's install set to staging directory
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 010_extract.sh,v 1.8 2023/12/06 18:12:44 kaw Exp $
+# $Id: 010_extract.sh,v 1.9 2023/12/21 14:07:59 kaw Exp $
 #
 #========================================
 
 set -e
-set -x
+#set -x
 
 ver=$(uname -r)
 shortver=$(echo $ver|tr -dc 0-9)
@@ -54,16 +54,16 @@ fi
 
 mkdir staging
 cd staging
-pv ../install_sets/base${shortver}.tgz   | tar xzpf -
-pv ../install_sets/comp${shortver}.tgz   | tar xzpf -
-pv ../install_sets/game${shortver}.tgz   | tar xzpf -
-pv ../install_sets/man${shortver}.tgz    | tar xzpf -
-pv ../install_sets/xbase${shortver}.tgz  | tar xzpf -
-pv ../install_sets/xfont${shortver}.tgz  | tar xzpf -
-pv ../install_sets/xserv${shortver}.tgz  | tar xzpf -
-pv ../install_sets/xshare${shortver}.tgz | tar xzpf -
-pv ./var/sysmerge/etc.tgz | tar xzpf -
-pv ./var/sysmerge/xetc.tgz | tar xzpf -
+pv -N "base${shortver}"   ../install_sets/base${shortver}.tgz   | tar xzpf -
+pv -N "comp${shortver}"   ../install_sets/comp${shortver}.tgz   | tar xzpf -
+pv -N "game${shortver}"   ../install_sets/game${shortver}.tgz   | tar xzpf -
+pv -N "man${shortver}"    ../install_sets/man${shortver}.tgz    | tar xzpf -
+pv -N "xbase${shortver}"  ../install_sets/xbase${shortver}.tgz  | tar xzpf -
+pv -N "xfont${shortver}"  ../install_sets/xfont${shortver}.tgz  | tar xzpf -
+pv -N "xserv${shortver}"  ../install_sets/xserv${shortver}.tgz  | tar xzpf -
+pv -N "xshare${shortver}" ../install_sets/xshare${shortver}.tgz | tar xzpf -
+pv -N "etc${shortver}"    ./var/sysmerge/etc.tgz | tar xzpf -
+pv -N "xetc${shortver}"   ./var/sysmerge/xetc.tgz | tar xzpf -
 
 # install packages needed for FuguIta
 #
@@ -77,7 +77,7 @@ cd .. # back to top of build tools
 #
 cat <<EOT | chroot ./staging /bin/ksh
 set -e
-set -x
+#set -x
 ldconfig /usr/lib /usr/X11R6/lib /usr/local/lib
 pkg_add -D unsigned /tmp/rsync-*.tgz
 pkg_add -D unsigned /tmp/rlwrap-*.tgz
@@ -90,7 +90,7 @@ cd staging
 # add user's customization, if any
 #
 if [ -f ../install_sets/site${shortver}.tgz ]; then
-    pv ../install_sets/site${shortver}.tgz | tar xzpf -
+    pv -N "site${shortver}" ../install_sets/site${shortver}.tgz | tar xzpf -
     if [ -f install.site ]; then
         cat install.site >> etc/rc.firsttime
         rm install.site

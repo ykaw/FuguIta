@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.112 2023/12/20 05:16:24 kaw Exp $
+# $Id: Makefile,v 1.113 2023/12/23 10:29:51 kaw Exp $
 
 #========================================
 # global definitions
@@ -352,7 +352,7 @@ init:
 	    (cd $$prog && ln -sf /usr/src/sbin/$$prog/*.[ch] .);\
 	done
 .if $(ARCH) == arm64
-	gzip -fd -o sysmedia.img sysmedia-$(VERSION)-$(ARCH).img.gz
+	gzip -dkf -o sysmedia.img sysmedia-$(VERSION)-$(ARCH).img.gz
 .endif
 
 # full compilation kernels

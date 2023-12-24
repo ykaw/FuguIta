@@ -148,7 +148,8 @@ All following operations are performed with root privileges.
 
   - Also, use ports(7) to create a package for rsync, rlwrap, and pv commands.
 
-Download the FuguIta build tool tools-7.4.tar.gz and extract it.
+Download the FuguIta build tool tools-7.4.tar.gz and extract it:
+https://fuguita.org/?FuguIta/Download#build
 
     # tar xvzpf tools-7.4.tar.gz
 

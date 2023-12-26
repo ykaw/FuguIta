@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.113 2023/12/23 10:29:51 kaw Exp $
+# $Id: Makefile,v 1.114 2023/12/26 07:10:09 kaw Exp $
 
 #========================================
 # global definitions
@@ -266,6 +266,11 @@ lib/bootbin/bootbin:
 #========================================
 # vnconfig related stuffs
 #
+
+# to faster access
+#
+MNT_OPT=-o async,noatime
+
 .PHONY: open-rdroot
 open-rdroot:
 	@if vnconfig -l | grep -q '^vnd0: not in use'; then\
@@ -273,7 +278,7 @@ open-rdroot:
 	fi
 	@if vnconfig -l | grep -q '^vnd0: covering ' &&\
 	    ! mount | grep -q '^/dev/vnd0a on '; then\
-	    mount /dev/vnd0a /mnt;\
+	    mount $(MNT_OPT) /dev/vnd0a /mnt;\
 	fi
 
 .PHONY: close-rdroot
@@ -297,7 +302,7 @@ open-sysmedia:
 	    fi;\
 	    if vnconfig -l | grep -q '^vnd1: covering ' &&\
 	       ! mount | grep -q '^/dev/vnd1a on '; then\
-	        mount /dev/vnd1a $(BLDDIR)/sysmedia;\
+	        mount $(MNT_OPT) /dev/vnd1a $(BLDDIR)/sysmedia;\
 	    fi;\
 	fi
 
@@ -320,7 +325,7 @@ open-fuguita: open-sysmedia
 	fi
 	@if vnconfig -l | grep -q '^vnd2: covering ' &&\
 	    ! mount | grep -q '^/dev/vnd2a on '; then\
-	    mount /dev/vnd2a $(BLDDIR)/fuguita;\
+	    mount $(MNT_OPT) /dev/vnd2a $(BLDDIR)/fuguita;\
 	fi
 
 .PHONY: close-fuguita

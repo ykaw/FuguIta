@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.114 2023/12/26 07:10:09 kaw Exp $
+# $Id: Makefile,v 1.115 2023/12/26 16:33:17 kaw Exp $
 
 #========================================
 # global definitions
@@ -97,10 +97,6 @@ $(FI).img.gz:
 	@echo generating $(FI).img.gz
 	@pv sysmedia.img | gzip -9f -o $(FI).img.gz
 
-# it's contents must be identical to staging's one
-#
-sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg: sync
-
 # sync staging to sysmedia/fuguita-*.ffsimg
 #
 .PHONY: sync
@@ -154,6 +150,8 @@ sysmedia/etc/boot.conf: lib/boot.conf.$(ARCH)
 	[ -d sysmedia/etc ] || mkdir sysmedia/etc
 	cp lib/boot.conf.$(ARCH) sysmedia/etc/boot.conf
 
+# ffsimg's contents must be identical to staging's one
+#
 sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg: staging.time
 	$(MAKE) sync
 
@@ -269,7 +267,7 @@ lib/bootbin/bootbin:
 
 # to faster access
 #
-MNT_OPT=-o async,noatime
+MNT_OPT = -o async,noatime
 
 .PHONY: open-rdroot
 open-rdroot:
@@ -456,7 +454,7 @@ rdclean:
 #========================================
 # generate LiveUSB from LiveDVD
 #
-IMGMB =2048# size of uncompressed LiveUSB in MB
+IMGMB = 2048# size of uncompressed LiveUSB in MB
 
 .PHONY: dvd2usb
 dvd2usb:

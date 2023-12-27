@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.115 2023/12/26 16:33:17 kaw Exp $
+# $Id: Makefile,v 1.116 2023/12/27 02:31:32 kaw Exp $
 
 #========================================
 # global definitions
@@ -86,7 +86,7 @@ $(FI).iso.gz: livecd.iso
 
 # for arm64
 #
-$(FI).img.gz:
+$(FI).img.gz: sysmedia.time
 	$(MAKE) open-sysmedia
 	$(MAKE) sysmedia/boot sysmedia/cdboot sysmedia/cdbr sysmedia/etc/boot.conf\
                 $(KERN_SP) $(KERN_MP)\
@@ -112,9 +112,9 @@ sync: staging.time
 	fi
 	$(MAKE) close-fuguita
 
-# generate an ISO file
+# fill into sysmedia (or sysmedia.img)
 #
-livecd.iso:
+sysmedia.time:
 	$(MAKE) open-fuguita
 	$(MAKE) sysmedia/boot sysmedia/cdboot sysmedia/cdbr sysmedia/etc/boot.conf\
                 $(KERN_SP) $(KERN_MP)\
@@ -123,6 +123,11 @@ livecd.iso:
 	$(MAKE) open-fuguita
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
 	$(MAKE) close-fuguita
+	touch sysmedia.time
+
+# generate an ISO file
+#
+livecd.iso: sysmedia.time
 	mkhybrid -a -R -L -l -d -D -N\
 		-o livecd.iso\
 		-v -v\
@@ -152,8 +157,7 @@ sysmedia/etc/boot.conf: lib/boot.conf.$(ARCH)
 
 # ffsimg's contents must be identical to staging's one
 #
-sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg: staging.time
-	$(MAKE) sync
+sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg: sync
 
 #========================================
 # merging a RAM disk root filesystem image
@@ -433,7 +437,7 @@ distclean:
 reset:
 	echo 1 > rev.count
 
-CLEANFILES = bsd bsd.mp livecd.iso staging.time FuguIta-?.?-*-*.*.gz\
+CLEANFILES = bsd bsd.mp livecd.iso sysmedia.time staging.time FuguIta-?.?-*-*.*.gz\
              $(BSD_SP) $(BSD_MP)
 CLEANDIRS = staging.*_*
 .PHONY: clean

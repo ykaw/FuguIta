@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.116 2023/12/27 02:31:32 kaw Exp $
+# $Id: Makefile,v 1.117 2023/12/30 06:35:06 kaw Exp $
 
 #========================================
 # global definitions
@@ -37,6 +37,8 @@
 PROJNAME = FuguIta
 VERSION != uname -r
 VER     != uname -r | tr -d .
+# e.g. VERSTAT=_current
+VERSTAT  =
 ARCH    != uname -m
 DATE    != date +%Y%m%d
 REV     != if [[ -r rev.count ]] ; then\
@@ -46,10 +48,8 @@ REV     != if [[ -r rev.count ]] ; then\
            fi;\
            [[ $$rev -le 0 ]] && rev=1;\
            echo $$rev
-# e.g. VERSTAT=beta
-VERSTAT =
 AUTHOR = Yoshihiro Kawamata <kaw@on.rim.or.jp>
-FIBASE = $(VERSION)-$(ARCH)-$(DATE)$(REV)$(VERSTAT)
+FIBASE = $(VERSION)$(VERSTAT)-$(ARCH)-$(DATE)$(REV)
 FI = $(PROJNAME)-$(FIBASE)
 
 BLDDIR != realpath $$(pwd)

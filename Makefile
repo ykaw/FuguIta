@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.117 2023/12/30 06:35:06 kaw Exp $
+# $Id: Makefile,v 1.118 2023/12/30 11:21:02 kaw Exp $
 
 #========================================
 # global definitions
@@ -370,9 +370,7 @@ setup:
 	$(MAKE) kernconfig
 	$(MAKE) kernclean
 	$(MAKE) rdroot.ffsimg
-.if $(ARCH) != arm64
 	$(MAKE) imgs
-.endif
 
 # creating media.img
 # and fuguita-REV-ARCH.ffsimg located in media.img (or media)

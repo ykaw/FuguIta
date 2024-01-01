@@ -6,10 +6,10 @@
 #              hard-linked to the equivalent manpage entry
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: find1so.sh,v 1.4 2023/11/29 23:26:39 kaw Exp $
+# $Id: find1so.sh,v 1.5 2024/01/01 02:46:35 kaw Exp $
 #========================================
 
-# Copyright (c) 2006--2023
+# Copyright (c) 2016--2024
 # Yoshihiro Kawamata
 #
 # All rights reserved.

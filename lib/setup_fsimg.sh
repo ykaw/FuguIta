@@ -3,7 +3,7 @@
 #----------------------------------------
 # setup_fsimg.sh - setup file system image with specified size
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: setup_fsimg.sh,v 1.10 2024/01/01 02:46:35 kaw Exp $
+# $Id: setup_fsimg.sh,v 1.11 2024/01/06 17:29:44 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2021--2024
@@ -47,18 +47,27 @@ errmsg () {
 }
 
 usage () {
-    echo "usage: $0 img_file fs_img[KMG] [max_files_in_fs]" >&2
+    echo "usage: $0 img_file du_in_fs[KMG] [max_files_in_fs] ['fs_options']" >&2
 }
 
 err_exit () {
     if [ -n "$1" ]; then
         errmsg "$@"
-        echo
     fi
-    usage;
+    usage
     exit 1
 }
 
+# notice for progress
+#
+banner () {
+    cat<<EOT
+
+========================================
+= $@
+========================================
+EOT
+}
 
 # normalize size value with factor suffix
 #
@@ -71,9 +80,11 @@ defactor () {
         err_exit illegal str: "'$valstr'"
     fi
 
-    local val=${valstr%%[KMG]}
-    local fac=${valstr##*[0-9]}
+    local val=${valstr%%[KMG]}   # pick up value part
+    local fac=${valstr##*[0-9]}  # pick up factor part
 
+    # calculate bytes
+    #
     case "$fac" in
         "") echo "$val";;
         K) echo "$((1024*val))";;
@@ -85,19 +96,20 @@ defactor () {
 
 # main from here
 #
-   fsimg="$1"
- imgsize=$(defactor "$2")
-maxfiles="$3"
- fs_opts="$4"
-
-if [ -z "$imgsize" ]; then
+if [ -z "$2" ]; then
    err_exit "more argument required"
 fi
+
+   fsimg="$1"              # name of image file
+ imgsize=$(defactor "$2")  # size of image file
+maxfiles="$3"              # files to be contained
+ fs_opts="$4"              # newfs options
+tgt_part='d'               # target partition
 
 # find unused vnode device
 vndev=$(vnconfig -l | grep 'not in use' | head -n 1 | cut -d: -f1)
 if [ -z "$vndev" ]; then
-    err_exit "no vn device available"
+    err_exit "no vnode devices available"
 fi
 
 # create an image file
@@ -105,14 +117,21 @@ fi
   size_m=$(( imgsize / (1024*1024) ))  # image size in MB
 size_rem=$(( imgsize % (1024*1024) ))  # remainder divided by 1MB
   size_k=$(( size_rem / 1024 ))        # remainder in KB
+
 # write to file: note that less than 1KB will be truncated
-(dd if=/dev/zero bs=1m count="$size_m"
- dd if=/dev/zero bs=1k count="$size_k") | pv -N "$fsimg" -s "$((imgsize/1024/1024))"M > "$fsimg"
+banner "creating zero-filled file"
+(dd if=/dev/zero bs=1m count="$size_m" status=none
+ dd if=/dev/zero bs=1k count="$size_k" status=none) \
+| pv -N "$fsimg" -s "$((imgsize/1024))"K > "$fsimg"
+
 vnconfig "$vndev" "$fsimg"
 
 # setup fdisk and disklabel partition
-echo "e 3\nA6\nn\n64\n*\nw\nq" | fdisk -e "$vndev"
-echo "a a\n64\n*\n4.2BSD\nw\nq" | disklabel -E "$vndev"
+banner "setup fdisk/disklabel partition"
+echo "e 3\nA6\nn\n64\n*\nw\nq" | fdisk -e "$vndev" >/dev/null
+fdisk "$vndev"
+echo "a ${tgt_part}\n64\n*\n4.2BSD\nw\nq" | disklabel -E "$vndev" >/dev/null
+disklabel -pm "$vndev"
 
 # calculate appropriate inode density
 if [ -n "$maxfiles" ]; then
@@ -120,24 +139,29 @@ if [ -n "$maxfiles" ]; then
 fi
 
 # format file system
-newfs -O 1 -o space -m 0 $fs_opts $idense "/dev/r${vndev}a"
+banner "formatting partiton"
+newfs -O 1 -o space -m 0 $fs_opts $idense "/dev/r${vndev}${tgt_part}"
 
 # display result
-disklabel -pm "$vndev"
-if mount "/dev/${vndev}a" /mnt; then
+banner "resulted filesystem"
+if mount "/dev/${vndev}${tgt_part}" /mnt; then
     echo
-    df -ki
+    df -ki | egrep "^(Filesystem|/dev/${vndev}${tgt_part})"
     echo
     echo "Summary:"
     echo "  max files: ${maxfiles:-not given}"
     idense=${idense#-i }
     echo "   newfs -i: ${idense:-auto}"
-    df -k | awk '$1 == "/dev/'${vndev}'a" {printf("  specified: %.1fMB\n  allocated: %.1fMB\n   shrinked: %dKB\n",
-                                                  '$((imgsize/1024/1024))',
-                                                   $2/1024,
-                                                  '$((imgsize/1024))'-$2)}'
+    df -k \
+    | awk '$1 == "/dev/'${vndev}${tgt_part}'"\
+           {printf("  specified: %.1fM\n  allocated: %.1fM\n   shrinked: %dK\n",
+                   '$((imgsize/1024/1024))',
+                   $2/1024,
+                   '$((imgsize/1024))'-$2)}'
     umount /mnt
 fi
 
 # clean ups
 vnconfig -u "$vndev"
+
+banner "done."

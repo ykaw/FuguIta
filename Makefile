@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.119 2024/01/01 02:46:35 kaw Exp $
+# $Id: Makefile,v 1.120 2024/01/06 17:29:44 kaw Exp $
 
 #========================================
 # global definitions
@@ -383,6 +383,8 @@ imgs: staging $(BSD_SP) $(BSD_MP)
 imgs: staging
 .endif
 	./lib/create_imgs.sh
+# an alternative under test
+#	./lib/setupfs.sh sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg staging 16m
 
 #========================================
 # create staging directory

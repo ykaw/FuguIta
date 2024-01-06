@@ -3,7 +3,7 @@
 #----------------------------------------
 # setup_fsimg.sh - setup file system image with specified size
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: setup_fsimg.sh,v 1.11 2024/01/06 17:29:44 kaw Exp $
+# $Id: setup_fsimg.sh,v 1.12 2024/01/06 17:36:53 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2021--2024
@@ -104,7 +104,7 @@ fi
  imgsize=$(defactor "$2")  # size of image file
 maxfiles="$3"              # files to be contained
  fs_opts="$4"              # newfs options
-tgt_part='d'               # target partition
+tgt_part='a'               # target partition
 
 # find unused vnode device
 vndev=$(vnconfig -l | grep 'not in use' | head -n 1 | cut -d: -f1)

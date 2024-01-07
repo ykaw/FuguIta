@@ -3,7 +3,7 @@
 #----------------------------------------
 # create_imgs.sh - create sysmedia.img and fuguita-*.ffsimg
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: create_imgs.sh,v 1.11 2024/01/01 02:46:35 kaw Exp $
+# $Id: create_imgs.sh,v 1.12 2024/01/07 16:24:12 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2023--2024
@@ -42,48 +42,104 @@
 set -e
 #set -x
 
-stage_files=$(find staging -print|wc -l)           # files under staging
-   stage_mb=$((1+$(du -sk staging|cut -f1)/1024))  # staging in MB
+# Strategy: pass1: measure the offset between planned and actual capacity
+#           pass2: create the target image file using the measured offset
 
- ffs_headroom=8  # room in ffsimg
-ffs_roomminus=4  # lesser offset ffsimg
-     ffs_size=$((stage_mb+ffs_headroom+ffs_roomminus))
+# measure total size and number of files under staging/
+#
+      stage_files=$(find staging -print | wc -l)     #  files under staging
+       stage_size=$((1+$(du -sk staging | cut -f1))) #  staging in KB
+stage_capa_enough=$((12*stage_size/10))              #  increase capacity 20% for trial
 
 cat <<EOT
-stage_files=$stage_files
-   stage_mb=$stage_mb
-
- ffs_headroom=$ffs_headroom
-ffs_roomminus=$ffs_roomminus
-     ffs_size=$ffs_size
+Staging status:
+      stage_files = $stage_files
+       stage_size = ${stage_size}K
+stage_capa_enough = ${stage_capa_enough}K
 EOT
 
-# create sysmedia.img
+./lib/setup_fsimg.sh trial_capa.img "${stage_capa_enough}K" $stage_files
+
+# setup vn device and mount point before capacity trial
+#
+setup_trial () {
+    (set +e
+     mkdir trial_capa
+     vnconfig vnd0 trial_capa.img
+     mount -o async,noatime /dev/vnd0a trial_capa)
+}
+
+# clean up mount point and vn device after capacity trial
+#
+cleanup_trial () {
+    (set +e
+     umount trial_capa
+     rmdir trial_capa
+     vnconfig -u vnd0
+     rm -f trial_capa.img)
+    true
+}
+
+# try Pass1: inject staging files/dirs into trial ffsimg
+#
+if setup_trial; then
+    if ! (cd staging && pax -rwvpe . ../trial_capa); then
+        cleanup_trial
+        exit 1
+    fi
+else
+    cleanup_trial
+    exit 1
+fi
+
+  img_capa_real=$(du -sk trial_capa | cut -f1)  # result capacity
+headroom_ffsimg=10240                           # headroom to img size
+
+cleanup_trial
+
+cat <<EOT
+Pass1 results:
+ planned = ${stage_size}K
+  actual = ${img_capa_real}K
+headroom = ${headroom_ffsimg}K
+EOT
+
+# perform Pass2: create real image files
+#
+
+# create sysmedia.img if specified by CREATE_SYSMEDIA_IMG
 #
 if [ -n "$CREATE_SYSMEDIA_IMG" ]; then
     if [[ -f sys/arch/$(uname -m)/compile/RDROOT/obj/bsd &&
           -f sys/arch/$(uname -m)/compile/RDROOT.MP/obj/bsd ]]; then
-        media_kernels=$(($(cat sys/arch/$(uname -m)/compile/{RDROOT,RDROOT.MP}/obj/bsd | gzip -9c | wc -c)/1024/1024))
+        media_kernels=$(($(cat sys/arch/$(uname -m)/compile/{RDROOT,RDROOT.MP}/obj/bsd | gzip -9c | wc -c)/1024))
         # total of compressed kernels size
     else
-        echo "${0##*/}: non-existent kernel"
+        echo "${0##*/}: kernel not found"
         exit 1
     fi
     media_headroom=$((media_kernels/2)) # room in sysmedia.img
-    media_roomminus=1                   # lesser offset sysmedia
-    media_size=$((ffs_size+media_kernels+media_headroom+media_roomminus))
+    media_size=$((img_capa_real + headroom_ffsimg + media_kernels + media_headroom))
+
     cat <<EOT
- media_headroom=$media_headroom
-  media_kernels=$media_kernels
-media_roomminus=$media_roomminus
-     media_size=$media_size
+sysmedia.img results:
+   media_kernels=${media_kernels}K
+  media_headroom=${media_headroom}K
+      media_size=${media_size}K
 EOT
-    ./lib/setup_fsimg.sh sysmedia.img ${media_size}M 20
+
+    ./lib/setup_fsimg.sh sysmedia.img "${media_size}K" 20
 fi
 
 # create ffsimg in sysmedia.img
 #
 make open-sysmedia
-ffsimg=fuguita-$(uname -r)-$(uname -m).ffsimg 
-./lib/setup_fsimg.sh sysmedia/$ffsimg ${ffs_size}M $stage_files
+       ffsimg=fuguita-$(uname -r)-$(uname -m).ffsimg
+
+cat <<EOT
+Constants:
+size of ffsimg: "${img_capa_real}K + ${headroom_ffsimg}K = $((img_capa_real + headroom_ffsimg))K"
+EOT
+
+./lib/setup_fsimg.sh sysmedia/$ffsimg "$((img_capa_real + headroom_ffsimg))K" $stage_files
 make close-all

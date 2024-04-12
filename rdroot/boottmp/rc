@@ -839,6 +839,7 @@ stop_daemons () {
 # kill_daemons - to eliminate all daemons at umount /ram
 #
 kill_daemons () {
+    ulimit -c 0  # to avoid useless coredumps
     for srv in \$kill_daemons; do
         pkill -KILL \$srv
     done
@@ -874,6 +875,8 @@ usbfadm_r () {
       retry=0
       retrymax=3
       waitsec=5
+      ulimit -d unlimited  # prevent rsync from failing
+      ulimit -m unlimited  # due to lack of memory
       while ! /usr/fuguita/sbin/usbfadm -r; do
           retry=\$((retry+1))
           if [ \$retry -ge \$retrymax ]; then

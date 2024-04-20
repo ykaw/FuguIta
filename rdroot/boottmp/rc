@@ -417,7 +417,7 @@ if [ -n "$part_swp" ]; then
         if [[ "${rdev%?}" = "${swdev%?}" ]]; then
             # since rdev is a flash device,
             # reduce the write frequency of this swap partition
-            swapctl -c -p 1000 "/dev/${swdev}"
+            swapctl -c -p 10000 "/dev/${swdev}"
         fi
     done
 fi

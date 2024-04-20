@@ -414,6 +414,11 @@ if [ -n "$part_swp" ]; then
     for swdev in $part_swp; do
         echo "activating swap partition: /dev/$swdev"
         swapon /dev/$swdev
+        if [[ "${rdev%?}" = "${swdev%?}" ]]; then
+            # since rdev is a flash device,
+            # reduce the write frequency of this swap partition
+            swapctl -c -p 1000 "/dev/${swdev}"
+        fi
     done
 fi
 #

@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.22 2024/01/01 02:46:35 kaw Exp $
+# $Id: gennetconfs,v 1.23 2024/04/24 23:48:41 kaw Exp $
 #==================================================
 
 # Copyright (c) 2018--2024
@@ -43,6 +43,7 @@
 #   basedir            directory where configurations reside
 #   conf               name of configuration
 #   confdir            directory where files to be configure reside
+#   description        contents of confdir/description
 #   etc_myname         contents of /etc/myname
 #   etc_mygate         contents of /etc/mygate
 #   etc_hosts          contents of /etc/hosts
@@ -70,9 +71,10 @@ quiet () {
 usage () {
     cat <<'EOT' >&2
 $0: generate network configuration files
-Usage: $0 [-b] [-q] [config_name]
+Usage: $0 [-b] [-q] [-d 'description'] [config_name]
     -b: surpress banner message
     -q: surpress additional explains
+    -d description: brief description of this config
 EOT
 }
 
@@ -278,6 +280,7 @@ outif () {
 emit_config () {
     quiet ''
     quiet 'writing configured values to:'
+    outif "$description" description
     outif "$etc_myname" myname
     outif "$etc_mygate" mygate
     outif "$etc_hosts" hosts
@@ -306,11 +309,13 @@ fi
 
 # parsing command line options
 #
-while getopts bq OPT; do
+while getopts bqd: OPT; do
     case "$OPT" in
         b) builtin_rc=yes  # surpress banner
            ;;
-        q) quiet=yes  # quit additional messages
+        q) quiet=yes  # no additional messages
+           ;;
+        d) addvar description "$OPTARG"
            ;;
         *) usage
            exit
@@ -347,6 +352,15 @@ if [[ "$builtin_rc" != 'yes' ]]; then
 = gennetconfs: generate network configuration files
 ===================================================
 EOT
+fi
+
+# Description
+#
+if [[ -z "$description" ]]; then
+    echo
+    echo 'Enter brief description of this configuration.'
+    echo -n '-> '; read ln
+    addvar description "$ln"
 fi
 
 # Host name

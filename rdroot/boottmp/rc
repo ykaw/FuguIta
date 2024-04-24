@@ -778,7 +778,7 @@ EOT
 EOT
         # configure network
         #
-        if /boottmp/gennetconfs -b default; then
+        if /boottmp/gennetconfs -b -d 'default config at fresh boot' default; then
             /boottmp/chnetconf -f -d default
         fi
 

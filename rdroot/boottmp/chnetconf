@@ -5,7 +5,7 @@
 #             with dirs under netconfs
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: chnetconf,v 1.18 2024/01/01 02:46:35 kaw Exp $
+# $Id: chnetconf,v 1.19 2024/04/25 06:13:41 kaw Exp $
 #========================================
 
 # Copyright (c) 2021--2024
@@ -46,7 +46,8 @@
 usage () {
     cat <<EOT
 
-Usage: $0 [options] [config_name]
+$PROGNAME: change network configuration
+Usage: $PROGNAME [options] [config_name]
 Syntax:
   [config_name]     : symlink myname and copy other files
                       from /etc/netconf/config_name to /etc
@@ -106,6 +107,12 @@ listconfig() {
 }
 
 
+#=====================
+# main runs from here
+#=====================
+
+PROGNAME="${0##*/}"
+
 # for fail-safe
 #
 cd /etc || exit
@@ -127,10 +134,8 @@ while getopts dfrplh OPT; do
         r) cmd=reset_allnic;  cmds=$((cmds+1)) ;;
         p) cmd=print_config;  cmds=$((cmds+1)) ;;
         l) cmd=list_config;   cmds=$((cmds+1)) ;;
-        *)
-            usage
-            exit 1
-            ;;
+        h) usage; exit;;
+        *) usage; exit 1;;
     esac
     case "$OPT" in
         d|f)   maxargs=1;;
@@ -142,15 +147,15 @@ shift $((OPTIND-1))
 # check options/arguments
 #
 if [[ 1 < $cmds ]]; then
-    echo "$0: -d, -r, -p, or -l is mutually exclusive"
+    echo "$PROGNAME: -d, -r, -p, or -l is mutually exclusive"
     usage
     exit 1
 elif [[ $force_config = yes && 1 < $# ]]; then
-    echo "$0: requires one argument"
+    echo "$PROGNAME: requires one argument"
     usage
     exit 1
 elif [[ $maxargs < $# ]]; then
-    echo "$0: too much arguments - $*"
+    echo "$PROGNAME: too much arguments - $*"
     usage
     exit 1
 fi
@@ -174,10 +179,10 @@ fi
 # extra argument exists
 #
 if [[ "$newconf" = 'templ.head' || "$newconf" = 'templ.tail' ]]; then
-    echo "$0: You cannot change to '$newconf'"
+    echo "$PROGNAME: You cannot change to '$newconf'"
     exit
 elif [ ! -f "${confdir}/${newconf}/myname" ]; then
-    echo "$0: no such conf - $newconf"
+    echo "$PROGNAME: no such conf - $newconf"
     exit
 fi
 
@@ -201,7 +206,7 @@ fi
 #
 set -- /etc/hostname.*
 if [[ -e "$1" ]]; then
-    echo "$0: warning: extra hostname.if(s) found: $*"
+    echo "$PROGNAME: warning: extra hostname.if(s) found: $*"
     echo "Remove them manually if not needed."
 fi
 

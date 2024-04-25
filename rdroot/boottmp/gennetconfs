@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.23 2024/04/24 23:48:41 kaw Exp $
+# $Id: gennetconfs,v 1.24 2024/04/25 06:13:41 kaw Exp $
 #==================================================
 
 # Copyright (c) 2018--2024
@@ -69,12 +69,14 @@ quiet () {
 # display usage
 #
 usage () {
-    cat <<'EOT' >&2
-$0: generate network configuration files
-Usage: $0 [-b] [-q] [-d 'description'] [config_name]
+    cat <<EOT >&2
+
+$PROGNAME: generate network configuration files
+Usage: $PROGNAME [-b] [-q] [-d 'description'] [-h] [config_name]
     -b: surpress banner message
     -q: surpress additional explains
     -d description: brief description of this config
+    -h: print this help
 EOT
 }
 
@@ -300,16 +302,18 @@ emit_config () {
 # main runs from here
 #=====================
 
+PROGNAME="${0##*/}"
+
 # must be root
 #
 if [ ! `id -un` = root ]; then
-    echo "$0: must be run as a root."
+    echo "$PROGNAME: must be run as a root."
     exit 1
 fi
 
 # parsing command line options
 #
-while getopts bqd: OPT; do
+while getopts bqd:h OPT; do
     case "$OPT" in
         b) builtin_rc=yes  # surpress banner
            ;;
@@ -317,9 +321,8 @@ while getopts bqd: OPT; do
            ;;
         d) addvar description "$OPTARG"
            ;;
-        *) usage
-           exit
-           ;;
+        h) usage; exit;;
+        *) usage; exit 1;;
     esac
 done
 shift $((OPTIND - 1))
@@ -334,7 +337,7 @@ basedir=/etc/fuguita/netconfs
 if [[ -n "$1" ]]; then
     conf="$1"
     if [[ "$conf" = 'templ' ]]; then
-	echo "$0: '$conf' is the special name."
+	echo "$PROGNAME: '$conf' is the special name."
 	echo "    You can't configure $conf. Use other name."
         exit 1
     fi

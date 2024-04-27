@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.121 2024/01/07 16:25:19 kaw Exp $
+# $Id: Makefile,v 1.122 2024/04/27 22:42:26 kaw Exp $
 
 #========================================
 # global definitions
@@ -37,7 +37,7 @@
 PROJNAME = FuguIta
 VERSION != uname -r
 VER     != uname -r | tr -d .
-# e.g. VERSTAT=_current
+# e.g. VERSTAT=_cur
 VERSTAT  =
 ARCH    != uname -m
 DATE    != date +%Y%m%d
@@ -65,6 +65,24 @@ BSD_MPV = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/vers.o
 KERN_SP = $(BLDDIR)/sysmedia/bsd-fi
 KERN_MP = $(BLDDIR)/sysmedia/bsd-fi.mp
 
+# define and setup UEFI CD boot
+# if UEFI applications exist
+#
+.if exists(/usr/mdec/BOOTIA32.EFI)
+.    if exists(/usr/mdec/BOOTX64.EFI)
+EFICD=1
+EFICDBOOT_SIZE=350K
+EFICD_OPT=-e eficdboot
+MAKE_EFICD=$(MAKE) sysmedia/eficdboot
+.    endif
+.endif
+
+# dummy command for non-UEFI boot
+#
+.ifndef MAKE_EFICD
+MAKE_EFICD=true
+.endif
+
 #========================================
 # final product
 #
@@ -91,6 +109,7 @@ $(FI).img.gz: sysmedia.time
 	$(MAKE) sysmedia/boot sysmedia/cdboot sysmedia/cdbr sysmedia/etc/boot.conf\
                 $(KERN_SP) $(KERN_MP)\
                 sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg
+	$(MAKE_EFICD)
 	$(MAKE) open-fuguita
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
 	$(MAKE) close-all
@@ -119,6 +138,7 @@ sysmedia.time:
 	$(MAKE) sysmedia/boot sysmedia/cdboot sysmedia/cdbr sysmedia/etc/boot.conf\
                 $(KERN_SP) $(KERN_MP)\
                 sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg
+	$(MAKE_EFICD)
 #	fuguita closed in above rules, then reopen it
 	$(MAKE) open-fuguita
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
@@ -136,6 +156,7 @@ livecd.iso: sysmedia.time
 		-p "Yoshihiro Kawamata, https://fuguita.org/"\
 		-V "$(FI)"\
 		-b cdbr\
+		$(EFICD_OPT)\
 		-c boot.catalog\
 		sysmedia\
 
@@ -150,6 +171,15 @@ sysmedia/$(bootstuff):
 .    endif
 	cp /usr/mdec/$(bootstuff) sysmedia/. || touch sysmedia/$(bootstuff)
 .endfor
+
+.ifdef EFICD
+sysmedia/eficdboot: /usr/mdec/BOOTIA32.EFI /usr/mdec/BOOTX64.EFI
+	rm -rf eficdboot
+	mkdir -p eficdboot/efi/boot
+	cp /usr/mdec/BOOTIA32.EFI /usr/mdec/BOOTX64.EFI eficdboot/efi/boot/.
+	makefs -t msdos -o create_size=$(EFICDBOOT_SIZE) sysmedia/eficdboot eficdboot
+	rm -rf eficdboot
+.endif
 
 sysmedia/etc/boot.conf: lib/boot.conf.$(ARCH)
 	[ -d sysmedia/etc ] || mkdir sysmedia/etc
@@ -376,7 +406,7 @@ setup:
 # and fuguita-REV-ARCH.ffsimg located in media.img (or media)
 #
 .PHONY: imgs
-.if defined(CREATE_SYSMEDIA_IMG)
+.ifdef CREATE_SYSMEDIA_IMG
 # kernels are needed for get the size of media.img
 imgs: staging $(BSD_SP) $(BSD_MP)
 .else
@@ -439,7 +469,7 @@ reset:
 
 CLEANFILES = bsd bsd.mp livecd.iso sysmedia.time staging.time FuguIta-?.?-*-*.*.gz\
              $(BSD_SP) $(BSD_MP) trial_capa.img
-CLEANDIRS = staging.*_* trial_capa
+CLEANDIRS = staging.*_* trial_capa eficdboot
 .PHONY: clean
 clean:
 	$(MAKE) close-all

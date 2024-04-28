@@ -3,7 +3,7 @@
 #----------------------------------------
 # remaster_dvd.sh - Remastering FuguIta's LiveDVD
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: remaster_dvd.sh,v 1.10 2024/01/01 02:46:35 kaw Exp $
+# $Id: remaster_dvd.sh,v 1.11 2024/04/28 05:02:07 kaw Exp $
 #----------------------------------------
 
 # Copyright (c) 2021--2024
@@ -81,6 +81,7 @@ files="./boot
 ./bsd-fi.mp
 ./cdboot
 ./cdbr
+./eficdboot
 ./etc/boot.conf
 ./$imgfile"
 
@@ -130,6 +131,12 @@ vnconfig -u $vn
 
 # do remastering
 #
+if [[ -e eficdboot ]]; then
+    eficd_opt='-e eficdboot'
+else
+    eficd_opt=
+fi
+
 mkhybrid -a -R -L -l -d -D -N \
                 -o ../${isoname}.iso \
                 -v -v \
@@ -138,5 +145,6 @@ mkhybrid -a -R -L -l -d -D -N \
                 -p "Yoshihiro Kawamata, https://fuguita.org/" \
                 -V "$isoname" \
                 -b cdbr \
+                $eficd_opt \
                 -c boot.catalog \
                 .

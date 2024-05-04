@@ -1,7 +1,7 @@
                     FuguIta - The OpenBSD-based Live System
 
                                                              Yoshihiro Kawamata
-                                                                     2023/12/23
+                                                                     2024/05/03
 
 
 Table of Contents
@@ -132,7 +132,7 @@ so a raw disk image file for LiveSD or LiveUSB is created.
 
 This explanation assumes the following environment.
 
-  - Release: OpenBSD 7.4
+  - Release: OpenBSD 7.5
 
   - Platform: amd64
 
@@ -148,17 +148,17 @@ All following operations are performed with root privileges.
 
   - Also, use ports(7) to create a package for rsync, rlwrap, and pv commands.
 
-Download the FuguIta build tool tools-7.4.tar.gz and extract it:
+Download the FuguIta build tool tools-7.5.tar.gz and extract it:
 https://fuguita.org/?FuguIta/Download#build
 
-    # tar xvzpf tools-7.4.tar.gz
+    # tar xvzpf tools-7.5.tar.gz
 
 Move to the top directory of the build tools.
 
-    # cd tools-7.4
+    # cd tools-7.5
 
-For arm64 platform, please also download sysmedia-7.4-arm64.img.gz, which is
-supplied with tools-7.4.tar.gz, and place it in the top directory of the build
+For arm64 platform, please also download sysmedia-7.5-arm64.img.gz, which is
+supplied with tools-7.5.tar.gz, and place it in the top directory of the build
 tool without extracting it.
 
 Execute the following command to initialize the build tool.
@@ -196,17 +196,20 @@ in release(8).
   If install.site is included in site74.tgz, its contents will be added to
   /etc/rc.firsttime.
 
-  Please note that if the file sysmedia/fuguita-7.4-amd64.ffsimg exceeds 2GB as
+  Please note that if the file sysmedia/fuguita-7.5-amd64.ffsimg exceeds 2GB as
   a result of building FuguIta by adding site74.tgz, the ISO image will not be
   created correctly.
 
-Copy rsync, rlwrap, and pv created from the ports tree to the install_pkgs
-directory.
+Copy rsync, rlwrap, pv and its dependents (gettext-runtime and
+libiconv) created from the ports tree to the install_pkgs directory.
+
 Also install rsync and pv in the build environment itself.
 
     # cp /usr/ports/packages/amd64/all/rsync-*.tgz install_pkgs
     # cp /usr/ports/packages/amd64/all/rlwrap-*.tgz install_pkgs
     # cp /usr/ports/packages/amd64/all/pv-*.tgz install_pkgs
+    # cp /usr/ports/packages/amd64/all/gettext-runtime-*.tgz install_pkgs
+    # cp /usr/ports/packages/amd64/all/libiconv-*.tgz install_pkgs
     # pkg_add -D unsigned /usr/ports/packages/amd64/all/rsync-*.tgz
     # pkg_add -D unsigned /usr/ports/packages/amd64/all/pv-*.tgz
 
@@ -271,7 +274,7 @@ section, log in as root, and run the LiveUSB administration utility usbfadm.
     Welcome to usbfadm.
     USB flash drive administration tool for FuguIta
 
-     Version/Arch: 7.4/amd64  (FuguIta-7.4-amd64-202312191)
+     Version/Arch: 7.5/amd64  (FuguIta-7.5-amd64-202405021)
         Boot mode: manual
     Target device: not set
     Data saved as: not set
@@ -297,7 +300,7 @@ subcommand of usbfadm
     vnd2: not in use
     vnd3: not in use
     vnd4: not in use
-    vnd5: covering /sysmedia/fuguita-7.4-amd64.ffsimg on cd0a, inode 48172
+    vnd5: covering /sysmedia/fuguita-7.5-amd64.ffsimg on cd0a, inode 48172
     ============================================================
     Enter the name of device which FuguIta will be installed->sd0
 

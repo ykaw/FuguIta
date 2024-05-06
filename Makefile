@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.122 2024/04/27 22:42:26 kaw Exp $
+# $Id: Makefile,v 1.123 2024/05/06 02:08:49 kaw Exp $
 
 #========================================
 # global definitions
@@ -77,6 +77,14 @@ MAKE_EFICD=$(MAKE) sysmedia/eficdboot
 .    endif
 .endif
 
+# define CD boot for arm64
+#
+.if $(ARCH) == arm64
+.  if exists(/usr/mdec/BOOTAA64.EFI)
+ARM64_ISO=1
+.  endif
+.endif
+
 # dummy command for non-UEFI boot
 #
 .ifndef MAKE_EFICD
@@ -84,17 +92,21 @@ MAKE_EFICD=true
 .endif
 
 #========================================
-# final product
+# final target
 #
+.PHONY: all livedvd liveusb
 .if $(ARCH) == arm64
-all: $(FI).img.gz
+all: liveusb
 .else
-all: $(FI).iso.gz
+all: livedvd
 .endif
 # increase revision
 	echo $$(($(REV)+1)) > rev.count
 # to reorder kernel at next compilation
 	$(MAKE) kernreset
+
+livedvd: $(FI).iso.gz
+liveusb: $(FI).img.gz
 
 # for i386/amd64
 #
@@ -163,7 +175,7 @@ livecd.iso: sysmedia.time
 # on arm64, following boot loaders are not required
 # but null (dummy) files must be exist for usbfadm newdrive
 #
-.for bootstuff in boot cdboot cdbr
+.for bootstuff in boot cdboot
 .    if exists($(bootstuff))
 sysmedia/$(bootstuff): /usr/mdec/$(bootstuff)
 .    else
@@ -172,6 +184,28 @@ sysmedia/$(bootstuff):
 	cp /usr/mdec/$(bootstuff) sysmedia/. || touch sysmedia/$(bootstuff)
 .endfor
 
+# if an UEFI application for arm64 exists, create a cdbr
+#
+sysmedia/cdbr:
+.ifdef ARM64_ISO
+	dd if=/dev/zero of=sysmedia/cdbr bs=512 count=5760
+	vnconfig vnd3 sysmedia/cdbr
+	fdisk -iy -b "5744@16:c" vnd3
+	newfs -t msdos /dev/rvnd3i
+	mkdir arm64cdboot
+	mount -o-l /dev/vnd3i arm64cdboot
+	mkdir -p arm64cdboot/efi/boot
+	cp /usr/mdec/BOOTAA64.EFI arm64cdboot/efi/boot/bootaa64.efi
+	echo bootaa64.efi > arm64cdboot/efi/boot/startup.nsh
+	umount arm64cdboot
+	vnconfig -u vnd3
+	rmdir arm64cdboot
+.else
+	cp /usr/mdec/cdbr sysmedia/. || touch sysmedia/cdbr
+.endif
+
+# create a UEFI boot image for amd64 if UEFI applications exist
+#
 .ifdef EFICD
 sysmedia/eficdboot: /usr/mdec/BOOTIA32.EFI /usr/mdec/BOOTX64.EFI
 	rm -rf eficdboot

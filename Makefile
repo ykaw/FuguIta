@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.123 2024/05/06 02:08:49 kaw Exp $
+# $Id: Makefile,v 1.124 2024/05/07 07:14:54 kaw Exp $
 
 #========================================
 # global definitions
@@ -65,6 +65,8 @@ BSD_MPV = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/vers.o
 KERN_SP = $(BLDDIR)/sysmedia/bsd-fi
 KERN_MP = $(BLDDIR)/sysmedia/bsd-fi.mp
 
+COMPRESS = gzip
+
 # define and setup UEFI CD boot
 # if UEFI applications exist
 #
@@ -77,18 +79,18 @@ MAKE_EFICD=$(MAKE) sysmedia/eficdboot
 .    endif
 .endif
 
+# dummy command for non-UEFI boot
+#
+.ifndef MAKE_EFICD
+MAKE_EFICD=true
+.endif
+
 # define CD boot for arm64
 #
 .if $(ARCH) == arm64
 .  if exists(/usr/mdec/BOOTAA64.EFI)
 ARM64_ISO=1
 .  endif
-.endif
-
-# dummy command for non-UEFI boot
-#
-.ifndef MAKE_EFICD
-MAKE_EFICD=true
 .endif
 
 #========================================
@@ -112,7 +114,7 @@ liveusb: $(FI).img.gz
 #
 $(FI).iso.gz: livecd.iso
 	@echo generating $(FI).iso.gz
-	@pv livecd.iso | gzip -9f -o $(FI).iso.gz
+	@pv livecd.iso | $(COMPRESS) -9f -c > $(FI).iso.gz
 
 # for arm64
 #
@@ -126,7 +128,7 @@ $(FI).img.gz: sysmedia.time
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
 	$(MAKE) close-all
 	@echo generating $(FI).img.gz
-	@pv sysmedia.img | gzip -9f -o $(FI).img.gz
+	@pv sysmedia.img | $(COMPRESS) -9f -c > $(FI).img.gz
 
 # sync staging to sysmedia/fuguita-*.ffsimg
 #
@@ -231,7 +233,7 @@ $(KERN_SP): rdroot.ffsimg $(BSD_SP)
 	$(MAKE) open-sysmedia
 	cp $(BSD_SP) bsd
 	rdsetroot bsd rdroot.ffsimg
-	gzip -c9 bsd > $(KERN_SP)
+	$(COMPRESS) -c9 bsd > $(KERN_SP)
 	rm bsd
 	$(MAKE) close-sysmedia
 
@@ -239,7 +241,7 @@ $(KERN_MP): rdroot.ffsimg $(BSD_MP)
 	$(MAKE) open-sysmedia
 	cp $(BSD_MP) bsd.mp
 	rdsetroot bsd.mp rdroot.ffsimg
-	gzip -c9 bsd.mp > $(KERN_MP)
+	$(COMPRESS) -c9 bsd.mp > $(KERN_MP)
 	rm bsd.mp
 	$(MAKE) close-sysmedia
 
@@ -423,7 +425,7 @@ init:
 	    (cd $$prog && ln -sf /usr/src/sbin/$$prog/*.[ch] .);\
 	done
 .if $(ARCH) == arm64
-	gzip -dkf -o sysmedia.img sysmedia-$(VERSION)-$(ARCH).img.gz
+	$(COMPRESS) -dkf -c sysmedia.img > sysmedia-$(VERSION)-$(ARCH).img.gz
 .endif
 
 # full compilation kernels
@@ -526,11 +528,11 @@ IMGMB = 2048# size of uncompressed LiveUSB in MB
 
 .PHONY: dvd2usb
 dvd2usb:
-	pv $(FI).iso.gz | gzip -d -o $(FI).iso
+	pv $(FI).iso.gz | $(COMPRESS) -d -c > $(FI).iso
 	dd if=/dev/zero bs=1m count=$(IMGMB) | pv -s $(IMGMB)M > $(FI).img
 	vmctl start -cL -i1 -m2G -r $(FI).iso -d $(FI).img fi74
 	vmctl start -cL -i1 -m2G -d $(FI).img fi74
-	pv $(FI).img | gzip -o $(FI).img.gz -9
+	pv $(FI).img | $(COMPRESS) -9 -c > $(FI).img.gz
 
 .PHONY: imgclean
 imgclean:

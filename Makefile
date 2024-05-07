@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.124 2024/05/07 07:14:54 kaw Exp $
+# $Id: Makefile,v 1.125 2024/05/07 11:37:00 kaw Exp $
 
 #========================================
 # global definitions
@@ -424,8 +424,8 @@ init:
 	for prog in init mount_* newfs swapctl sysctl vnconfig; do\
 	    (cd $$prog && ln -sf /usr/src/sbin/$$prog/*.[ch] .);\
 	done
-.if $(ARCH) == arm64
-	$(COMPRESS) -dkf -c sysmedia.img > sysmedia-$(VERSION)-$(ARCH).img.gz
+.if exists(sysmedia-$(VERSION)-$(ARCH).img.gz)
+	$(COMPRESS) -dc sysmedia-$(VERSION)-$(ARCH).img.gz > sysmedia.img
 .endif
 
 # full compilation kernels

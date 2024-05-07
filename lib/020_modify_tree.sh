@@ -36,7 +36,7 @@
 # 020_extract.sh - modify OpenBSD's file tree for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 020_modify_tree.sh,v 1.12 2024/01/01 02:46:35 kaw Exp $
+# $Id: 020_modify_tree.sh,v 1.13 2024/05/07 08:17:26 kaw Exp $
 #
 #========================================
 
@@ -81,6 +81,7 @@ ln -s /boottmp/halt ./staging/sbin/halt
 
 # setup FuguIta specific files/directories
 #
+
 mkdir -p ./staging/usr/fuguita/bin
 ln -sf /boottmp/dtjsetup ./staging/usr/fuguita/bin/dtjsetup
 
@@ -89,6 +90,12 @@ for cmd in chnetconf fdadm fiupdate gen_mode0sldir gennetconfs remaster_dvd.sh u
 do
     ln -sf /boottmp/$cmd ./staging/usr/fuguita/sbin
 done
+
+mkdir -p ./staging/usr/fuguita/share
+if [[ -x ./lib/makebootarc_$(uname -m).sh ]]; then
+    ./lib/makebootarc_$(uname -m).sh
+    mv bootstuff.$(uname -m).tar.gz ./staging/usr/fuguita/share/.
+fi
 
 # some setups in chrooted environment
 #

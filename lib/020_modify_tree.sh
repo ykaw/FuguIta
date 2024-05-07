@@ -36,7 +36,7 @@
 # 020_extract.sh - modify OpenBSD's file tree for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 020_modify_tree.sh,v 1.13 2024/05/07 08:17:26 kaw Exp $
+# $Id: 020_modify_tree.sh,v 1.14 2024/05/07 22:37:42 kaw Exp $
 #
 #========================================
 
@@ -91,10 +91,10 @@ do
     ln -sf /boottmp/$cmd ./staging/usr/fuguita/sbin
 done
 
-mkdir -p ./staging/usr/fuguita/share
+mkdir -p ./staging/usr/fuguita/mdec
 if [[ -x ./lib/makebootarc_$(uname -m).sh ]]; then
     ./lib/makebootarc_$(uname -m).sh
-    mv bootstuff.$(uname -m).tar.gz ./staging/usr/fuguita/share/.
+    mv bootstuff.$(uname -m).tar.gz ./staging/usr/fuguita/mdec/.
 fi
 
 # some setups in chrooted environment

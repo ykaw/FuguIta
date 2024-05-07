@@ -1,5 +1,6 @@
 #
-# post processing for Raspberry Pi 3
+# post processing for Raspberry Pi 3/4
+# This file is included in usbfadm
 #
 
 notice "Change partition ID and Boot flag for Raspberry Pi..."
@@ -9,15 +10,11 @@ if [ "$instsys" = UEFI ]; then
 fi
 
 
-#  set source device of 'fuguita-templ' and 'fuguita-default'
+# install Raspberry Pi Firmwares and U-Boot binaries
 #
-srcdev=$(mount | sed -e '/\/sysmedia/!d; s/^\/dev\/\([^ ]*\). .*/\1/')  # currently
-srcboot=${srcdev}i  # source of U-BOOT stuffs                          mounted
-srcpart=${srcdev}d  # source of non interactive boot stuffs               system device
-
 notice "Copying U-BOOT stuffs..."
 
 if mount -t msdos -o-l /dev/${scandev}i /mnt; then
-    tar -xvz -C /mnt -f /usr/fuguita/share/bootstuff.$(uname -m).tar.gz
+    tar -xvz -C /mnt -f /usr/fuguita/mdec/bootstuff.$(uname -m).tar.gz
     umount /mnt
 fi

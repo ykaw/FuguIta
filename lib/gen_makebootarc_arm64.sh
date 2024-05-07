@@ -9,7 +9,7 @@
 # (EFI System Partition)
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: gen_makebootarc_arm64.sh,v 1.1 2024/05/07 08:17:26 kaw Exp $
+# $Id: gen_makebootarc_arm64.sh,v 1.2 2024/05/07 13:21:08 kaw Exp $
 #========================================
 
 # Copyright (c) 2016--2024
@@ -95,12 +95,14 @@ gen_cmds () {
         if [[ 0 -eq "$nfound" ]]; then
             # boot stuff which missing in package directories (/usr/local/*)
             # maybe this needs to be created by hand
-            echo "# not found: $path"
+            echo "# $base not found: replace this with a command line to create $path"
         elif [[ 1 -eq "$nfound" ]]; then
             # found only one, generate copy command
             echo cp -p $(echo "$src_files" | grep "/$base\$") $path
         elif [[ 2 -le "$nfound" ]]; then
-            # found more than one: needs to select by hand
+            # found multiple
+            echo "# found $base in multiple paths"
+            echo "# please select (uncomment) from following lines"
             for found in $(echo "$src_files" | grep "/$base\$"); do
                 echo "# dup: cp -p $found $path"
             done
@@ -108,4 +110,23 @@ gen_cmds () {
     done
 }
 
+ARCNAME="bootstuff.$(uname -m)"
+
+cat <<EOT
+#!/bin/sh
+
+set -x
+
+mkdir '$ARCNAME' || exit 1
+cd '$ARCNAME' || exit 1
+
+EOT
+
 gen_cmds
+
+cat <<EOT
+
+cd ..
+tar cvzf '${ARCNAME}.tar.gz' '$ARCNAME'
+rm -r '$ARCNAME'
+EOT

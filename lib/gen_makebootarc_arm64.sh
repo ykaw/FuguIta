@@ -9,7 +9,7 @@
 # (EFI System Partition)
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: gen_makebootarc_arm64.sh,v 1.2 2024/05/07 13:21:08 kaw Exp $
+# $Id: gen_makebootarc_arm64.sh,v 1.3 2024/05/08 06:57:52 kaw Exp $
 #========================================
 
 # Copyright (c) 2016--2024
@@ -126,7 +126,7 @@ gen_cmds
 
 cat <<EOT
 
+tar cvzf '../${ARCNAME}.tar.gz' .
 cd ..
-tar cvzf '${ARCNAME}.tar.gz' '$ARCNAME'
 rm -r '$ARCNAME'
 EOT

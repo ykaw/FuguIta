@@ -39,6 +39,6 @@ cp -p /usr/local/share/raspberrypi-firmware/boot/start4.elf start4.elf
 # dup: cp -p /usr/local/share/u-boot/qemu_arm64/u-boot.bin u-boot.bin
 cp -p /usr/local/share/u-boot/rpi_arm64/u-boot.bin u-boot.bin
 
+tar cvzf '../bootstuff.arm64.tar.gz' .
 cd ..
-tar cvzf 'bootstuff.arm64.tar.gz' 'bootstuff.arm64'
 rm -r 'bootstuff.arm64'

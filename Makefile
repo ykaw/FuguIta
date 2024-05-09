@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.125 2024/05/07 11:37:00 kaw Exp $
+# $Id: Makefile,v 1.126 2024/05/09 00:34:00 kaw Exp $
 
 #========================================
 # global definitions
@@ -97,11 +97,9 @@ ARM64_ISO=1
 # final target
 #
 .PHONY: all livedvd liveusb
-.if $(ARCH) == arm64
-all: liveusb
-.else
-all: livedvd
-.endif
+all:
+	$(MAKE) livedvd
+	$(MAKE) liveusb
 # increase revision
 	echo $$(($(REV)+1)) > rev.count
 # to reorder kernel at next compilation
@@ -110,14 +108,16 @@ all: livedvd
 livedvd: $(FI).iso.gz
 liveusb: $(FI).img.gz
 
-# for i386/amd64
+# build an ISO image
 #
 $(FI).iso.gz: livecd.iso
 	@echo generating $(FI).iso.gz
 	@pv livecd.iso | $(COMPRESS) -9f -c > $(FI).iso.gz
 
-# for arm64
+# build a disk image
+# This needs sysmedia.img
 #
+.if exists(sysmedia.img)
 $(FI).img.gz: sysmedia.time
 	$(MAKE) open-sysmedia
 	$(MAKE) sysmedia/boot sysmedia/cdboot sysmedia/cdbr sysmedia/etc/boot.conf\
@@ -129,6 +129,10 @@ $(FI).img.gz: sysmedia.time
 	$(MAKE) close-all
 	@echo generating $(FI).img.gz
 	@pv sysmedia.img | $(COMPRESS) -9f -c > $(FI).img.gz
+.else
+$(FI).img.gz:
+	@echo You need sysmedia.img to build $(FI).img.gz.
+.endif
 
 # sync staging to sysmedia/fuguita-*.ffsimg
 #

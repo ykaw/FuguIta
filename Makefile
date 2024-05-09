@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.126 2024/05/09 00:34:00 kaw Exp $
+# $Id: Makefile,v 1.127 2024/05/09 08:42:26 kaw Exp $
 
 #========================================
 # global definitions
@@ -187,7 +187,9 @@ sysmedia/$(bootstuff): /usr/mdec/$(bootstuff)
 .    else
 sysmedia/$(bootstuff):
 .    endif
-	cp /usr/mdec/$(bootstuff) sysmedia/. || touch sysmedia/$(bootstuff)
+# To keep the i-node number the same
+# so that the PBR does not lose sight of /boot
+	-cat /usr/mdec/$(bootstuff) >sysmedia/$(bootstuff)
 .endfor
 
 # if an UEFI application for arm64 exists, create a cdbr
@@ -207,7 +209,7 @@ sysmedia/cdbr:
 	vnconfig -u vnd3
 	rmdir arm64cdboot
 .else
-	cp /usr/mdec/cdbr sysmedia/. || touch sysmedia/cdbr
+	-cat /usr/mdec/cdbr >sysmedia/cdbr
 .endif
 
 # create a UEFI boot image for amd64 if UEFI applications exist

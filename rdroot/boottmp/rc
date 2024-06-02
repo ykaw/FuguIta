@@ -765,7 +765,6 @@ EOT
         #
         mkdir -p /etc/fuguita/netconfs/templ.{head,tail}  # may already be created
         cat > /etc/fuguita/netconfs/templ.head/sysctl.conf <<EOT
-machdep.allowaperture=2 # See xf86(4)
 machdep.lidaction=0
 net.inet.ip.forwarding=0
 net.inet.ip.mforwarding=0

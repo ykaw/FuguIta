@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.127 2024/05/09 08:42:26 kaw Exp $
+# $Id: Makefile,v 1.128 2024/06/13 02:05:25 kaw Exp $
 
 #========================================
 # global definitions
@@ -509,7 +509,7 @@ distclean:
 reset:
 	echo 1 > rev.count
 
-CLEANFILES = bsd bsd.mp livecd.iso sysmedia.time staging.time FuguIta-?.?-*-*.*.gz\
+CLEANFILES = bsd bsd.mp livecd.iso sysmedia.time staging.time FuguIta-?.*-*-*.*.gz\
              $(BSD_SP) $(BSD_MP) trial_capa.img
 CLEANDIRS = staging.*_* trial_capa eficdboot
 .PHONY: clean

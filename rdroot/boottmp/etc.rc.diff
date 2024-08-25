@@ -1,5 +1,5 @@
---- rc.orig	Thu Apr 11 23:14:33 2024
-+++ rc	Fri Apr 12 12:57:20 2024
+--- rc.orig	Wed Aug 21 12:53:14 2024
++++ rc	Wed Aug 21 12:50:39 2024
 @@ -186,9 +186,17 @@
  	# filesystems, otherwise record which ones are mounted read-only.
  	for _dkdev in $(df /usr/{lib,libexec} $_relink |
@@ -20,7 +20,7 @@
  		fi
  	done
  
-@@ -422,8 +430,9 @@
+@@ -427,8 +435,9 @@
  # Re-mount the root filesystem read/writeable. (root on nfs requires this,
  # others aren't hurt.)
  mount -uw /
@@ -32,7 +32,15 @@
  
  rm -f /fastboot
  
-@@ -662,7 +671,9 @@
+@@ -622,6 +631,7 @@
+ 	echo 'creating runtime link editor directory cache.'
+ 	[[ -d /usr/local/lib ]] && shlib_dirs="/usr/local/lib $shlib_dirs"
+ 	[[ -d /usr/X11R6/lib ]] && shlib_dirs="/usr/X11R6/lib $shlib_dirs"
++	[[ -d /usr/fuguita/lib ]] && shlib_dirs="/usr/fuguita/lib $shlib_dirs"
+ 	ldconfig $shlib_dirs
+ fi
+ 
+@@ -667,7 +677,9 @@
  
  # Re-link the kernel, placing the objects in a random order.
  # Replace current with relinked kernel and inform root about it.

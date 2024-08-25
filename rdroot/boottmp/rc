@@ -663,7 +663,9 @@ while :; do
                 usr/local/share/info/dir \
                 usr/local/man/mandoc.db \
                 usr/local/libdata/perl5/site_perl/OpenBSD/Quirks.pm \
-                usr/local/libdata/perl5/site_perl/OpenBSD/Quirks/ghc.pm
+                usr/local/libdata/perl5/site_perl/OpenBSD/Quirks/ghc.pm \
+                usr/fuguita/man/mandoc.db \
+                usr/fuguita/share/man/mandoc.db
             do
                 if [ -f /fuguita/$f ]; then
                     rm -f /ram/$f && cp -p /fuguita/$f /ram/$f
@@ -743,9 +745,11 @@ Enter keyboard type./'
 manpath /fuguita/usr/share/man
 manpath /fuguita/usr/X11R6/man
 manpath /fuguita/usr/local/man
-#manpath /fuguita/usr/fuguita/man
+manpath /fuguita/usr/fuguita/man
+manpath /fuguita/usr/fuguita/share/man
 manpath /usr/local/man
-#manpath /usr/fuguita/man
+manpath /usr/fuguita/man
+manpath /usr/fuguita/share/man
 EOT
         else
             rm -f /etc/man.conf
@@ -812,9 +816,12 @@ EOT
             ;;
         esac
 
-        # modify OpenBSD's orignal /etc/rc
+        # modify OpenBSD's orignal /etc/{rc,login.conf}
         #
-        (cd /etc && patch -s < /boottmp/etc.rc.diff)
+        (if cd /etc; then
+             patch -s < /boottmp/etc.rc.diff
+             patch -s < /boottmp/etc.login.conf.diff
+         fi)
 
         # create misc stuffs
         #
@@ -1098,7 +1105,8 @@ EOT
                    cd /mnt/livecd-config/$confdir; then
                     for i in 1 2 3; do  # retry 3 time max
                         echo "Copying to ram was partially failed, retrying..."
-                        if /fuguita/usr/local/bin/rsync -rlptgovHS . /ram/.; then
+                        if PATH=$PATH:/fuguita/usr/local/bin:/fuguita/usr/fuguita/bin \
+                           rsync -rlptgovHS . /ram/.; then
                             echo "done"
                             break
                         fi

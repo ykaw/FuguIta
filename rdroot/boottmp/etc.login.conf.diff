@@ -1,0 +1,11 @@
+--- login.conf.orig	Mon Apr  1 10:52:50 2024
++++ login.conf	Thu Aug 22 07:09:09 2024
+@@ -39,7 +39,7 @@
+ # class.
+ #
+ default:\
+-	:path=/usr/bin /bin /usr/sbin /sbin /usr/X11R6/bin /usr/local/bin /usr/local/sbin:\
++	:path=/usr/bin /bin /usr/sbin /sbin /usr/X11R6/bin /usr/local/bin /usr/local/sbin /usr/fuguita/bin /usr/fuguita/sbin:\
+ 	:umask=022:\
+ 	:datasize-max=1536M:\
+ 	:datasize-cur=1536M:\

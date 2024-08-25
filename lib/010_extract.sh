@@ -36,7 +36,7 @@
 # 010_extract.sh - Extract OpenBSD's install set to staging directory
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 010_extract.sh,v 1.10 2024/01/01 02:46:35 kaw Exp $
+# $Id: 010_extract.sh,v 1.11 2024/08/25 14:39:56 kaw Exp $
 #
 #========================================
 
@@ -67,7 +67,10 @@ pv -N "xetc${shortver}"   ./var/sysmerge/xetc.tgz | tar xzpf -
 
 # install packages needed for FuguIta
 #
-cp ../install_pkgs/*-*.tgz  ./tmp/.
+if ls -1 ../install_pkgs/*-*.tgz >/dev/null 2>&1; then
+    cp ../install_pkgs/*-*.tgz ./tmp/.
+fi
+
 (cd dev && sh ./MAKEDEV std)
 
 cd .. # back to top of build tools
@@ -79,10 +82,10 @@ cat <<EOT | chroot ./staging /bin/ksh
 set -e
 #set -x
 ldconfig /usr/lib /usr/X11R6/lib /usr/local/lib
-pkg_add -D unsigned /tmp/rsync-*.tgz
-pkg_add -D unsigned /tmp/rlwrap-*.tgz
-pkg_add -D unsigned /tmp/pv-*.tgz
-rm /tmp/*
+if ls -1 /tmp/*-*.tgz >/dev/null 2>&1; then
+    pkg_add -D unsigned /tmp/*-*.tgz
+fi
+rm -f /tmp/*
 EOT
 
 cd staging

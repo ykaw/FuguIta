@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.102 2024/04/28 05:02:07 kaw Exp $
+# $Id: usbfadm,v 1.103 2024/08/25 14:39:56 kaw Exp $
 #
 #========================================
 
@@ -50,7 +50,7 @@
 # clean-ups
 #
 function clear_exit {
-    if mount | grep -q "^$devname on /mnt" ;then
+    if mount | grep -q "^$devname on $mntdir1" ;then
         umount $devname
     fi
     rm -f $enc_ppfile
@@ -215,7 +215,7 @@ function rl_wread {
     # check if rlwrap is available
     #   When control tty is missing (in /etc/rc.shutdown for example),
     #   rlwrap in command substitution "$(rlwrap ...) " fails.
-    if retval=$(/usr/local/bin/rlwrap true) 2>/dev/null; then
+    if retval=$(rlwrap true) 2>/dev/null 2>&1 ; then
         echo "$@" > $lockdir/rl_words
         rlwrap -b '' \
                -f $lockdir/rl_words \
@@ -330,7 +330,7 @@ copydirs () {
     local destdir; destdir="$2"
     [ -d "$srcdir" ]  || { echo "source directory $srcdir not found";       return; }
     [ -d "$destdir" ] || { echo "destination directory $destdir not found"; return; }
-    if [ -x /usr/local/bin/pv ]; then
+    if which pv >/dev/null 2>&1 ; then
         local srcsize; srcsize=$(df -k /ram | awk '/ \/ram$/ { print $3 "K"}')
         echo "copying $srcdir to $destdir (${srcsize}B approx.):"
         (cd "$srcdir" && pax -wX -x cpio .) | (pv -s $srcsize; echo -n "waiting for pax to finish ... " >&2) | (cd "$destdir" && pax -rpe)
@@ -630,18 +630,18 @@ function setup_fs {
 
         notice "Copying FuguIta system files"
 
-        mount -o async /dev/${scandev}a /mnt
+        mount -o async /dev/${scandev}a $mntdir1
         (cd /sysmedia
-         pax -rwvpe boot bsd-fi bsd-fi.mp cdboot cdbr etc /mnt
-         [[ -e eficdboot ]] && cp -pv eficdboot /mnt)
+         pax -rwvpe boot bsd-fi bsd-fi.mp cdboot cdbr etc $mntdir1
+         [[ -e eficdboot ]] && cp -pv eficdboot $mntdir1)
 
         notice "Transferring filesystem image"
         if [ -r /sysmedia/fuguita-${osrel}-${hwmac}.ffsimg ]; then
-            if [ -x /usr/local/bin/pv ]; then
-                pv /sysmedia/fuguita-${osrel}-${hwmac}.ffsimg | dd of=/mnt/fuguita-${osrel}-${hwmac}.ffsimg bs=1m
+            if which pv >/dev/null 2>&1 ; then
+                pv /sysmedia/fuguita-${osrel}-${hwmac}.ffsimg | dd of=$mntdir1/fuguita-${osrel}-${hwmac}.ffsimg bs=1m
             else
                 (while :; do sleep 15; pkill -INFO dd || exit; done) &  # to display progress
-                dd if=/sysmedia/fuguita-${osrel}-${hwmac}.ffsimg of=/mnt/fuguita-${osrel}-${hwmac}.ffsimg bs=1m
+                dd if=/sysmedia/fuguita-${osrel}-${hwmac}.ffsimg of=$mntdir1/fuguita-${osrel}-${hwmac}.ffsimg bs=1m
             fi
         fi
 
@@ -649,20 +649,20 @@ function setup_fs {
         # rewrite setting in file system image
         #
         if [[ $instsys != none ]]; then
-            local vn=$(vnconfig /mnt/fuguita-${osrel}-${hwmac}.ffsimg)
+            local vn=$(vnconfig $mntdir1/fuguita-${osrel}-${hwmac}.ffsimg)
             if [[ -z "$vn" ]]; then
                 echo 'no available vnode device, FS type of /ram not chagned' >&2
             else
-                mkdir -p /mnt2
-                mount /dev/${vn}a /mnt2
-                if grep -q "memfstype=$memfs_new" /mnt2/etc/fuguita/global.conf; then
+                mkdir -p $mntdir2
+                mount /dev/${vn}a $mntdir2
+                if grep -q "memfstype=$memfs_new" $mntdir2/etc/fuguita/global.conf; then
                     :  # same value already - do nothing
                 else
                     # rewrite the value
-                    sed -i -e '1,$s/memfstype=[a-z][a-z]*fs/memfstype='$memfs_new'/' /mnt2/etc/fuguita/global.conf
+                    sed -i -e '1,$s/memfstype=[a-z][a-z]*fs/memfstype='$memfs_new'/' $mntdir2/etc/fuguita/global.conf
                 fi
-                umount /mnt2
-                rmdir /mnt2
+                umount $mntdir2
+                rmdir $mntdir2
                 vnconfig -u $vn
             fi
         fi
@@ -670,8 +670,8 @@ function setup_fs {
         case $instsys in
             Legacy|Hybrid)
                 notice "Installing BIOS boot loader"
-                /usr/sbin/installboot -v -r /mnt ${scandev} /usr/mdec/biosboot /usr/mdec/boot
-                umount /mnt
+                /usr/sbin/installboot -v -r $mntdir1 ${scandev} /usr/mdec/biosboot /usr/mdec/boot
+                umount $mntdir1
                 ;;
             UEFI)
                 # if MBR exists, install MBR loader also
@@ -680,15 +680,15 @@ function setup_fs {
                                  -a -f /fuguita/usr/mdec/biosboot \
                                  -a -f /fuguita/usr/mdec/boot ]; then
                     notice "Installing BIOS loader"
-                    /usr/sbin/installboot -v -r /mnt ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot
+                    /usr/sbin/installboot -v -r $mntdir1 ${scandev} /fuguita/usr/mdec/biosboot /fuguita/usr/mdec/boot
                 fi
-                umount /mnt
+                umount $mntdir1
 
                 notice "Installing UEFI boot loader"
-                if mount -t msdos -o -l /dev/${scandev}i /mnt; then
-                    mkdir -p /mnt/efi/BOOT
-                    cp /fuguita/usr/mdec/*.EFI /mnt/efi/BOOT
-                    umount /mnt
+                if mount -t msdos -o -l /dev/${scandev}i $mntdir1; then
+                    mkdir -p $mntdir1/efi/BOOT
+                    cp /fuguita/usr/mdec/*.EFI $mntdir1/efi/BOOT
+                    umount $mntdir1
                 fi
                 ;;
         esac
@@ -756,11 +756,11 @@ function setup_fs {
 
         sys_duid=$(dev2duid $scandev)
         dat_duid=$(dev2duid $datdev)
-        mount -o async /dev/${datdev}d /mnt
-        mkdir -p /mnt/livecd-config/${verarch}
+        mount -o async /dev/${datdev}d $mntdir1
+        mkdir -p $mntdir1/livecd-config/${verarch}
         local umem="75%"
         [[ "$memfs_new" = 'tmpfs' ]] && umem=0
-        cat <<EOT >/mnt/livecd-config/${verarch}/noasks
+        cat <<EOT >$mntdir1/livecd-config/${verarch}/noasks
 #
 # noasks - parameter settings for non-interactive boot
 #
@@ -787,7 +787,7 @@ function setup_fs {
 # data set name in USB flash drive
 #noask_confdir=$(hostname -s)
 EOT
-        umount /mnt
+        umount $mntdir1
 
         notice "Checking the partition for persistent storage"
         fsck -fy /dev/r${datdev}d
@@ -830,7 +830,9 @@ function clear_vn {
 #-------------------
 # systemwide constants
 #
-  lockdir=/tmp/usbfadm.lock
+  lockdir=/usbfadm.d
+  mntdir1="$lockdir/mnt1"
+  mntdir2="$lockdir/mnt2"
     osrel=`sysctl -n kern.osrelease`
     hwmac=`sysctl -n hw.machine`
   verarch=${osrel}/${hwmac}
@@ -854,14 +856,16 @@ if ! pwd >/dev/null 2>&1; then
     # in case of cwd already unmounted
     cd /
 fi
-if [ 1 -le $(expr X"$(pwd)" : X/mnt) ]; then
+if [ 1 -le $(expr X"$(pwd)" : X$mntdir1) ]; then
     echo
-    echo 'You are under /mnt. Please move to other directory.'
+    echo 'You are under $mntdir1. Please move to other directory.'
     exit 1
 fi
 
 umask_o=`umask`; umask 077
-if ! mkdir $lockdir 2>/dev/null; then
+if mkdir $lockdir 2>/dev/null; then
+    mkdir $mntdir1
+else
     umask $umask_o
     echo "another ${0##*/} running (or remove $lockdir)"
     exit 1
@@ -884,7 +888,7 @@ trap 'echo ${0##*/}: interrupted. >&2; clear_exit 1' INT
   disk_head_gap=64
  fuguita_sys_mb=1024
 fuguita_uefi_kb=512
-     enc_ppfile='/tmp/usbfadm_pp'
+     enc_ppfile="$lockdir/usbfadm_pp"
       memfstype='mfs'  # mfs or tmpfs
 
 #
@@ -937,17 +941,17 @@ case "$opt_mode" in
             clear_exit 1
         fi
 
-        if mount -o async,noatime $devname /mnt; then
+        if mount -o async,noatime $devname $mntdir1; then
             if [ "$opt_quiet" = 'yes' ]; then
-                rsync -q -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+                rsync -q -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. $mntdir1/livecd-config/$verarch/$uconf/.
                 retval=$?
             else
                 notice "Sync ${devname} with current ${memfstype} as ${uconf}"
-                rsync --progress -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+                rsync --progress -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. $mntdir1/livecd-config/$verarch/$uconf/.
                 retval=$?
             fi
-            # find /mnt \! -type d \! -type f \! -type l -print | xargs rm -f
-            rm -rf /mnt/livecd-config/$uconf/tmp/{.??*,*}
+            # find $mntdir1 \! -type d \! -type f \! -type l -print | xargs rm -f
+            rm -rf $mntdir1/livecd-config/$uconf/tmp/{.??*,*}
             sync
             sleep 5
             umount $devname
@@ -966,10 +970,10 @@ Target device: ${devname:-not set}
 Data saved as: ${uconf:-not set}
 
 EOT
-        if [[ -n "$devname" ]] && mount -r $devname /mnt; then
-            (cd /mnt/livecd-config
+        if [[ -n "$devname" ]] && mount -r $devname $mntdir1; then
+            (cd $mntdir1/livecd-config
              echo
-             df -hi /mnt
+             df -hi $mntdir1
              echo "\nscanning...\n" && du -sh [1-9].[0-9]/*/* [1-9].[0-9]-*-*) 2>/dev/null
             umount $devname
         fi
@@ -998,7 +1002,7 @@ echo
 # check if rlwrap is available
 #   When control tty is missing (in /etc/rc.shutdown for example),
 #   rlwrap in command substitution "$(rlwrap ...) " fails.
-if retval=$(/usr/local/bin/rlwrap true) 2>/dev/null; then
+if retval=$(rlwrap true) 2>/dev/null; then
     echo "readline capability available"
     echo "TAB to complete the reserved words"
 else
@@ -1048,17 +1052,17 @@ while :; do
         fi
 
         if [ 1 = `ask_yn "Sync current ${memfstype} as \\\`\\\`$uconf'' , OK?" n` ]; then
-            if mount -o async,noatime $devname /mnt; then
+            if mount -o async,noatime $devname $mntdir1; then
                 echo
-                if [ -d /mnt/livecd-config ]; then
-                    if [ -d /mnt/livecd-config/$verarch/$uconf ]; then
+                if [ -d $mntdir1/livecd-config ]; then
+                    if [ -d $mntdir1/livecd-config/$verarch/$uconf ]; then
                         # previous backup exists ... do differencial copy
-                        rsync -v -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. /mnt/livecd-config/$verarch/$uconf/.
+                        rsync -v -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. $mntdir1/livecd-config/$verarch/$uconf/.
                     else
                         # first backup ... use cpio
-                        mkdir -p /mnt/livecd-config/$verarch/$uconf
-                        copydirs /ram /mnt/livecd-config/$verarch/$uconf
-                        rm -rf /mnt/livecd-config/$verarch/$uconf/tmp/{.??*,*}
+                        mkdir -p $mntdir1/livecd-config/$verarch/$uconf
+                        copydirs /ram $mntdir1/livecd-config/$verarch/$uconf
+                        rm -rf $mntdir1/livecd-config/$verarch/$uconf/tmp/{.??*,*}
                     fi
                     echo "$devname" > /boottmp/boot_restore_devname
                     echo "$uconf"   > /boottmp/boot_user_config
@@ -1078,10 +1082,10 @@ while :; do
         # show status of storage device
         #
         Xinfo)
-        if [[ -n "$devname" ]] && mount -r $devname /mnt; then
-            (cd /mnt/livecd-config
+        if [[ -n "$devname" ]] && mount -r $devname $mntdir1; then
+            (cd $mntdir1/livecd-config
              echo
-             df -hi /mnt
+             df -hi $mntdir1
              echo "\nscanning...\n" && du -sh [1-9].[0-9]/*/* [1-9].[0-9]-*-*) 2>/dev/null
             umount $devname
         fi
@@ -1092,9 +1096,9 @@ while :; do
         # default is our FQDN.
         #
         Xsaveas)
-        if [ X"devname" != X ] && mount $devname /mnt; then
-            [ -d /mnt/livecd-config/$verarch ] || mkdir -p /mnt/livecd-config/$verarch
-            confs=`cd /mnt/livecd-config/$verarch && echo *`
+        if [ X"devname" != X ] && mount $devname $mntdir1; then
+            [ -d $mntdir1/livecd-config/$verarch ] || mkdir -p $mntdir1/livecd-config/$verarch
+            confs=`cd $mntdir1/livecd-config/$verarch && echo *`
             umount $devname
         fi
         [ X"$uconf" = X ] && uconf=`hostname -s`
@@ -1154,15 +1158,15 @@ while :; do
                             ;;
                         4.2BSD)
                             # check this FFS partition is for FuguIta's storage
-                            if mount -r /dev/$dev /mnt 2>/dev/null; then
-                                if [ -d /mnt/livecd-config ]; then
+                            if mount -r /dev/$dev $mntdir1 2>/dev/null; then
+                                if [ -d $mntdir1/livecd-config ]; then
                                     devs_normal="$devs_normal$dev "
                                     def_dev="$dev"
                                     echo -n "+$dev "
                                 else
                                     echo -n "$dev "
                                 fi
-                                umount /mnt
+                                umount $mntdir1
                             else
                                 echo -n "$dev "
                             fi
@@ -1268,7 +1272,7 @@ while :; do
                     fi
                 done
 
-                if [ -x /usr/local/bin/pv ]; then
+                if which pv >/dev/null 2>&1 ; then
                     sects=`byte2sect $ans`
                     dd if=/dev/zero bs=$sect_size count=$sects | pv --size $((sect_size*sects)) > $vnfile && vnconfig $newdev $vnfile
                     result=$?
@@ -1557,10 +1561,10 @@ EOT
                 if [ "$instsys" = Hybrid \
                        -a `expr "$disable_uefiboot" : '[Yy][Ee][Ss]'` -eq 0 ]; then
                     notice "Installing UEFI boot loader"
-                    if mount -t msdos -o -l /dev/${scandev}i /mnt; then
-                        mkdir -p /mnt/efi/BOOT
-                        cp /fuguita/usr/mdec/*.EFI /mnt/efi/BOOT
-                        umount /mnt
+                    if mount -t msdos -o -l /dev/${scandev}i $mntdir1; then
+                        mkdir -p $mntdir1/efi/BOOT
+                        cp /fuguita/usr/mdec/*.EFI $mntdir1/efi/BOOT
+                        umount $mntdir1
                     fi
                 fi
 
@@ -1754,12 +1758,12 @@ EOT
                 fi
 
                 fsck -fy /dev/r${expdev}${exppar}
-                if mount /dev/${expdev}${exppar} /mnt; then
+                if mount /dev/${expdev}${exppar} $mntdir1; then
                     expduid=$(dev2duid $expdev)  # get DUID after disk_scan is OK
-                    mkdir -p /mnt/livecd-config/${verarch}
+                    mkdir -p $mntdir1/livecd-config/${verarch}
                     umem="75%"
                     [[ "$memfstype" = 'tmpfs' ]] && umem=0
-                    cat <<EOT >/mnt/livecd-config/${verarch}/noasks
+                    cat <<EOT >$mntdir1/livecd-config/${verarch}/noasks
 #
 # noasks - parameter settings for non-interactive boot
 #
@@ -1786,7 +1790,7 @@ EOT
 # data set name in USB flash drive
 #noask_confdir=$(hostname -s)
 EOT
-                    umount /mnt
+                    umount $mntdir1
                 fi
                 ;;
             *)

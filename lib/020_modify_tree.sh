@@ -36,7 +36,7 @@
 # 020_extract.sh - modify OpenBSD's file tree for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 020_modify_tree.sh,v 1.14 2024/05/07 22:37:42 kaw Exp $
+# $Id: 020_modify_tree.sh,v 1.15 2024/08/25 14:39:56 kaw Exp $
 #
 #========================================
 
@@ -102,7 +102,7 @@ fi
 cat <<EOT | chroot ./staging /bin/ksh
 set -e
 set -x
-makewhatis
+MANPATH=/usr/share/man:/usr/X11R6/man:/usr/local/man:/usr/fuguita/man:/usr/fuguita/share/man makewhatis
 for dir in 100dpi 75dpi OTF TTF Type1 cyrillic misc
 do
     mkfontdir /usr/X11R6/lib/X11/fonts/\$dir

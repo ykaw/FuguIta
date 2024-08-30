@@ -1,8 +1,8 @@
 BUILDMAKE ?= ${MAKE}
-PREFIX = /usr/fuguita
-PROGS = rsync rlwrap pv
-VER=76
-SITE_TGZ=site${VER}.tgz
+PREFIX     = /usr/fuguita
+PROGS      = rsync rlwrap pv
+VER       != uname -r | tr -dc 0-9
+SITE_TGZ   = site${VER}.tgz
 
 ${SITE_TGZ}:
 	touch install_start
@@ -13,16 +13,21 @@ ${SITE_TGZ}:
 build_install: ${PROGS}
 
 rsync: xxhash
-	CFLAGS=-I${PREFIX}/include LDFLAGS=-L${PREFIX}/lib ${MAKE} install PROG=rsync-3.3.0 CONFIG_OPTS="--disable-lz4 --disable-zstd"
+	test -n "${RSYNC}"
+	CFLAGS=-I${PREFIX}/include LDFLAGS=-L${PREFIX}/lib ${MAKE} install PROG=${RSYNC} CONFIG_OPTS="--disable-lz4 --disable-zstd"
 
 xxhash:
-	${MAKE} install PROG=xxHash-0.8.2 BUILDMAKE=gmake NO_CONFIGURE=1 INSTALLPREFIX=${PREFIX}
+	test -n "${XXHASH}"
+	${MAKE} install PROG=${XXHASH} BUILDMAKE=gmake NO_CONFIGURE=1 INSTALLPREFIX=${PREFIX}
+	ldconfig -m ${PREFIX}/lib
 
 rlwrap:
-	${MAKE} install PROG=rlwrap-0.46.1
+	test -n "${RLWRAP}"
+	${MAKE} install PROG=${RLWRAP}
 
 pv:
-	${MAKE} install PROG=pv-1.8.5
+	test -n "${PV}"
+	${MAKE} install PROG=${PV}
 
 install: build
 .ifdef INSTALLPREFIX
@@ -43,11 +48,11 @@ extract: ${PROG}.tar.gz
 	tar xvzf  ${PROG}.tar.gz
 
 allclean:
-	${MAKE} distclean PROG=xxHash-0.8.2
-	${MAKE} distclean PROG=rsync-3.3.0
-	${MAKE} distclean PROG=rlwrap-0.46.1
-	${MAKE} distclean PROG=pv-1.8.5
-	rm -f install_start install_end ${SITE_TGZ} *~ *.bak
+	${MAKE} distclean PROG=${XXHASH}
+	${MAKE} distclean PROG=${RSYNC}
+	${MAKE} distclean PROG=${RLWRAP}
+	${MAKE} distclean PROG=${PV}
+	rm -f install_start install_end ../${SITE_TGZ} *~ *.bak
 
 distclean:
 .ifdef PROG

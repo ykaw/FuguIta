@@ -225,12 +225,27 @@ function duid2dev {
 #    mkshadowdir orig-dir shadow-dir
 #
 mkshadowdir() {
-    [ -d "$1" ]   || return
-    mkdir -p "$2" || return
-    (if cd "$2" ; then
-         lndir -s $1
-         (cd "$1" && mtree -cdtq) | mtree -edtq -u > /dev/null
-     fi)
+    local  srcdir="$1"
+    local destdir="$2"
+
+    # error checks
+    [ -n "$destdir" ]   || return  # no enough arguments
+    [ -d "$srcdir" ]    || return  # non existent srcdir
+    mkdir -p "$destdir" || return  # can't make destdir
+
+    # make shadow directory tree
+    lndir -s "$srcdir" "$destdir"
+
+    # fix permissions and time stamps of target directories
+    #
+    # Note:
+    # If the last output line of 'mtree -cdtq' starts with '..',
+    # it will be deleted by sed.
+    # This is because 'mtree -edtq' complains about such lines when
+    # source directory is empty.
+    mtree -p "$srcdir" -cdtq \
+    | sed -e '${/^\.\.$/{d;};}' \
+    | mtree -p "$destdir" -edtq -u > /dev/null
 }
 
 

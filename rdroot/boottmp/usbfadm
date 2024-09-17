@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.103 2024/08/25 14:39:56 kaw Exp $
+# $Id: usbfadm,v 1.104 2024/09/17 14:40:55 kaw Exp $
 #
 #========================================
 
@@ -53,8 +53,11 @@ function clear_exit {
     if mount | grep -q "^$devname on $mntdir1" ;then
         umount $devname
     fi
-    rm -f $enc_ppfile
-    rm -rf $lockdir
+    rm -f $enc_ppfile $lockdir/rl_words $lockdir/hybrid.mbr
+    umount -f $mntdir1 2>/dev/null
+    umount -f $mntdir2 2>/dev/null
+    rmdir $mntdir1 $mntdir2 2>/dev/null
+    rmdir $lockdir
     exit $1
 }
 

@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.104 2024/09/17 14:40:55 kaw Exp $
+# $Id: usbfadm,v 1.105 2024/09/18 08:01:49 kaw Exp $
 #
 #========================================
 
@@ -47,18 +47,34 @@
 #==================================
 
 #-------------------
-# clean-ups
+# clean-ups then exit
 #
 function clear_exit {
-    if mount | grep -q "^$devname on $mntdir1" ;then
-        umount $devname
+    local exitstat="$1"
+    local mnt="$(mount)"
+    local dir
+
+    # remove mount points
+    #
+    for dir in "$mntdir1" "$mntdir2"; do
+        if [[ -d "$dir" ]]; then
+            if echo "$mnt" | grep -q "^$devname on $dir" ;then
+                umount -f "$dir"
+            fi
+            rmdir "$dir"
+        fi
+    done
+
+    # remove stale files
+    #
+    rm -f "$enc_ppfile" "$lockdir/rl_words" "$lockdir/hybrid.mbr"
+    
+    # remove lock directory
+    #
+    if ! rmdir "$lockdir"; then
+        echo "${0##*/}: cannot remove $lockdir, please check." >&2
     fi
-    rm -f $enc_ppfile $lockdir/rl_words $lockdir/hybrid.mbr
-    umount -f $mntdir1 2>/dev/null
-    umount -f $mntdir2 2>/dev/null
-    rmdir $mntdir1 $mntdir2 2>/dev/null
-    rmdir $lockdir
-    exit $1
+    exit "$exitstat"
 }
 
 #-------------------
@@ -415,29 +431,35 @@ function showparams {
     #    diskscan   : result of scan - 'ok' or 'ng'
     # 
     # partition sectors (ps_ for short)
-    #    ps_free : available sectors for user's partitioning
-    #    ps_hgap : head gap (for MBR/GPT and disklabel)
-    #    ps_uefi : sectors for UEFI (partition i)
-    #    ps_fisys: sectors for FuguIta's system (partition a)
-    #    ps_fiswp: sectors for FuguIta's Swap (partition b)
-    #    ps_fidat: sectors for FuguIta's Data Store (partition d)
-    #    ps_fat  : sectors for Data Exchange (partition i or j)
-    #    ps_tgap : tail gap (for GPT)
+    #    ps_free    : available sectors for user's partitioning
+    #    ps_hgap    : head gap (for MBR/GPT and disklabel)
+    #    ps_uefi    : sectors for UEFI (partition i)
+    #    ps_fisys   : sectors for FuguIta's system (partition a)
+    #    ps_fiswp   : sectors for FuguIta's Swap (partition b)
+    #    ps_fidat   : sectors for FuguIta's Data Store (partition d)
+    #    ps_fat     : sectors for Data Exchange (partition i or j)
+    #    ps_tgap    : tail gap (for GPT)
     #
     # crypto stuffs
-    #    enc_fidat : Is FuguIta's Data Store encrypted?
-    #    enc_pp1   : Primary entered passphrase
-    #    enc_pp2   : Secondary entered passphrase (cleared after check)
-    #    enc_ppfile: file containing passphrase
+    #    enc_fidat  : Is FuguIta's Data Store encrypted?
+    #    enc_pp1    : Primary entered passphrase
+    #    enc_pp2    : Secondary entered passphrase (cleared after check)
+    #    enc_ppfile : file containing passphrase
     # 
     # vnode devices
     #
-    #    vnfile  : raw disk image file
+    #    vnfile     : raw disk image file
     # 
     # memory-based file systems
     #
     #    memfstype  : FS type of /ram on currently running system
     #    memfs_new  : FS type of /ram for newdrive
+    # 
+    # lock directory and mount points
+    #
+    #    lockdir    : lock directory
+    #    mntdir1    : mount point for newdrive
+    #    mntdir2    : mount point to change /ram FS type
 
     echo
     echo "target disk: $scandev"

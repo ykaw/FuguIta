@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.106 2024/09/19 23:36:01 kaw Exp $
+# $Id: usbfadm,v 1.107 2024/09/19 23:39:24 kaw Exp $
 #
 #========================================
 
@@ -1234,7 +1234,7 @@ while :; do
         if mount | grep -q '^\/dev\/[0-9a-z][0-9a-z]* on \/sysmedia type '
         then
             echo 'Please make sure the device inserted.'
-            [ `wait_enter 'Then press ENTER'` -lt 1 ] && continue
+            [ $(wait_enter 'Then press ENTER') -lt 1 ] && continue
         else
             echo 'Sorry, cannot find /sysmedia.  You cannot do newdrive with this boot mode.'
             continue
@@ -1249,7 +1249,6 @@ while :; do
         else
             newdev=''
         fi
-
         echo '============================================================'
         newdev=$(rl_wread "Enter the name of device which FuguIta will be installed" "" $(sysctl -n hw.disknames|tr :, \\\012|grep '^[s]d[0-9]$') $newdev)
         if [ -z "$newdev" ]; then
@@ -1306,7 +1305,6 @@ while :; do
                     (while :; do sleep 15; pkill -INFO dd || exit 0; done) &  # to display progress
                     dd if=/dev/zero of=$vnfile bs=$sect_size count=$(byte2sect $ans) \
                     && newdev=$(vnconfig $vnfile)
-
                 fi
 
                 if [ -z "$newdev" ]; then
@@ -1323,10 +1321,10 @@ while :; do
             continue
         fi
 
-        if [ `fdisk $newdev | grep -c ' Unused$'` != 4 ]; then
+        if [ $(fdisk $newdev | grep -c ' Unused$') != 4 ]; then
             echo
             echo 'This disk seems to have been partitioned already.'
-            if [ `ask_yn "Continue anyway?" n` -lt 1 ]; then
+            if [ $(ask_yn "Continue anyway?" n) -lt 1 ]; then
                 clear_vn $newdev $vnfile
                 continue
             fi
@@ -1334,7 +1332,7 @@ while :; do
 
         # get disk parameters
         #
-        eval `disk_scan $newdev`
+        eval $(disk_scan $newdev)
         if [ ! "$diskscan" = ok ]; then
             echo "cannot get parameters of $newdev"
             clear_vn $newdev $vnfile
@@ -1356,9 +1354,9 @@ while :; do
         #-------------------
         # ask boot method and partition type
         #
-        if [ $sects_total -lt `byte2sect 2T` ]; then
+        if [ $sects_total -lt $(byte2sect 2T) ]; then
             echo
-            instsys=`ask_which "Select boot method:" 'UEFI' "$legacyitem" "$uefiitem" 'none (only for save data)' "$hybriditem"`
+            instsys=$(ask_which "Select boot method:" 'UEFI' "$legacyitem" "$uefiitem" 'none (only for save data)' "$hybriditem")
 
             echo
             case $instsys in
@@ -1366,10 +1364,10 @@ while :; do
                     parttype=MBR
                     ;;
                 UEFI)
-                    parttype=`ask_which "Select partition type:" MBR MBR GPT`
+                    parttype=$(ask_which "Select partition type:" MBR MBR GPT)
                     ;;
                 none)
-                    parttype=`ask_which "Select partition type:" MBR MBR GPT Hybrid`
+                    parttype=$(ask_which "Select partition type:" MBR MBR GPT Hybrid)
                     ;;
                 Hybrid)
                     cat <<EOT
@@ -1383,7 +1381,7 @@ Notice:
   Modifying partition table later may cause any problem.
 
 EOT
-                    if [ 1 -gt `ask_yn "Proceed anyway?" n` ]; then
+                    if [ 1 -gt $(ask_yn "Proceed anyway?" n) ]; then
                         clear_vn $newdev $vnfile
                         continue
                     fi
@@ -1402,7 +1400,7 @@ EOT
             fi
         else
             echo
-            instsys=`ask_which "Select boot method:" '' "$uefiitem" 'none (only for save data)'`
+            instsys=$(ask_which "Select boot method:" '' "$uefiitem" 'none (only for save data)')
             parttype=GPT
         fi
 
@@ -1424,11 +1422,11 @@ EOT
 
         case "$instsys" in
             Legacy)
-                ps_fisys=`byte2sect "${fuguita_sys_mb}M"`
+                ps_fisys=$(byte2sect "${fuguita_sys_mb}M")
                 ;;
             UEFI|Hybrid)
-                ps_uefi=`byte2sect "${fuguita_uefi_kb}K"`
-                ps_fisys=`byte2sect "${fuguita_sys_mb}M"`
+                ps_uefi=$(byte2sect "${fuguita_uefi_kb}K")
+                ps_fisys=$(byte2sect "${fuguita_sys_mb}M")
                 ;;
             none)
                 ;;
@@ -1461,12 +1459,12 @@ EOT
             echo "  '*' implies 'all'"
             echo "  '0' doesn't make this partition."
             echo
-            echo "`sect2byte $ps_free` (`sect2byte $ps_free 2`) (${ps_free}sectors) free"
+            echo "$(sect2byte $ps_free) ($(sect2byte $ps_free 2)) (${ps_free}sectors) free"
 
             ans=$(rl_wread 'swap' "$newdrive_defswap" "$newdrive_defswap")
             echo
-            if [ 1 -lt `expr "X$ans" : 'X[0-9][0-9]*'` ]; then
-                ps_fiswp=`byte2sect "$ans"`
+            if [ 1 -lt $(expr "X$ans" : 'X[0-9][0-9]*') ]; then
+                ps_fiswp=$(byte2sect "$ans")
                 if [ $ps_free -lt $ps_fiswp ]; then
                     echo 'That size exceeds the limit.'
                     continue
@@ -1483,16 +1481,16 @@ EOT
             ps_free=$((ps_free-ps_fiswp))
 
             echo
-            echo "`sect2byte $ps_free` (`sect2byte $ps_free 2`) (${ps_free}sectors) free"
-            ans=`rl_wread 'user data' '*'`
+            echo "$(sect2byte $ps_free) ($(sect2byte $ps_free 2)) (${ps_free}sectors) free"
+            ans=$(rl_wread 'user data' '*')
             echo
-            if [ 1 -lt `expr "X$ans" : 'X[0-9][0-9]*'` ]; then
-                ps_fidat=`byte2sect "$ans"`
+            if [ 1 -lt $(expr "X$ans" : 'X[0-9][0-9]*') ]; then
+                ps_fidat=$(byte2sect "$ans")
                 if [ $ps_free -lt $ps_fidat ]; then
                     echo 'That size exceeds the limit.'
                     continue
-                elif [ 0 -gt $ps_fidat -a $ps_fidat -lt `byte2sect 16M` ]; then
-                    if [ 1 -le `ask_yn "$ans ($ps_fidat sectors) is very small value.\nDo you really take this value?" n` ]; then
+                elif [ 0 -gt $ps_fidat -a $ps_fidat -lt $(byte2sect 16M) ]; then
+                    if [ 1 -le $(ask_yn "$ans ($ps_fidat sectors) is very small value.\nDo you really take this value?" n) ]; then
                         break
                     else
                         continue
@@ -1514,7 +1512,7 @@ EOT
         #  Is FuguIta's Data Store encrypted?
         #
         if [ 0 -lt $ps_fidat ]; then
-            if [ 1 -le `ask_yn "user data encryption?" n` ]; then
+            if [ 1 -le $(ask_yn "user data encryption?" n) ]; then
                 enc_fidat='yes'
                 cat <<EOT
 
@@ -1546,7 +1544,7 @@ EOT
         #
         if [ 0 -lt $ps_free ]; then
             echo
-            if [ 1 -le `ask_yn "Create an extra FAT partition?" r` ]; then
+            if [ 1 -le $(ask_yn "Create an extra FAT partition?" r) ]; then
                 ps_fat=$ps_free
                 ps_free=0
             fi
@@ -1558,7 +1556,7 @@ EOT
         echo
         echo '***THIS IS THE LAST CHANCE***'
         echo "If you type 'Y' now, all the data on $scandev will be lost."
-        if [ `ask_yn "Are you sure to modify disk ${scandev}?" n` -lt 1 ]; then
+        if [ $(ask_yn "Are you sure to modify disk ${scandev}?" n) -lt 1 ]; then
             clear_vn $newdev $vnfile
             continue
         fi
@@ -1587,7 +1585,7 @@ EOT
 
                 # install MBR boot loader, too
                 if [ "$instsys" = Hybrid \
-                       -a `expr "$disable_uefiboot" : '[Yy][Ee][Ss]'` -eq 0 ]; then
+                       -a $(expr "$disable_uefiboot" : '[Yy][Ee][Ss]') -eq 0 ]; then
                     notice "Installing UEFI boot loader"
                     if mount -t msdos -o -l /dev/${scandev}i $mntdir1; then
                         mkdir -p $mntdir1/efi/BOOT

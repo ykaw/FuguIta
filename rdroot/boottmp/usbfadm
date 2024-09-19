@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.105 2024/09/18 08:01:49 kaw Exp $
+# $Id: usbfadm,v 1.106 2024/09/19 23:36:01 kaw Exp $
 #
 #========================================
 
@@ -1243,15 +1243,21 @@ while :; do
         echo
         echo '==== disk(s) and vnode devices  ============================'
         dmesg | sed -e '/^[sw]d[0-9][0-9]*[ :]/!d; s/> .*/>/'
-        vnconfig -l
+        if vnconfig -l | grep -q '^vnd[0-3]: not in use'; then
+            newdev=img
+            echo "\n$newdev: create FuguIta raw disk image on current directory"
+        else
+            newdev=''
+        fi
+
         echo '============================================================'
-        newdev=`rl_wread "Enter the name of device which FuguIta will be installed" "" \`sysctl -n hw.disknames|tr :, \\\\\012|grep '^[s]d[0-9]$'\``
+        newdev=$(rl_wread "Enter the name of device which FuguIta will be installed" "" $(sysctl -n hw.disknames|tr :, \\\012|grep '^[s]d[0-9]$') $newdev)
         if [ -z "$newdev" ]; then
             echo
             echo "newdrive: no device name"
             continue
-        elif [ 0 -eq `expr "$newdev" : '^[sw]d[0-9]$'` ] && \
-           [ 0 -eq `expr "$newdev" : '^vnd[0-9]*$'` ]; then
+        elif [ 0 -eq $(expr "$newdev" : '^[sw]d[0-9]$') ] && \
+           [ 0 -eq $(expr "$newdev" : '^img$') ]; then
             echo
             echo "newdrive: device $newdev is not supported."
             continue
@@ -1273,41 +1279,38 @@ while :; do
         # create vnode device file if specified
         #
         case "$newdev" in
-            vnd[0-3])
-                if ! vnconfig -l | grep -q "^$newdev: not in use"; then
-                    echo
-                    echo "newdrive: vnode device $newdev is already used."
-                    continue
-                fi
+            img)
                 vnfile=FuguIta-$(</usr/fuguita/version).img
                 if [ -e "$vnfile" ]; then
                     echo
-                    [ 1 -gt `ask_yn "Image file $vnfile already exists\nRemove it and proceed?" r` ] && break
+                    [ 1 -gt $(ask_yn "Image file $vnfile already exists\nRemove it and proceed?" r) ] && break
                 fi
                 while :; do
                     echo
                     echo "Enter size of a vnode device file."
                     echo "You can add suffix K, M, G or T (otherwise considered 'bytes')."
-                    ans=`rl_wread '' ''`
+                    ans=$(rl_wread '' '')
                     echo
-                    if [ 1 -lt `expr "X$ans" : 'X[0-9][0-9]*'` ]; then
+                    if [ 1 -lt $(expr "X$ans" : 'X[0-9][0-9]*') ]; then
                         sect_size=$((1024*1024)) # block size for dd
-                        [ `byte2sect 724M` -le `byte2sect $ans` ] && break
-                        [ 1 -le `ask_yn "$ans is very small value.\nDo you really take this value?" n` ] && break
+                        [ $(byte2sect 724M) -le $(byte2sect $ans) ] && break
+                        [ 1 -le $(ask_yn "$ans is very small value.\nDo you really take this value?" n) ] && break
                     fi
                 done
 
                 if which pv >/dev/null 2>&1 ; then
-                    sects=`byte2sect $ans`
-                    dd if=/dev/zero bs=$sect_size count=$sects | pv --size $((sect_size*sects)) > $vnfile && vnconfig $newdev $vnfile
-                    result=$?
+                    sects=$(byte2sect $ans)
+                    dd if=/dev/zero bs=$sect_size count=$sects | pv --size $((sect_size*sects)) > $vnfile \
+                    && newdev=$(vnconfig $vnfile)
                 else
                     (while :; do sleep 15; pkill -INFO dd || exit 0; done) &  # to display progress
-                    dd if=/dev/zero of=$vnfile bs=$sect_size count=`byte2sect $ans` && vnconfig $newdev $vnfile
-                    result=$?
+                    dd if=/dev/zero of=$vnfile bs=$sect_size count=$(byte2sect $ans) \
+                    && newdev=$(vnconfig $vnfile)
+
                 fi
 
-                if [ 0 -lt $result ]; then
+                if [ -z "$newdev" ]; then
+                    echo "newdrive: sorry, cannot allocate a new vnode device."
                     clear_vn $newdev $vnfile
                     continue
                 fi

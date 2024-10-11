@@ -1,5 +1,5 @@
---- rc.orig	Wed Aug 21 12:53:14 2024
-+++ rc	Wed Aug 21 12:50:39 2024
+--- rc.orig	Thu Oct 10 00:49:39 2024
++++ rc	Sat Oct 12 17:07:46 2024
 @@ -186,9 +186,17 @@
  	# filesystems, otherwise record which ones are mounted read-only.
  	for _dkdev in $(df /usr/{lib,libexec} $_relink |

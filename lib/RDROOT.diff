@@ -1,6 +1,6 @@
---- RDROOT.orig	Fri Apr 12 09:59:44 2024
-+++ RDROOT	Fri Apr 12 09:59:44 2024
-@@ -40,7 +40,7 @@
+--- RDROOT.orig	Sat Oct 12 20:32:50 2024
++++ RDROOT	Sat Oct 12 20:32:50 2024
+@@ -39,7 +39,7 @@
  option		UDF		# UDF (DVD) file system
  option		MSDOSFS		# MS-DOS file system
  option		FIFO		# FIFOs; RECOMMENDED
@@ -9,7 +9,7 @@
  option		FUSE		# FUSE
  
  option		SOCKET_SPLICE	# Socket Splicing for TCP and UDP
-@@ -79,7 +79,7 @@
+@@ -78,7 +78,7 @@
  pseudo-device	nmea	1	# NMEA 0183 line discipline
  pseudo-device	msts	1	# MSTS line discipline
  pseudo-device	endrun	1	# EndRun line discipline

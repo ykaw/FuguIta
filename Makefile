@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.129 2024/10/26 03:39:32 kaw Exp $
+# $Id: Makefile,v 1.130 2024/10/26 23:26:47 kaw Exp $
 
 #========================================
 # global definitions
@@ -300,7 +300,7 @@ BOOTTMPS != echo rdroot/boottmp/*
 
 rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV\
                /usr/src/etc/etc.$(ARCH)/login.conf\
-               lib/bootbin/bootbin $(BOOTTMPS)
+               lib/bootbin/obj/bootbin $(BOOTTMPS)
 	$(MAKE) close-rdroot
 #
 # create rdroot.ffsimg
@@ -323,7 +323,7 @@ rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV\
 #       datasize in login.conf determines the max limit of mfs
 	sed '/^daemon:/,/:tc=default:/ s/:datasize=[^:][^:]*:/:datasize=infinity:/'\
 	    /usr/src/etc/etc.$(ARCH)/login.conf > /mnt/boottmp/login.conf
-	cp -p lib/bootbin/bootbin /mnt/boottmp
+	cp -p lib/bootbin/obj/bootbin /mnt/boottmp
 	for prog in disklabel halt init ksh ln mount mount_cd9660 mount_ext2fs\
 	            mount_ffs mount_mfs mount_msdos mount_ntfs mount_vnd newfs\
 	            reboot sed sh sleep swapctl swapon sysctl umount vnconfig; do\
@@ -334,10 +334,9 @@ rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV\
 
 # build a crunched binary
 #
-lib/bootbin/bootbin:
+lib/bootbin/obj/bootbin:
 	cd lib/bootbin;\
-	crunchgen -m Makefile -E ../bootbin.conf;\
-	make objs exe
+	make
 
 #========================================
 # vnconfig related stuffs
@@ -425,8 +424,8 @@ init:
 	$(MAKE) reset
 	mkdir -p sys install_sets install_pkgs install_patches fuguita sysmedia
 	if [ ! -d sys/arch/$(ARCH) ]; then (cd sys && lndir /usr/src/sys); fi
-	cd lib;\
-	mkdir -p bootbin;\
+	cd lib/bootbin;\
+	make obj;\
 	cd special;\
 	ln -sf /usr/src/distrib/special/Makefile.inc .;\
 	make obj
@@ -493,8 +492,8 @@ staging.time: $(STAGE_DEPENDS)
 #========================================
 # packaging controls
 #
-DISTCLEANFILES = rev.count sysmedia.img lib/special/Makefile.inc
-DISTCLEANDIRS = staging fuguita sysmedia sys install_sets install_pkgs install_patches lib/bootbin
+DISTCLEANFILES = rev.count sysmedia.img
+DISTCLEANDIRS = staging fuguita sysmedia sys install_sets install_pkgs install_patches
 
 .PHONY: distclean
 distclean:
@@ -522,9 +521,10 @@ clean:
 #
 .PHONY: rdclean
 rdclean:
-	rm -f rdroot.ffsimg lib/bootbin/*
-	cd lib/special && $(MAKE) clean
-	rm -rf lib/special/*/obj
+	rm -rf rdroot.ffsimg
+	cd lib/bootbin && rm -rf obj
+	cd lib/bootbin/special && rm -f Makefile.inc
+	cd lib/bootbin/special && rm -rf */obj
 
 #========================================
 # generate LiveUSB from LiveDVD

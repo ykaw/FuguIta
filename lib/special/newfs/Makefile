@@ -2,11 +2,10 @@
 
 PROG=	newfs
 SRCS=	dkcksum.c getmntopts.c newfs.c mkfs.c
-MAN=	newfs.8
 
 MOUNT=	/usr/src/sbin/mount
 CFLAGS+=-DMFS -I${MOUNT}
-.PATH:	${MOUNT} /usr/src/sbin/disklabel
+.PATH:	${MOUNT} /usr/src/sbin/disklabel /usr/src/sbin/newfs
 
 DPADD=	${LIBUTIL}
 LDADD=	-lutil

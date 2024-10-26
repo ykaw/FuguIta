@@ -1,5 +1,0 @@
-#!/bin/ksh
-
-crunchgen -m Makefile -E ../bootbin.conf 
-
-make objs exe

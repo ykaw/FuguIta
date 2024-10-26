@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.128 2024/06/13 02:05:25 kaw Exp $
+# $Id: Makefile,v 1.129 2024/10/26 03:39:32 kaw Exp $
 
 #========================================
 # global definitions
@@ -335,7 +335,9 @@ rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV\
 # build a crunched binary
 #
 lib/bootbin/bootbin:
-	cd lib/bootbin && sh ../doit_bootbin
+	cd lib/bootbin;\
+	crunchgen -m Makefile -E ../bootbin.conf;\
+	make objs exe
 
 #========================================
 # vnconfig related stuffs
@@ -426,10 +428,8 @@ init:
 	cd lib;\
 	mkdir -p bootbin;\
 	cd special;\
-	make obj;\
-	for prog in init mount_* newfs swapctl sysctl vnconfig; do\
-	    (cd $$prog && ln -sf /usr/src/sbin/$$prog/*.[ch] .);\
-	done
+	ln -sf /usr/src/distrib/special/Makefile.inc .;\
+	make obj
 .if exists(sysmedia-$(VERSION)-$(ARCH).img.gz)
 	$(COMPRESS) -dc sysmedia-$(VERSION)-$(ARCH).img.gz > sysmedia.img
 .endif
@@ -493,15 +493,15 @@ staging.time: $(STAGE_DEPENDS)
 #========================================
 # packaging controls
 #
-DISTCLEANFILES = rev.count sysmedia.img
-DISTCLEANDIRS = staging fuguita sysmedia sys install_sets install_pkgs install_patches
+DISTCLEANFILES = rev.count sysmedia.img lib/special/Makefile.inc
+DISTCLEANDIRS = staging fuguita sysmedia sys install_sets install_pkgs install_patches lib/bootbin
 
 .PHONY: distclean
 distclean:
 	$(MAKE) clean
+	$(MAKE) rdclean
 	rm -f $(DISTCLEANFILES)
 	rm -rf $(DISTCLEANDIRS)
-	$(MAKE) rdclean
 
 # reset revision sequece numnber to 1
 #
@@ -522,10 +522,9 @@ clean:
 #
 .PHONY: rdclean
 rdclean:
-	rm -f rdroot.ffsimg lib/bootbin/!(CVS)
+	rm -f rdroot.ffsimg lib/bootbin/*
 	cd lib/special && $(MAKE) clean
 	rm -rf lib/special/*/obj
-	find lib/special -type l -print | xargs rm -f
 
 #========================================
 # generate LiveUSB from LiveDVD

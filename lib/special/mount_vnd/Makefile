@@ -6,6 +6,6 @@ DPADD=	${LIBUTIL}
 
 CDIAGFLAGS+=	-Wall
 
-MAN=	mount_vnd.8
+.PATH: /usr/src/sbin/mount_vnd
 
 .include <bsd.prog.mk>

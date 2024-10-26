@@ -5,7 +5,8 @@ PROG=	swapctl
 SRCS=	swapctl.c swaplist.c
 LDADD=	-lutil
 DPADD=	${LIBUTIL}
-MAN=	swapctl.8
+
+.PATH: /usr/src/sbin/swapctl
 
 LINKS=	${BINDIR}/swapctl ${BINDIR}/swapon
 

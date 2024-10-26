@@ -6,6 +6,6 @@ DPADD=	${LIBUTIL}
 
 CDIAGFLAGS+=	-Wall
 
-MAN=	vnconfig.8
+.PATH: /usr/src/sbin/vnconfig
 
 .include <bsd.prog.mk>

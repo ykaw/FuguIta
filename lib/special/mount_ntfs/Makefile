@@ -7,9 +7,8 @@ SRCS=	mount_ntfs.c getmntopts.c
 NOPROG=
 .endif
 
-MAN=	mount_ntfs.8
 MOUNT=	/usr/src/sbin/mount
 CFLAGS+= -I${MOUNT}
-.PATH:	${MOUNT}
+.PATH:	${MOUNT} /usr/src/sbin/mount_ntfs
 
 .include <bsd.prog.mk>

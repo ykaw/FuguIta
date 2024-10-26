@@ -5,8 +5,6 @@ MAN=	sysctl.8
 
 CPPFLAGS+=	-D_LIBKVM
 
-afterinstall:
-	ln -sf ../../sbin/sysctl ${DESTDIR}/usr/sbin
-	chown -h ${BINOWN}:${BINGRP} ${DESTDIR}/usr/sbin/sysctl
+.PATH: /usr/src/sbin/sysctl
 
 .include <bsd.prog.mk>

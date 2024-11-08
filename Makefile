@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.130 2024/10/26 23:26:47 kaw Exp $
+# $Id: Makefile,v 1.131 2024/11/08 02:56:28 kaw Exp $
 
 #========================================
 # global definitions
@@ -305,8 +305,8 @@ rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV\
 #
 # create rdroot.ffsimg
 #
-	./lib/setup_fsimg.sh rdroot.ffsimg 1900K 1500 '-b 4096 -f 512'
-	            # parameters for minimum resources ^^^^^^^^^^^^^^
+	./lib/setup_fsimg.sh rdroot.ffsimg 4M 1500 '-b 4096 -f 512'
+	         # parameters for minimum resources ^^^^^^^^^^^^^^
 	vnconfig vnd0 rdroot.ffsimg
 	mount /dev/vnd0a /mnt
 	(cd rdroot && pax -rwvpe . /mnt/.)
@@ -324,11 +324,14 @@ rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV\
 	sed '/^daemon:/,/:tc=default:/ s/:datasize=[^:][^:]*:/:datasize=infinity:/'\
 	    /usr/src/etc/etc.$(ARCH)/login.conf > /mnt/boottmp/login.conf
 	cp -p lib/bootbin/obj/bootbin /mnt/boottmp
-	for prog in disklabel halt init ksh ln mount mount_cd9660 mount_ext2fs\
+	for prog in disklabel halt init ln mount mount_cd9660 mount_ext2fs\
 	            mount_ffs mount_mfs mount_msdos mount_ntfs mount_vnd newfs\
-	            reboot sed sh sleep swapctl swapon sysctl umount vnconfig; do\
+	            reboot sed sleep swapctl swapon sysctl umount vnconfig; do\
 	    ln -f /mnt/boottmp/bootbin /mnt/boottmp/$$prog;\
 	done
+	rm -f /mnt/boottmp/ksh /mnt/boottmp/sh
+	cp -p /bin/ksh /mnt/boottmp/.
+	ln /mnt/boottmp/ksh /mnt/boottmp/sh
 	umount /mnt || { sync; sleep 15; sync; umount /mnt; }
 	vnconfig -u vnd0
 

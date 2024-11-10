@@ -17,7 +17,7 @@
 +config		bsd root on rd0a swap on wd0b and sd0b
 +option		RAMDISK_HOOKS
 +option		MINIROOTSIZE=8192
-+option		NKPTP=6
++option		NKPTP=7
 +
 +pseudo-device   rd              1 # ramdisk
  

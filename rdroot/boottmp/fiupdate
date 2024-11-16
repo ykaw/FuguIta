@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.27 2024/01/01 02:46:35 kaw Exp $
+# $Id: fiupdate,v 1.28 2024/11/16 03:02:02 kaw Exp $
 #
 #========================================
 
@@ -101,113 +101,6 @@ ask_yn () {
     done
 }
 
-#-------------------
-# read user's input with readline functionality
-# outputs echoed to stdout
-#
-#     usage: rl_wread prompt-str default-str [completion words ....]
-#
-rl_wread () {
-    local prompt="$1" ; shift
-    local default="$1"; shift
-    local w
-
-    if [ -x /usr/local/bin/rlwrap ]; then
-        local rl_words=$(mktemp)
-        echo "$@" >> $rl_words
-        rlwrap -b '' \
-               -f $rl_words \
-               -P "$default" \
-               sh -f -c 'echo -n "'"$prompt"'->" >&2 ; read w || echo EOF; echo $w' || echo RL_ERR
-        rm -f rl_words
-    else
-        #-------------------
-        # fallback to dumb input
-        #
-        if [ X"$default" = X ]; then
-            echo2 -n "${prompt}->"
-            read w
-        else
-            echo2 -n "$prompt [$default] -> "
-            read w
-            if [ X"$w" = X ]; then
-              w="$default"
-            fi
-        fi
-        echo $w
-    fi
-}
-
-#-------------------
-# ask selection out of multiple items
-# outputs answer to stdout
-#
-#     usage: ask_which prompt default item1 item2 ...
-#
-#       Note: although user's choice is one originated
-#             default is zero originated
-#
-#       output: first word of selected item
-#               returns empty line unless selected normally
-#
-ask_which () {
-    if [ $# -lt 3 ]; then
-        return
-    fi
-
-    local prompt="$1";  shift
-    local default="$1"; shift
-    local i item val
-
-    # skip null item
-    #
-    i=0
-    for val in "$@"; do
-        if [ -n "$val" ]; then
-           item[$i]="$val"
-           i=$((i+1))
-        fi
-    done
-
-    # only one item is default itself
-    #
-    [ "${#item[@]}" = 1 ] && default=${item[0]}
-
-    i=0
-    while [ -n "${item[$i]}" ]; do
-        if [ "$default" = "${item[$i]}" ]; then
-            OIFS="$IFS"
-            IFS= prompt="$prompt\n"$(printf '%3d: [%s]' $((i+1)) ${item[$i]})
-            IFS="$OIFS"
-        else
-            OIFS="$IFS"
-            IFS= prompt="$prompt\n"$(printf '%3d:  %s' $((i+1)) ${item[$i]})
-            IFS="$OIFS"
-        fi
-        i=$((i+1))
-    done
-    echo2 "$prompt"
-
-    local ans
-    ans=$(rl_wread '' '')
-
-    # take first argument
-    #
-    set -- $ans
-    ans=$1
-    
-    # return selected item
-    #
-    if expr "$ans" : '^[0-9][0-9]*$' >/dev/null && \
-       [ "$ans" -le ${#item[@]} ]; then
-        set -- ${item[$((ans-1))]}
-        echo $1
-    elif [ -n "$default" -a -z "$ans" ]; then
-        set -- $default
-        echo $1
-    fi
-}
-
 # display usage
 #
 usage () {
@@ -296,7 +189,7 @@ setup_iso_content () {
 setup_rampath () {
     mkdir -p /ram/fiupdate.bin
     cp -p /bin/{cat,echo,mv,rm,rmdir,sync} \
-          /usr/local/bin/pv \
+          $(which pv) \
        /ram/fiupdate.bin/.
 
     PATH=/boottmp:/ram/fiupdate.bin:$PATH

@@ -9,10 +9,10 @@
 # (EFI System Partition)
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: gen_makebootarc_arm64.sh,v 1.3 2024/05/08 06:57:52 kaw Exp $
+# $Id: gen_makebootarc_arm64.sh,v 1.4 2025/01/01 00:58:54 kaw Exp $
 #========================================
 
-# Copyright (c) 2016--2024
+# Copyright (c) 2016--2025
 # Yoshihiro Kawamata
 #
 # All rights reserved.

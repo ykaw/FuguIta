@@ -3,10 +3,10 @@
 #----------------------------------------
 # create_imgs.sh - create sysmedia.img and fuguita-*.ffsimg
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: create_imgs.sh,v 1.12 2024/01/07 16:24:12 kaw Exp $
+# $Id: create_imgs.sh,v 1.13 2025/01/01 00:58:54 kaw Exp $
 #----------------------------------------
 
-# Copyright (c) 2023--2024
+# Copyright (c) 2023--2025
 # Yoshihiro Kawamata
 #
 # All rights reserved.

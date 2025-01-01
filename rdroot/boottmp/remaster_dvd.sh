@@ -3,10 +3,10 @@
 #----------------------------------------
 # remaster_dvd.sh - Remastering FuguIta's LiveDVD
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: remaster_dvd.sh,v 1.12 2024/05/02 12:53:45 kaw Exp $
+# $Id: remaster_dvd.sh,v 1.13 2025/01/01 00:58:54 kaw Exp $
 #----------------------------------------
 
-# Copyright (c) 2021--2024
+# Copyright (c) 2021--2025
 # Yoshihiro Kawamata
 #
 # All rights reserved.

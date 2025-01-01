@@ -1,6 +1,6 @@
 #!/bin/ksh
 
-# Copyright (c) 2022--2024, Yoshihiro Kawamata
+# Copyright (c) 2022--2025, Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -36,7 +36,7 @@
 # 020_extract.sh - modify OpenBSD's file tree for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 020_modify_tree.sh,v 1.15 2024/08/25 14:39:56 kaw Exp $
+# $Id: 020_modify_tree.sh,v 1.16 2025/01/01 00:58:54 kaw Exp $
 #
 #========================================
 

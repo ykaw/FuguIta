@@ -4,10 +4,10 @@
 # gen_mode0sldir - generate fast-boot cache
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: gen_mode0sldir,v 1.7 2024/01/01 02:46:35 kaw Exp $
+# $Id: gen_mode0sldir,v 1.8 2025/01/01 00:58:54 kaw Exp $
 #========================================
 
-# Copyright (c) 2010--2024
+# Copyright (c) 2010--2025
 # Yoshihiro Kawamata
 #
 # All rights reserved.

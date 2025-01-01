@@ -1,4 +1,4 @@
-# Copyright (c) 2005--2024, Yoshihiro Kawamata
+# Copyright (c) 2005--2025, Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.131 2024/11/08 02:56:28 kaw Exp $
+# $Id: Makefile,v 1.132 2025/01/01 00:58:54 kaw Exp $
 
 #========================================
 # global definitions

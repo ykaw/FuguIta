@@ -8,7 +8,7 @@ ${FIOPT_TGZ}:
 	touch install_start
 	${MAKE} build_install
 	touch install_end
-	tar cvzf ../${FIOPT_TGZ} $$(find ${PREFIX} \( -type f -o -type l \) -cnewer install_start ! -cnewer install_end -print | sort)
+	tar cvzf ${FIOPT_TGZ} $$(find ${PREFIX} \( -type f -o -type l \) -cnewer install_start ! -cnewer install_end -print | sort)
 
 build_install: ${PROGS}
 
@@ -52,7 +52,7 @@ allclean:
 	${MAKE} distclean PROG=${RSYNC}
 	${MAKE} distclean PROG=${RLWRAP}
 	${MAKE} distclean PROG=${PV}
-	rm -f install_start install_end ../${FIOPT_TGZ} *~ *.bak
+	rm -f install_start install_end ${FIOPT_TGZ} *~ *.bak
 
 distclean:
 .ifdef PROG

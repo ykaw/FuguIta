@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.109 2025/01/01 00:58:54 kaw Exp $
+# $Id: usbfadm,v 1.110 2025/02/25 02:16:20 kaw Exp $
 #
 #========================================
 
@@ -263,6 +263,13 @@ function notice {
     echo ========================================
     echo = "$@"
     echo =
+}
+
+function closenotice {
+    echo =
+    echo = "$@"
+    echo ========================================
+    echo
 }
 
 #-------------------
@@ -971,9 +978,10 @@ case "$opt_mode" in
                 rsync -q -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. $mntdir1/livecd-config/$verarch/$uconf/.
                 retval=$?
             else
-                notice "Sync ${devname} with current ${memfstype} as ${uconf}"
+                notice "sync ${devname} with current ${memfstype} as ${uconf}"
                 rsync --progress -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. $mntdir1/livecd-config/$verarch/$uconf/.
                 retval=$?
+                closenotice "done: sync ${devname} with current ${memfstype} as ${uconf}"
             fi
             # find $mntdir1 \! -type d \! -type f \! -type l -print | xargs rm -f
             rm -rf $mntdir1/livecd-config/$uconf/tmp/{.??*,*}
@@ -1076,7 +1084,8 @@ while :; do
             continue
         fi
 
-        if [ 1 = `ask_yn "Sync current ${memfstype} as \\\`\\\`$uconf'' , OK?" n` ]; then
+        notice "sync current ${memfstype} as $uconf"
+        if [ 1 = `ask_yn "OK?" n` ]; then
             if mount -o async,noatime $devname $mntdir1; then
                 echo
                 if [ -d $mntdir1/livecd-config ]; then
@@ -1093,10 +1102,11 @@ while :; do
                     echo "$uconf"   > /boottmp/boot_user_config
                     sync
                     sleep 5
+                    closenotice "done: sync current ${memfstype} as $uconf"
                 else
                     echo
-                    echo "$devname isn't for FuguIta's backup."
-                    echo "(Directory /livecd-config doesn't exist)"
+                    echo "sync: $devname isn't for FuguIta's backup."
+                    echo "sync: directory /livecd-config doesn't exist"
                 fi
                 umount $devname
             fi
@@ -1271,7 +1281,7 @@ while :; do
         if swapctl -l | grep -q "^/dev/$newdev"; then
             echo
             echo "newdrive: $newdev is being used for swap."
-            echo "          Consider 'swapctl -d' for deactivate the swap partition."
+            echo "newdrive: Consider 'swapctl -d' for deactivate the swap partition."
             continue
         fi
 
@@ -1662,12 +1672,9 @@ EOT
                 partid_obsd=$(echo "$fdisk_output" | tr -d '*:' | awk '/A6.*OpenBSD/ {print $1}')
                 fdisk_input="e ${partid_obsd}\nA6\nn\n\n*\nw\nq\n"
                 ;;
-            "gpt")
-                partid_obsd=$(echo "$fdisk_output" | awk '/[1-9][0-9]*: OpenBSD/ {print 0+$1}')
-                fdisk_input="e ${partid_obsd}\nA6\n\n*\nOpenBSD Area\nw\nq\n"
-                ;;
-            "hybrid")
-                echo "expand: cannot modify hybrid MBR - $expdev"
+            "gpt"|"hybrid")
+                echo "expand: $expdev - cannot modify GPT"
+                echo "expand: Please consider running newdrive against another device."
                 continue
                 ;;
             "unknown")

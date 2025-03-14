@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.112 2025/03/14 07:51:53 kaw Exp $
+# $Id: usbfadm,v 1.113 2025/03/14 17:02:02 kaw Exp $
 #
 #========================================
 
@@ -1540,10 +1540,6 @@ while :; do
             else
                 echo
                 dev=`rl_wread "target device" "$def_dev" ${devs_normal}${devs_crypto}`
-                devname=/dev/$dev
-                set -- ${devs_normal}${devs_crypto}
-                devnames="$@"  # trim heading/trailing spaces
-                break
                 if [ 0 -lt `expr "$devs_normal" : ".* $dev "` ]; then
                     devname=/dev/$dev
                     set -- ${devs_normal}${devs_crypto}

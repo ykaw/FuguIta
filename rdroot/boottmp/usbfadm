@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.110 2025/02/25 02:16:20 kaw Exp $
+# $Id: usbfadm,v 1.111 2025/03/14 07:32:47 kaw Exp $
 #
 #========================================
 
@@ -47,9 +47,16 @@
 #==================================
 
 #-------------------
+# echo to stderr
+#
+echoerr () {
+    echo "$@" >&2
+}
+
+#-------------------
 # clean-ups then exit
 #
-function clear_exit {
+clear_exit () {
     local exitstat="$1"
     local mnt="$(mount)"
     local dir
@@ -72,7 +79,7 @@ function clear_exit {
     # remove lock directory
     #
     if ! rmdir "$lockdir"; then
-        echo "${0##*/}: cannot remove $lockdir, please check." >&2
+        echoerr "${0##*/}: cannot remove $lockdir, please check."
     fi
     exit "$exitstat"
 }
@@ -87,11 +94,11 @@ function clear_exit {
 #                 -1: Key pressed but not ENTER
 #                 -2: Error occured
 #
-function wait_enter {
+wait_enter () {
     local prompt="$1"
     local line
 
-    echo -n "$prompt -> " >&2; read line
+    echoerr -n "$prompt -> "; read line
 
     if [ X"$line" = X ]; then
         echo 1
@@ -113,7 +120,7 @@ function wait_enter {
 #
 #       output ... 1: yes, 0: no, -1: else yn, -2: error occured
 #
-function ask_yn {
+ask_yn () {
 
     if [ -z "$2" ]; then
         echo -2
@@ -132,7 +139,7 @@ function ask_yn {
     esac
 
     while :; do
-        echo -n "$prompt" >&2; read yn_ans
+        echoerr -n "$prompt"; read yn_ans
 
         case X"$yn_ans"X in
             X[Yy]X) echo 1; return;;
@@ -162,7 +169,7 @@ function ask_yn {
 #       output: first word of selected item
 #               returns empty line unless selected normally
 #
-function ask_which {
+ask_which () {
     if [ $# -lt 3 ]; then
         return
     fi
@@ -198,7 +205,7 @@ function ask_which {
         fi
         i=$((i+1))
     done
-    echo "$prompt" >&2
+    echoerr "$prompt"
 
     local ans
     ans=`rl_wread '' ''`
@@ -226,7 +233,7 @@ function ask_which {
 #
 #     usage: rl_wread prompt-str default-str [completion words ....]
 #
-function rl_wread {
+rl_wread () {
     local prompt="$1";  shift
     local default="$1"; shift
     local retval
@@ -245,10 +252,10 @@ function rl_wread {
         # fallback to dumb input
         #
         if [ X"$default" = X ]; then
-            echo -n "${prompt}->" >&2
+            echoerr -n "${prompt}->"
             read w
         else
-            echo -n "$prompt [$default] -> " >&2
+            echoerr -n "$prompt [$default] -> "
             read w
             if [ X"$w" = X ]; then
               w="$default"
@@ -258,14 +265,14 @@ function rl_wread {
     fi
 }
 
-function notice {
+notice () {
     echo
     echo ========================================
     echo = "$@"
     echo =
 }
 
-function closenotice {
+closenotice () {
     echo =
     echo = "$@"
     echo ========================================
@@ -279,7 +286,7 @@ function closenotice {
 # Outputs to stdout
 #   null string unless converted sucessfully
 #
-function byte2sect {
+byte2sect () {
     local args=$@  # concat all arguments as a string
     local val
     val=$(expr "$args" : '0*\([1-9][0-9]*\) *[Tt][Bb]*$') && { echo "$((1024*1024*1024*1024*val/sect_size))"; return; }
@@ -296,7 +303,7 @@ function byte2sect {
 # Outputs to stdout
 #   null string unless converted sucessfully
 #
-function sect2byte {
+sect2byte () {
     local val
     val=$(expr "$1" : '00*$') && { echo "0B"; return; }
     local scale
@@ -379,7 +386,7 @@ copydirs () {
 #          sects_total: number of total sectors
 #          diskscan   : result of scan - 'ok' or 'ng'
 #
-function disk_scan {
+disk_scan () {
     [ -z "$1" ] && return
     disklabel -c "$1" | awk '
 BEGIN {
@@ -406,7 +413,7 @@ END {
 #
 #   verbose is for debug output
 #
-function showparams {
+showparams () {
 
     # global variables for newdrive subcommand
     # 
@@ -517,7 +524,7 @@ EOT
 #
 # results of previous execution of disk_scan affects this.
 #
-function zerofill_head {
+zerofill_head () {
     notice "Clearing MBR, GPT and BSD disklabel"
     [ "$diskscan" = ok ]  || return
 
@@ -532,7 +539,7 @@ function zerofill_head {
 #
 # results of previous execution of disk_scan affects this.
 #
-function fdisk_init {
+fdisk_init () {
     [ "$diskscan" = ok ]  || return
     [ -z "$1" ] && return
 
@@ -603,7 +610,7 @@ function fdisk_init {
 # With "Legacy", partition a is prepared and
 # FuguIta system will be copied.
 #
-function setup_fs {
+setup_fs () {
     [ "$diskscan" = ok ]  || return
 
     if [ 0 -eq `expr "$scandev" : '^[sw]d[0-9]$'` ] &&
@@ -683,7 +690,7 @@ function setup_fs {
         if [[ $instsys != none ]]; then
             local vn=$(vnconfig $mntdir1/fuguita-${osrel}-${hwmac}.ffsimg)
             if [[ -z "$vn" ]]; then
-                echo 'no available vnode device, FS type of /ram not chagned' >&2
+                echoerr 'no available vnode device, FS type of /ram not chagned'
             else
                 mkdir -p $mntdir2
                 mount /dev/${vn}a $mntdir2
@@ -841,7 +848,7 @@ EOT
 #    vn_device : vnode to be unattached 
 #    vn_img_rm : remove this file if specified
 #
-function clear_vn {
+clear_vn () {
     local vndev="$1"
     local vnrm="$2"
 
@@ -854,6 +861,319 @@ function clear_vn {
     esac
     [ -n "$vnrm" ] && rm -f $vnrm
 }
+
+#-------------------
+# Convert given partition name to partition GUID
+#
+#     usage: getguid partition-name
+#
+#    partition-name: GPT partition name displayed by fdisk
+#    parition GUID is output to stdout
+#
+#    if not found, returns none "empty string"
+#
+getguid () {
+    local guidtab="193d1ea4-b3ca-11e4-b075-10604b889dcf,Android 6.0+ ARM EXT
+19a710a2-b3ca-11e4-b026-10604b889dcf,Android 6.0+ ARM Meta
+49a4d17f-93a3-45c1-a0de-f50b2ebe2599,Android-IA Boot
+2568845d-2332-4675-bc39-8fa5a4748d15,Android-IA Bootloader
+114eaffe-1552-4022-b26e-9b053604cf84,Android-IA Bootloader2
+a893ef21-e428-470a-9e55-0668fd91a2d9,Android-IA Cache
+bd59408b-4514-490d-bf12-9878d963f378,Android-IA Config
+dc76dda9-5ac1-491c-af42-a82591580c0d,Android-IA Data
+8f68cc74-c5e5-48da-be91-a0c8c15e9c80,Android-IA Factory
+9fdaa6ef-4b3f-40d2-ba8d-bff16bfb887b,Android-IA Factory (alt)
+767941d0-2085-11e3-ad3b-6cfdb94711e9,Android-IA Fastboot/Tertiary
+20ac26be-20b7-11e3-84c5-6cfdb94711e9,Android-IA Metadata
+ef32a33b-a409-486c-9141-9ffb711f6266,Android-IA Misc
+ac6d7924-eb71-4df8-b48d-e267b27148ff,Android-IA OEM
+ebc597d0-2053-4b15-8b64-e0aac75f4db1,Android-IA Persistent
+4177c722-9e92-4aab-8644-43502bfd5506,Android-IA Recovery
+38f428e6-d326-425d-9140-6e0ea133647c,Android-IA System
+c5a0aeec-13ea-11e5-a1b1-001e67ca0c3c,Android-IA Vendor
+90b6ff38-b98f-4358-a21f-48f35b4a8ad3,ArcaOS Type 1 (OS/2)
+734e5afe-f61a-11e6-bc64-92361f002671,Atari TOS Basic data
+4778ed65-bf42-45fa-9c5b-287a1dc4aab1,Barebox barebox-state
+42465331-3ba3-10f1-802a-4861696b7521,BeOS/i386
+cafecafe-9b03-4f30-b4c6-b4b80ceff106,Ceph Block
+30cd0809-c2b2-499c-8879-2d6b78529876,Ceph Block DB
+5ce17fce-4087-4169-b7ff-056cc58473f9,Ceph Block write-ahead log
+89c57f98-2fe5-4dc0-89c1-f3ad0ceff2be,Ceph Disk in creation
+45b0969e-9b03-4f30-b4c6-b4b80ceff106,Ceph Journal
+fb3aabf9-d25f-47cc-bf5e-721d1816496b,Ceph Lockbox for dm-crypt keys
+4fbd7e29-8ae0-4982-bf9d-5a8d867af560,Ceph Multipath OSD
+cafecafe-8ae0-4982-bf9d-5a8d867af560,Ceph Multipath block A
+7f4a666a-16f3-47a2-8445-152ef4d03f6c,Ceph Multipath block B
+ec6d6385-e346-45dc-be91-da2a7c8b3261,Ceph Multipath block DB
+01b41e1b-002a-453c-9f17-88793989ff8f,Ceph Multipath block log
+45b0969e-8ae0-4982-bf9d-5a8d867af560,Ceph Multipath journal
+4fbd7e29-9d25-41b8-afd0-062c0ceff05d,Ceph OSD
+4fbd7e29-9d25-41b8-afd0-35865ceff05d,Ceph dm-crypt LUKS OSD
+cafecafe-9b03-4f30-b4c6-35865ceff106,Ceph dm-crypt LUKS block
+166418da-c469-4022-adf4-b30afd37f176,Ceph dm-crypt LUKS block DB
+45b0969e-9b03-4f30-b4c6-35865ceff106,Ceph dm-crypt LUKS journal
+86a32090-3647-40b9-bbbd-38d8c573aa86,Ceph dm-crypt LUKS log
+4fbd7e29-9d25-41b8-afd0-5ec00ceff05d,Ceph dm-crypt OSD
+cafecafe-9b03-4f30-b4c6-5ec00ceff106,Ceph dm-crypt block
+93b0052d-02d9-4d8a-a43b-33a3ee4dfbc3,Ceph dm-crypt block DB
+306e8683-4fe2-4330-b7c0-00a917c16966,Ceph dm-crypt block log
+89c57f98-2fe5-4dc0-89c1-5ec00ceff2be,Ceph dm-crypt disk in creation
+45b0969e-9b03-4f30-b4c6-5ec00ceff106,Ceph dm-crypt journal
+cab6e88e-abf3-4102-a07a-d4bb9be3c1d3,ChromeOS firmware
+2e0a753d-9e48-43b0-8337-b15192cb1b5e,ChromeOS future use
+3f0f8318-f146-4e6b-8222-c28c8f02e0d5,ChromeOS hibernate
+09845860-705f-4bb5-b16c-8a8a099caf52,ChromeOS miniOS
+3cb8e202-3b7e-47dd-8a3c-7ff2a13cfcec,ChromeOS rootfs
+5dfbf5f4-2848-4bac-aa5e-0d9a20b745a6,CoreOS /usr
+c95dc21a-df0e-4340-8d7b-26cbfa9a03e0,CoreOS OEM
+3884dd41-8582-4404-b9a8-e9b84f2df50e,CoreOS Resizable root
+be9067b9-ea49-4f15-b4f6-f36f8c9e1818,CoreOS root RAID
+ebd0a0a2-b9e5-4433-87c0-68b6b72699c7,DOS > 32MB
+ebd0a0a2-b9e5-4433-87c0-68b6b72699c7,DOS FAT-12
+ebd0a0a2-b9e5-4433-87c0-68b6b72699c7,DOS FAT-16
+c12a7328-f81f-11d2-ba4b-00a0c93ec93b,EFI Sys
+516e7cb4-6ecf-11d6-8ff8-00022d09712b,FreeBSD
+83bd6b9d-7f41-11dc-be0b-001560b84f0f,FreeBSD Boot
+516e7cb5-6ecf-11d6-8ff8-00022d09712b,FreeBSD Swap
+516e7cb6-6ecf-11d6-8ff8-00022d09712b,FreeBSD UFS
+516e7cb8-6ecf-11d6-8ff8-00022d09712b,FreeBSD Vinum volume manager
+516e7cba-6ecf-11d6-8ff8-00022d09712b,FreeBSD ZFS
+74ba7dd9-a689-11e1-bd04-00e081286acf,FreeBSD nandfs
+a13b4d9a-ec5f-11e8-97d8-6c3be52705bf,Fuchsia Legacy Verified boot mA
+a288abf2-ec5f-11e8-97d8-6c3be52705bf,Fuchsia Legacy Verified boot mB
+6a2460c3-cd11-4e8b-80a8-12cce268ed0a,Fuchsia Legacy Verified boot mR
+de30cc86-1f4a-4a31-93c4-66f147d33e05,Fuchsia Legacy Zircon boot (A)
+23cc04df-c278-4ce7-8471-897d1a4bcdf7,Fuchsia Legacy Zircon boot (B)
+a0e5cf57-2def-46be-a80c-a2067c37cd49,Fuchsia Legacy Zircon boot (R)
+2967380e-134c-4cbb-b6da-17e7ce1ca45d,Fuchsia Legacy blob
+5ece94fe-4c86-11e8-a15b-480fcf35f8e6,Fuchsia Legacy bootloader
+08185f0c-892d-428a-a789-dbeec8f55e6a,Fuchsia Legacy data
+900b0fc5-90cd-4d4f-84f9-9f8ed579db88,Fuchsia Legacy emmc-boot1
+b2b2e8d1-7c10-4ebc-a2d0-4614568260ad,Fuchsia Legacy emmc-boot2
+5a3a90be-4c86-11e8-a15b-480fcf35f8e6,Fuchsia Legacy factory-config
+41d0e340-57e3-954e-8c1e-17ecac44cff5,Fuchsia Legacy fvm
+8b94d043-30be-4871-9dfa-d69556e8c1f3,Fuchsia Legacy guid-test
+48435546-4953-2041-494e-5354414c4c52,Fuchsia Legacy install
+1d75395d-f2c6-476b-a8b7-45cc1c97b476,Fuchsia Legacy misc
+4e5e989e-4c86-11e8-a15b-480fcf35f8e6,Fuchsia Legacy sys-config
+606b000b-b7c7-4653-a7d5-b737332c899d,Fuchsia Legacy system
+10b8dbaa-d2bf-42a9-98c6-a7c5db3701e7,Fuchsia RO Factory boot data
+f95d940e-caba-4578-9b93-bb6c90f29d3e,Fuchsia RO Factory system data
+421a8bfc-85d9-4d85-acda-b64eec0133e9,Fuchsia Verified boot meta (ABR)
+49fd7cb8-df15-4e73-b9d9-992070127f0f,Fuchsia Volume Manager
+9b37fff6-2e58-466a-983a-f7926d0b04e0,Fuchsia Zircon boot (ABR)
+fe8a2634-5e2e-46ba-99e3-3a192091a350,Fuchsia bootloader (ABR)
+d9fd4535-106c-4cec-8d37-dfc020ca87cb,Fuchsia encrypted system data
+a409e16b-78aa-4acc-995c-302352621a41,Fucshia boot metadata (ABR)
+75894c1e-3aeb-11d3-b7c1-7b03a0000000,HP-UX Data
+e2a1e728-32e3-11d6-a682-7b03a0000000,HP-UX Service
+d3bfe2de-3daf-11df-ba40-e3a556d89593,Intel Fast Flash (iFFS)
+bfbfafe7-a34f-448a-9a5b-6213eb736c22,Lenovo boot
+bc13c2ff-59e6-4262-a352-b275fd6f7172,Linux /boot
+933ac7e1-2eb4-4f13-b844-0e14e2aef915,Linux /home
+3b8f8425-20e0-4f3b-907f-1a25a76f98e8,Linux /srv (server data)
+4d21b016-b534-45c2-a9fb-5c16e091fd2d,Linux /var
+7ec6f557-3bc5-4aca-b293-16ef5df639d1,Linux /var/tmp
+7d0359a3-02b3-4f0a-865c-654403e70625,Linux Arm32 /usr
+c215d751-7bcd-4649-be90-6627490a4c05,Linux Arm32 /usr verity
+69dad710-2ce4-4e3c-b16c-21a1d49abed3,Linux Arm32 Root
+7386cdf2-203c-47a9-a498-f2ecce45a2d6,Linux Arm32 root verity
+b0e01050-ee5f-4390-949a-9101b17104e9,Linux Arm64 /usr
+6e11a4e7-fbca-4ded-b9e9-e1a512bb664e,Linux Arm64 /usr verity
+b921b045-1df0-41c3-af44-4c6f280d3fae,Linux Arm64 root
+df3300ce-d69f-4c92-978c-9bfb0f38d820,Linux Arm64 root verity
+4301d2a6-4e3b-4b2a-bb94-9e0b2c4225ea,Linux IA-64 /usr
+6a491e03-3be7-4545-8e38-83320e0ea880,Linux IA-64 /usr verity
+993d8d3d-f80e-4225-855a-9daf8ed7ea97,Linux IA-64 root
+86ed10d5-b607-45bb-8957-d350f23d0571,Linux IA-64 root verity
+ca7d7ccb-63ed-4c53-861c-1742536059cc,Linux LUKS
+e6d6d379-f507-44c2-a23c-238f2a3df928,Linux LVM
+7ffec5c9-2d00-49b7-8941-3ea10a5586b7,Linux Plain dm-crypt
+a19d880f-05fc-4d3b-a006-743f0f84911e,Linux RAID
+8da63339-0007-60c0-c436-083ac8230908,Linux Reserved
+0fc63daf-8483-4772-8e79-3d69d8477de4,Linux files*
+0657fd6d-a4ab-43c4-84e5-0933c84b4f4f,Linux swap
+773f91ef-66d4-49b5-bd83-d683bf40ad16,Linux user's home
+75250d76-8cc6-458e-bd66-bd47cc81a812,Linux x86 /usr
+8f461b0d-14ee-4e81-9aa9-049b6fb97abd,Linux x86 /usr verity
+44479540-f297-41b2-9af7-d131d5f0458a,Linux x86 Root
+d13c5d3b-b5d1-422a-b29f-9454fdc89d76,Linux x86 root verity
+8484680c-9521-48c6-9c11-b0720656f69e,Linux x86-64 /usr
+77ff5f63-e7b6-4633-acf4-1565b864c0e6,Linux x86-64 /usr verity
+4f68bce3-e8cd-4db1-96e7-fbcaf984b709,Linux x86-64 Root
+2c7357ed-ebd2-46d9-aec1-23d437ec2bf5,Linux x86-64 root verity
+af9b60a0-1431-4f62-bc68-3311714a69ad,LinuxSwap DR
+53746f72-6167-11aa-aa11-00306543ecac,MacOS Core Storage container
+4c616265-6c00-11aa-aa11-00306543ecac,MacOS Label
+52414944-0000-11aa-aa11-00306543ecac,MacOS RAID
+52414944-5f4f-11aa-aa11-00306543ecac,MacOS RAID (offline)
+5265636f-7665-11aa-aa11-00306543ecac,MacOS TV Recovery
+55465300-0000-11aa-aa11-00306543ecac,MacOS X
+48465300-0000-11aa-aa11-00306543ecac,MacOS X HFS+
+426f6f74-0000-11aa-aa11-00306543ecac,MacOS X boot
+ebd0a0a2-b9e5-4433-87c0-68b6b72699c7,Microsoft basic data
+85d5e45e-237c-11e1-b4b3-e89a8f7fc3a7,MidnightBSD Boot
+85d5e45a-237c-11e1-b4b3-e89a8f7fc3a7,MidnightBSD Data
+85d5e45b-237c-11e1-b4b3-e89a8f7fc3a7,MidnightBSD Swap
+0394ef8b-237e-11e1-b4b3-e89a8f7fc3a7,MidnightBSD UFS
+85d5e45c-237c-11e1-b4b3-e89a8f7fc3a7,MidnightBSD Vinum vol mgr
+85d5e45d-237c-11e1-b4b3-e89a8f7fc3a7,MidnightBSD ZFS
+ebd0a0a2-b9e5-4433-87c0-68b6b72699c7,NTFS
+49f48d5a-b10e-11dc-b99b-0019d1879648,NetBSD
+2db519c4-b10f-11dc-b99b-0019d1879648,NetBSD Concatenated
+2db519ec-b10f-11dc-b99b-0019d1879648,NetBSD Encrypted
+49f48d82-b10e-11dc-b99b-0019d1879648,NetBSD LFS
+49f48daa-b10e-11dc-b99b-0019d1879648,NetBSD RAID
+49f48d32-b10e-11dc-b99b-0019d1879648,NetBSD Swap
+7412f7d5-a156-4b13-81dc-867174929325,ONIE Boot
+d4e6e2cd-4469-46f3-b5cb-1bff57afc149,ONIE Config
+ebd0a0a2-b9e5-4433-87c0-68b6b72699c7,OS/2 hidden
+824cc7a0-36a8-11e3-890a-952519ad3f61,OpenBSD
+9e1a2d38-c612-4316-aa26-8b49521e5a8b,PPC PReP boot
+c91818f9-8025-47af-89d2-f030d7000c2c,Plan9
+cef5a9ad-73bc-4601-89f3-cdeeeee321a1,QNX (6) Power-safe file system
+7c5222bd-8f5d-4087-9c00-bf9843c7b58c,SPDK block device
+bbba6df5-f46f-4a89-8f59-8765b2727503,Softraid Cache
+2e313465-19b9-463f-8126-8a7993773801,Softraid Scratch
+b6fa30da-92d2-4a9a-96f1-871ec6486200,Softraid Status
+fa709c7e-65b1-4593-bfd5-e71d61de9b02,Softraid Volume
+6a85cf4d-1dd2-11b2-99a6-080020736631,Solaris
+6a90ba39-1dd2-11b2-99a6-080020736631,Solaris/illumos /home
+6a898cc3-1dd2-11b2-99a6-080020736631,Solaris/illumos /usr|MacOS ZFS
+6a8ef2e9-1dd2-11b2-99a6-080020736631,Solaris/illumos /var
+6a9283a5-1dd2-11b2-99a6-080020736631,Solaris/illumos Alt sector
+6a8b642b-1dd2-11b2-99a6-080020736631,Solaris/illumos Backup
+6a8d2ac7-1dd2-11b2-99a6-080020736631,Solaris/illumos Reserved
+6a945a3b-1dd2-11b2-99a6-080020736631,Solaris/illumos Reserved
+6a96237f-1dd2-11b2-99a6-080020736631,Solaris/illumos Reserved
+6a9630d1-1dd2-11b2-99a6-080020736631,Solaris/illumos Reserved
+6a980767-1dd2-11b2-99a6-080020736631,Solaris/illumos Reserved
+6a87c46f-1dd2-11b2-99a6-080020736631,Solaris/illumos Swap
+6a82cb45-1dd2-11b2-99a6-080020736631,Solaris/illumos boot
+f4019732-066e-4e12-8273-346c5641494f,Sony boot
+ebd0a0a2-b9e5-4433-87c0-68b6b72699c7,ThinkPad Rec
+3de21764-95bd-54bd-a5c3-4abe786f38a8,U-Boot environment
+00000000-0000-0000-0000-000000000000,Unused
+9198effc-31c0-11db-8f78-000c2911d1b8,VMWare Reserved
+aa31e02a-400f-11db-9590-000c2911d1b8,VMWare VMFS filesystem
+9d275380-40ad-11db-bf97-000c2911d1b8,VMWare vmkcore (coredump)
+8c8f8eff-ac95-4770-814a-21994f2dbc8f,Veracrypt Encrypted data
+de94bba4-06d1-4d40-a16a-bfd50179d6ac,Win Recovery
+ebd0a0a2-b9e5-4433-87c0-68b6b72699c7,Win95 FAT-32
+ebd0a0a2-b9e5-4433-87c0-68b6b72699c7,Win95 FAT32L
+37affc90-ef7d-4e96-91c3-2d7ae055b174,Windows IBM General Parallel FS
+5808c8aa-7e8f-42e0-85d2-e1e90434cfb3,Windows LDM metadata
+e3c9e316-0b5c-4db8-817d-f92df00215ae,Windows Reserved (MSR)
+558d43c5-a1ac-43c0-aac8-d1472b2923d1,Windows Storage Replica
+e75caf8f-f680-4cee-afa3-b001e56efc2d,Windows Storage Spaces
+"
+    readonly guidtab
+
+    [[ -n "$1" ]] || return
+
+    local partname="$1"
+    local guid=$(echo "$guidtab" | grep ",${partname}\$" | tail -n 1)
+    guid=${guid%,*}
+
+    [[ -n "$guid" ]] || return
+
+    echo $guid
+}
+
+#-------------------
+# read every GPT line output from fdisk
+# then converts it to command sequence
+# to generate equivalent patition
+#
+#    input: stdin
+#    output: stdout
+#
+#  if error detected, outputs "abort" fdisk command
+#
+listpart () {
+    local OIFS="$IFS"
+    awk \
+        '/^[ 	]*[0-9]+: .* \[ .* \]$/{
+             partno=$1+0
+             parttype=substr($0, 7, 36); sub(" +$", "", parttype)
+             secstart=$(NF-2); secstart=secstart+0
+             secend=$(NF-1)
+             line1=partno","parttype","secstart","secend
+         }
+
+         /^      [0-9a-f]+-[0-9a-f]+-[0-9a-f]+-[0-9a-f]+-[0-9a-f]+ / {
+             guid=substr($0, 7, 36); sub(" +$", "", guid)
+             partname=substr($0, 44); sub(" +$", "", partname)
+             print line1","guid","partname
+             line1=""
+         }' \
+      | while read line; do
+          IFS=','
+          set -- $line
+          IFS="$OIFS"
+          # echo "$1,$(getguid "$2"),$3,$4,$5,$6"
+          cat <<EOT
+edit $1
+$(getguid "$2")
+$3
+$4
+$6
+EOT
+      done
+}
+
+#-------------------
+# read whole GPT output from "fdisk -v"
+# then outputs them fdisk command sequences
+# to generate equivalent patition tables
+#
+#    input: stdin
+#    output: stdout
+#
+#  if error detected, outputs "abort" fdisk command
+#
+fixgpt () {
+    # output of fdisk -v
+    local fdisk_src="$(cat)"
+
+    # part of Primary GPT
+    local fdisk_pri=$(echo "$fdisk_src" | sed '/^Primary GPT:/,/^Secondary GPT:/!d')
+
+    # part of Primary MBR
+    local fdisk_mbr=$(echo "$fdisk_src" | sed '/^MBR:/,$!d')
+
+    # check if this disk contains GPT
+    if ! echo "$fdisk_mbr" | grep -q '^ 0: EE .* EFI GPT$'; then
+        echoerr "not GPT disk"
+        echo "abort"
+        return
+    fi
+
+    # get command sequence to generate equivalent GPT
+    local gpt_pri=$(echo "$fdisk_pri" | listpart)
+
+    # generate fdisk command sequences?
+    if [[ -z "$gpt_pri" ]]; then
+        echoerr "Illegal primary GPT"
+        echo "abort"
+        return
+    fi
+
+    # initialize GPT (only an OpenBSD partition generated)
+    echo "reinit gpt"
+
+    # disables it
+    echo "edit 0"
+    echo "0"
+
+    # rebuild equivalent GPT
+    echo "$gpt_pri"
+
+    # write to disk
+    echo "write"
+    echo "quit"
+}
+
 
 #==================================
 # Active Code from HERE.
@@ -1168,11 +1488,11 @@ while :; do
                          | sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'`; do
 
                 # vnd included
-                #(expr $rdev : '^[sw]d[0-9]' || expr $rdev : '^vnd[0-9]' ) >/dev/null \
-                #|| continue
+                (expr $rdev : '^[sw]d[0-9]' || expr $rdev : '^vnd[0-9]' ) >/dev/null \
+                || continue
 
-                # vnd execluded
-                expr $rdev : '^[sw]d[0-9]' >/dev/null || continue
+                # # vnd execluded
+                # expr $rdev : '^[sw]d[0-9]' >/dev/null || continue
 
                 # $rdev is detected storage name - e.g. "sd2"
                 for ptfs in `disklabel -c "$rdev" 2>/dev/null \
@@ -1220,6 +1540,10 @@ while :; do
             else
                 echo
                 dev=`rl_wread "target device" "$def_dev" ${devs_normal}${devs_crypto}`
+devname=/dev/$dev
+set -- ${devs_normal}${devs_crypto}
+devnames="$@"  # trim heading/trailing spaces
+break
                 if [ 0 -lt `expr "$devs_normal" : ".* $dev "` ]; then
                     devname=/dev/$dev
                     set -- ${devs_normal}${devs_crypto}
@@ -1260,12 +1584,13 @@ while :; do
             newdev=''
         fi
         echo '============================================================'
-        newdev=$(rl_wread "Enter the name of device which FuguIta will be installed" "" $(sysctl -n hw.disknames|tr :, \\\012|grep '^[s]d[0-9]$') $newdev)
+        newdev=$(rl_wread "Enter the name of device which FuguIta will be installed" "" $(sysctl -n hw.disknames|tr :, \\\012|grep '^[sw]d[0-9]$') $newdev)
         if [ -z "$newdev" ]; then
             echo
             echo "newdrive: no device name"
             continue
         elif [ 0 -eq $(expr "$newdev" : '^[sw]d[0-9]$') ] && \
+           [ 0 -eq $(expr "$newdev" : '^vnd[0-9]$') ] && \
            [ 0 -eq $(expr "$newdev" : '^img$') ]; then
             echo
             echo "newdrive: device $newdev is not supported."
@@ -1609,7 +1934,7 @@ EOT
                 rm $lockdir/hybrid.mbr
                 ;;
             *)
-                echo "Partition type: '$parttype' - unknown" >&2
+                echoerr "Partition type: '$parttype' - unknown"
                 ;;
         esac
 
@@ -1644,12 +1969,12 @@ EOT
         eval $(disk_scan $expdev)  # to get sect_size for byte2sect
         [[ $diskscan != 'ok' ]] && continue
 
-        fdisk_output=$(fdisk $expdev)
+        fdisk_output=$(fdisk -v $expdev)
 
         # check partitioning types
         #
         if echo "$fdisk_output" | grep -q '^Disk: .* Usable LBA: '; then
-            exptype=gpt  # Only GPT exists
+            exptype=gpt  # GPT with ESP
         elif echo "$fdisk_output" | grep -q 'Signature: 0xAA55'; then
             if echo "$fdisk_output" | grep -q '[0123]: EF .* EFI Sys'; then
                 if echo "$fdisk_output" | grep -q '[0123]: EE .* EFI GPT'; then
@@ -1658,7 +1983,7 @@ EOT
                     exptype=mbr_uefi  # MBR with UEFI bootloader
                 fi
             else
-                exptype=mbr  # Only MBR exists
+                exptype=mbr
             fi
         else
             exptype=unknown  # random stuff
@@ -1672,8 +1997,12 @@ EOT
                 partid_obsd=$(echo "$fdisk_output" | tr -d '*:' | awk '/A6.*OpenBSD/ {print $1}')
                 fdisk_input="e ${partid_obsd}\nA6\nn\n\n*\nw\nq\n"
                 ;;
-            "gpt"|"hybrid")
-                echo "expand: $expdev - cannot modify GPT"
+            "gpt")
+                partid_obsd=$(echo "$fdisk_output" | sed '/^Primary GPT:/,/^Secondary GPT:/!d' | awk '/[0-9]: OpenBSD/{print $1+0}')
+                fdisk_input="e ${partid_obsd}\nA6\nn\n\n*\nw\nq\n"
+                ;;
+            "hybrid")
+                echo "expand: $expdev - cannot modify Hybrid MBR"
                 echo "expand: Please consider running newdrive against another device."
                 continue
                 ;;
@@ -1683,7 +2012,10 @@ EOT
                 ;;
         esac
 
-        [[ -z "$partid_obsd" ]] && continue  # fail safe
+        if [[ -z "$partid_obsd" ]]; then
+            echo "expand: OpenBSD partition not found"
+            continue
+        fi
 
         # check if another fdisk partition exists after a partition in OpenBSD
         # ... if so, cannot be expanded (may be unbootable)
@@ -1691,8 +2023,13 @@ EOT
         if [[ "YES" == $(echo "$fdisk_output" | awk 'BEGIN { maxstart=-1 }  # max start sector
 
                                                      # determine type of partition table
-                                                     /geometry: [0-9]/   { tbtype = "mbr"; next }
                                                      /Usable LBA: [0-9]/ { tbtype = "gpt"; next }
+                                                     /geometry: [0-9]/   {
+                                                         if (tbtype != "gpt") {
+                                                             tbtype = "mbr"
+                                                         }
+                                                         next
+                                                     }
 
                                                      # OpenBSD on MBR
                                                      tbtype == "mbr" && /^.[0123]: A6 / {
@@ -1719,7 +2056,7 @@ EOT
                                                      END {
                                                          # exist other partition after OpenBSD?
                                                          if (obsdstart<maxstart)
-                                                             print "YES"
+                                                             print "YES:"obsdstart"(OpenBSD)<"maxstart"(Other Partition)"
                                                          else
                                                              print "NO"
                                                      }') ]]; then
@@ -1760,6 +2097,34 @@ EOT
         esac
 
         echo
+
+        # fix GPT header
+        #   generate fdisk commands to fix GPT
+        #   then send them to fdisk -e
+        #
+        if [[ "$exptype" = 'gpt' ]]; then
+            gpt_orig=$(fdisk -v $expdev)
+            gpt_fix_cmds=$(echo "$gpt_orig" | fixgpt)
+
+            # error check
+            #   fixgpt outputs 'abort' without 'write'
+            #   when error occurred internally
+            #
+            if ! echo "$gpt_fix_cmds" | grep -q '^write$'; then
+                echoerr 'expand: unable modify GPT, expand aborted'
+                continue
+            fi
+
+            # mofify GPT
+            #
+            if ! echo "$gpt_fix_cmds" | fdisk -e $expdev; then
+                echoerr 'expand: error occurred at mofifying GPT'
+                echoerr 'expand: So GPT info before modification saved as "OriginalGPT" at current directory'
+                echoerr 'expand: Please check GPT, then recover GPT manually, if needed'
+                echo "$gpt_orig" > OriginalGPT.${RANDOM}
+                continue
+            fi
+        fi
 
         # expand fdisk or GPT partition
         echo "$fdisk_input" | fdisk -e $expdev > /dev/null

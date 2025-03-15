@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.114 2025/03/15 00:21:29 kaw Exp $
+# $Id: usbfadm,v 1.115 2025/03/15 02:58:45 kaw Exp $
 #
 #========================================
 
@@ -205,7 +205,7 @@ ask_which () {
         fi
         i=$((i+1))
     done
-    echoerr "$prompt"
+    echo "$prompt"
 
     local ans
     ans=`rl_wread '' ''`
@@ -361,8 +361,8 @@ dev2duid () {
 copydirs () {
     local srcdir;  srcdir="$1"
     local destdir; destdir="$2"
-    [ -d "$srcdir" ]  || { echo "source directory $srcdir not found";       return; }
-    [ -d "$destdir" ] || { echo "destination directory $destdir not found"; return; }
+    [ -d "$srcdir" ]  || { echoerr "source directory $srcdir not found";       return; }
+    [ -d "$destdir" ] || { echoerr "destination directory $destdir not found"; return; }
     if which pv >/dev/null 2>&1 ; then
         local srcsize; srcsize=$(df -k /ram | awk '/ \/ram$/ { print $3 "K"}')
         echo "copying $srcdir to $destdir (${srcsize}B approx.):"
@@ -546,7 +546,7 @@ fdisk_init () {
     local ptype="$1"
 
     if [ ! $secs_total = $((ps_hgap+ps_uefi+ps_fisys+ps_fiswp+ps_fidat+ps_fat+ps_tgap)) ]; then
-        echo "Inconsistent sector sizes: $secs_total != $ps_hgap + $ps_uefi + $ps_fisys + $ps_fiswp + $ps_fidat + $ps_fat + $ps_tgap"
+        echoerr "Inconsistent sector sizes: $secs_total != $ps_hgap + $ps_uefi + $ps_fisys + $ps_fiswp + $ps_fidat + $ps_fat + $ps_tgap"
         return
     fi
 
@@ -1193,12 +1193,12 @@ fixgpt () {
 # environment check
 #
 if [ ! -r /usr/fuguita/version ]; then
-    echo "You are not running FuguIta."
+    echoerr "You are not running FuguIta."
     exit 1
 fi
 
 if [ ! `id -un` = root ]; then
-    echo "${0##*/} must be run as a root."
+    echoerr "${0##*/} must be run as a root."
     exit 1
 fi
 
@@ -1210,7 +1210,7 @@ if ! pwd >/dev/null 2>&1; then
 fi
 if [ 1 -le $(expr X"$(pwd)" : X$mntdir1) ]; then
     echo
-    echo 'You are under $mntdir1. Please move to other directory.'
+    echoerr 'You are under $mntdir1. Please move to other directory.'
     exit 1
 fi
 
@@ -1219,7 +1219,7 @@ if mkdir $lockdir 2>/dev/null; then
     mkdir $mntdir1
 else
     umask $umask_o
-    echo "another ${0##*/} running (or remove $lockdir)"
+    echoerr "another ${0##*/} running (or remove $lockdir)"
     exit 1
 fi
 umask $umask_o
@@ -1286,10 +1286,10 @@ done
 case "$opt_mode" in
     resync)
         if [ -z "$devname" ]; then
-            echo "${0##*/}: Name of device isn't set. Use 'target', then 'sync' in interactive mode."
+            echoerr "${0##*/}: Name of device isn't set. Use 'target', then 'sync' in interactive mode."
             clear_exit 1
         elif [ -z "$uconf" ]; then
-            echo "${0##*/}: Name of saving data isn't set. Use 'saveas', then 'sync' in interactive mode."
+            echoerr "${0##*/}: Name of saving data isn't set. Use 'saveas', then 'sync' in interactive mode."
             clear_exit 1
         fi
 
@@ -1396,11 +1396,11 @@ while :; do
         Xsync)
         echo
         if [ X"$devname" = X ]; then
-            echo "Name of device not set. Use 'target' to perform this."
+            echoerr "Name of device not set. Use 'target' to perform this."
             continue
         fi
         if [ X"$uconf" = X ]; then
-            echo "Name of saving data not set. Use 'saveas' to perform this."
+            echoerr "Name of saving data not set. Use 'saveas' to perform this."
             continue
         fi
 
@@ -1425,8 +1425,8 @@ while :; do
                     closenotice "done: sync current ${memfstype} as $uconf"
                 else
                     echo
-                    echo "sync: $devname isn't for FuguIta's backup."
-                    echo "sync: directory /livecd-config doesn't exist"
+                    echoerr "sync: $devname isn't for FuguIta's backup."
+                    echoerr "sync: directory /livecd-config doesn't exist"
                 fi
                 umount $devname
             fi
@@ -1461,7 +1461,7 @@ while :; do
         uconf=`echo $uconf | tr -cd 0-9A-Za-z.,_-+=:%@`  # strip invalid chars
         echo
         if [ X"$uconf" = X ]; then
-            echo "Unset the name of saving data"
+            echoerr "Unset the name of saving data"
         else
             echo "Your data will be saved as \`\`$uconf''."
         fi
@@ -1583,26 +1583,26 @@ while :; do
         newdev=$(rl_wread "Enter the name of device which FuguIta will be installed" "" $(sysctl -n hw.disknames|tr :, \\\012|grep '^[sw]d[0-9]$') $newdev)
         if [ -z "$newdev" ]; then
             echo
-            echo "newdrive: no device name"
+            echoerr "newdrive: no device name"
             continue
         elif [ 0 -eq $(expr "$newdev" : '^[sw]d[0-9]$') ] && \
            [ 0 -eq $(expr "$newdev" : '^vnd[0-9]$') ] && \
            [ 0 -eq $(expr "$newdev" : '^img$') ]; then
             echo
-            echo "newdrive: device $newdev is not supported."
+            echoerr "newdrive: device $newdev is not supported."
             continue
         fi
 
         if mount | grep -q "^/dev/$newdev"; then
             echo
-            echo "newdrive: $newdev is already mounted."
+            echoerr "newdrive: $newdev is already mounted."
             continue
         fi
 
         if swapctl -l | grep -q "^/dev/$newdev"; then
             echo
-            echo "newdrive: $newdev is being used for swap."
-            echo "newdrive: Consider 'swapctl -d' for deactivate the swap partition."
+            echoerr "newdrive: $newdev is being used for swap."
+            echoerr "newdrive: Consider 'swapctl -d' for deactivate the swap partition."
             continue
         fi
 
@@ -1639,7 +1639,7 @@ while :; do
                 fi
 
                 if [ -z "$newdev" ]; then
-                    echo "newdrive: sorry, cannot allocate a new vnode device."
+                    echoerr "newdrive: sorry, cannot allocate a new vnode device."
                     clear_vn $newdev $vnfile
                     continue
                 fi
@@ -1665,7 +1665,7 @@ while :; do
         #
         eval $(disk_scan $newdev)
         if [ ! "$diskscan" = ok ]; then
-            echo "cannot get parameters of $newdev"
+            echoerr "cannot get parameters of $newdev"
             clear_vn $newdev $vnfile
             continue
         fi
@@ -1805,7 +1805,7 @@ EOT
                 ps_free=0
                 break
             else
-                echo "$ans ... What?"
+                echoerr "$ans ... What?"
                 continue
             fi
 
@@ -1835,7 +1835,7 @@ EOT
                 ps_free=0
                 break
             else
-                echo "$ans ... What?"
+                echoerr "$ans ... What?"
                 continue
             fi
         done
@@ -1954,7 +1954,7 @@ EOT
 
         echo
         if [[ -z "$devname" ]]; then
-            echo "Name of device not set. Use 'target' to perform this."
+            echoerr "Name of device not set. Use 'target' to perform this."
             continue
         fi
 
@@ -1998,18 +1998,18 @@ EOT
                 fdisk_input="e ${partid_obsd}\nA6\nn\n\n*\nw\nq\n"
                 ;;
             "hybrid")
-                echo "expand: $expdev - cannot modify Hybrid MBR"
-                echo "expand: Please consider running newdrive against another device."
+                echoerr "expand: $expdev - cannot modify Hybrid MBR"
+                echoerr "expand: Please consider running newdrive against another device."
                 continue
                 ;;
             "unknown")
-                echo "expand: cannot read any partition tables - $expdev"
+                echoerr "expand: cannot read any partition tables - $expdev"
                 continue
                 ;;
         esac
 
         if [[ -z "$partid_obsd" ]]; then
-            echo "expand: OpenBSD partition not found"
+            echoerr "expand: OpenBSD partition not found"
             continue
         fi
 

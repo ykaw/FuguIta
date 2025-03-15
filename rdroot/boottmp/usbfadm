@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.113 2025/03/14 17:02:02 kaw Exp $
+# $Id: usbfadm,v 1.114 2025/03/15 00:21:29 kaw Exp $
 #
 #========================================
 
@@ -2052,7 +2052,7 @@ EOT
                                                      END {
                                                          # exist other partition after OpenBSD?
                                                          if (obsdstart<maxstart)
-                                                             print "YES:"obsdstart"(OpenBSD)<"maxstart"(Other Partition)"
+                                                             print "YES"
                                                          else
                                                              print "NO"
                                                      }') ]]; then

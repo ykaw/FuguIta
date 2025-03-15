@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.115 2025/03/15 02:58:45 kaw Exp $
+# $Id: usbfadm,v 1.116 2025/03/15 05:04:13 kaw Exp $
 #
 #========================================
 
@@ -205,7 +205,7 @@ ask_which () {
         fi
         i=$((i+1))
     done
-    echo "$prompt"
+    echo "$prompt" >&2
 
     local ans
     ans=`rl_wread '' ''`
@@ -1424,7 +1424,7 @@ while :; do
                     sleep 5
                     closenotice "done: sync current ${memfstype} as $uconf"
                 else
-                    echo
+                    echoerr
                     echoerr "sync: $devname isn't for FuguIta's backup."
                     echoerr "sync: directory /livecd-config doesn't exist"
                 fi
@@ -1582,25 +1582,25 @@ while :; do
         echo '============================================================'
         newdev=$(rl_wread "Enter the name of device which FuguIta will be installed" "" $(sysctl -n hw.disknames|tr :, \\\012|grep '^[sw]d[0-9]$') $newdev)
         if [ -z "$newdev" ]; then
-            echo
+            echoerr
             echoerr "newdrive: no device name"
             continue
         elif [ 0 -eq $(expr "$newdev" : '^[sw]d[0-9]$') ] && \
            [ 0 -eq $(expr "$newdev" : '^vnd[0-9]$') ] && \
            [ 0 -eq $(expr "$newdev" : '^img$') ]; then
-            echo
+            echoerr
             echoerr "newdrive: device $newdev is not supported."
             continue
         fi
 
         if mount | grep -q "^/dev/$newdev"; then
-            echo
+            echoerr
             echoerr "newdrive: $newdev is already mounted."
             continue
         fi
 
         if swapctl -l | grep -q "^/dev/$newdev"; then
-            echo
+            echoerr
             echoerr "newdrive: $newdev is being used for swap."
             echoerr "newdrive: Consider 'swapctl -d' for deactivate the swap partition."
             continue

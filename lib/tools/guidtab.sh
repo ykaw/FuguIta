@@ -1,34 +1,37 @@
-#!/bin/ksh
+#!/bin/sh
 
 #========================================
-# compress_man.sh - compress and link man pages
-#                   for live system authoring
 #
-# Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: compress_man.sh,v 1.7 2025/01/01 00:58:54 kaw Exp $
+# guidtab.sh - generate "GUID,Partition Name" table text
+# from /usr/src/sbin/fdisk/part.c
+#
+# KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
+#
+# $Id: guidtab.sh,v 1.1 2025/03/15 18:58:35 kaw Exp $
+#
 #========================================
 
-# Copyright (c) 2010--2025
+# Copyright (c) 2025
 # Yoshihiro Kawamata
 #
 # All rights reserved.
-#
+# 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
 # met:
-#
+# 
 #   * Redistributions of source code must retain the above copyright
 #     notice, this list of conditions and the following disclaimer.
-#
+# 
 #   * Redistributions in binary form must reproduce the above copyright
 #     notice, this list of conditions and the following disclaimer in
 #     the documentation and/or other materials provided with the
 #     distribution.
-#
+# 
 #   * Neither the name of Yoshihiro Kawamata nor the names of its
 #     contributors may be used to endorse or promote products derived
 #     from this software without specific prior written permission.
-#
+# 
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 # LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -41,25 +44,42 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-find . -type f \( -name '*.[0-9]' -o -name '*.[0-9][a-z]' \) -links 1 -print | xargs gzip -v9
+awkcode='
+BEGIN {
+    DEFFS=FS
+    COMFS="[ 	]*,[ 	]*"
+}
 
-find . -type f \( -name '*.[0-9]' -o -name '*.[0-9][a-z]' \) -links +1 -print |
-while read f
-do
-    if file $f | grep -q 'gzip compressed data'
-    then
-        mv $f $f.gz
-    else
-        gzip -cv9 $f > $f.gz.tmp
-        mv $f $f.gz
-        cat $f.gz.tmp > $f.gz
-        rm $f.gz.tmp
-    fi
-done
+# #define OPENBSD_GUID		"824cc7a0-36a8-11e3-890a-952519ad3f61"
+#
+/^\#define[ 	]+[A-Z0-9_][A-Z0-9_]*_GUID[ 	]+"[0-9a-f][0-9a-f]*-[0-9a-f][0-9a-f]*-[0-9a-f][0-9a-f]*-[0-9a-f][0-9a-f]*-[0-9a-f][0-9a-f]*"/ {
+    FS=DEFFS
+    $0=$0  # re-split with new field separator
+    gsub("\"", "", $3)
+    guid[$2] = $3
+#    print "guid["$2"]="$3  # for debug
+}
 
-find . -type l \( -name '*.[0-9]' -o -name '*.[0-9][a-z]' \) -print |
-while read f
-do
-    ln -s `stat -f '%Y' $f`.gz $f.gz
-    rm $f
-done
+#	{ 0, "Microsoft basic data",		MICROSOFT_BASIC_DATA_GUID },
+#
+/{[ 	]*0[ 	]*,[ 	]*"[^"][^"]*"[ 	]*,[ 	]*[A-Z0-9_][A-Z0-9_]*_GUID[ 	]*}/ {
+    FS=COMFS
+    $0=$0  # re-split with new field separator
+    gsub("\"", "", $2)
+    gsub("[ 	]*}.*", "", $3)
+    print guid[$3]","$2
+}
+
+#	{ 0xA6,	0xA6,	"OpenBSD",	OPENBSD_GUID },
+#
+/^[ 	]+{[ 	]*0x[0-9A-F][0-9A-F][ 	]*,[ 	]*0x[0-9A-F][0-9A-F][ 	]*,[ 	]*"[^"]*"[ 	]*,[ 	]*[A-Z0-9_][A-Z0-9_]*[ 	]*}/ {
+    FS=COMFS
+    $0=$0  # re-split with new field separator
+    gsub("\"", "", $3)
+    gsub("[ 	]*}.*", "", $4)
+    if (guid[$4] != "")
+        print guid[$4]","$3
+}
+'
+
+awk "$awkcode" /usr/src/sbin/fdisk/part.c | sort -t, -k2,2 -k1,1 | uniq

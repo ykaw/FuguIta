@@ -1,15 +1,14 @@
 #!/bin/ksh
 
 #========================================
-# find1so.sh - generate the command sequence that converts man pages
-#              man pages beginning with .so directive to files 
-#              hard-linked to the equivalent manpage entry
+# compress_man.sh - compress and link man pages
+#                   for live system authoring
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: find1so.sh,v 1.6 2025/01/01 00:58:54 kaw Exp $
+# $Id: compress_man.sh,v 1.1 2025/03/15 18:58:35 kaw Exp $
 #========================================
 
-# Copyright (c) 2016--2025
+# Copyright (c) 2010--2025
 # Yoshihiro Kawamata
 #
 # All rights reserved.
@@ -42,11 +41,25 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-for f in `find * -type f -name '*.[0-9]' -print`
+find . -type f \( -name '*.[0-9]' -o -name '*.[0-9][a-z]' \) -links 1 -print | xargs gzip -v9
+
+find . -type f \( -name '*.[0-9]' -o -name '*.[0-9][a-z]' \) -links +1 -print |
+while read f
 do
-    if [ `wc -l < $f` -eq 1 ] && grep -q '^\.so ' $f
+    if file $f | grep -q 'gzip compressed data'
     then
-        set -- `cat $f`
-        echo "rm $f && ln -s ${2##*/} $f"
+        mv $f $f.gz
+    else
+        gzip -cv9 $f > $f.gz.tmp
+        mv $f $f.gz
+        cat $f.gz.tmp > $f.gz
+        rm $f.gz.tmp
     fi
+done
+
+find . -type l \( -name '*.[0-9]' -o -name '*.[0-9][a-z]' \) -print |
+while read f
+do
+    ln -s `stat -f '%Y' $f`.gz $f.gz
+    rm $f
 done

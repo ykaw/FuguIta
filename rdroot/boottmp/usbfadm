@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.117 2025/03/17 07:13:29 kaw Exp $
+# $Id: usbfadm,v 1.118 2025/03/17 07:40:34 kaw Exp $
 #
 #========================================
 
@@ -1176,6 +1176,823 @@ fixgpt () {
 
 
 #==================================
+# Interactive commands
+#==================================
+
+#-------------------
+# sync - write back memory file system
+#        to the storage device
+#
+cmd_sync () {
+    echo
+    if [[ -z "$devname" ]]; then
+	echoerr "Name of device not set. Use 'target' to perform this."
+	return 1
+    fi
+    if [[ -z "$uconf" ]]; then
+	echoerr "Name of saving data not set. Use 'saveas' to perform this."
+	return 1
+    fi
+
+    notice "sync current ${memfstype} as $uconf"
+    if [ 1 = $(ask_yn "OK?" n) ]; then
+	if mount -o async,noatime $devname $mntdir1; then
+	    echo
+	    if [ -d $mntdir1/livecd-config ]; then
+		if [ -d $mntdir1/livecd-config/$verarch/$uconf ]; then
+		    # previous backup exists ... do differencial copy
+		    rsync -v -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. $mntdir1/livecd-config/$verarch/$uconf/.
+		else
+		    # first backup ... use cpio
+		    mkdir -p $mntdir1/livecd-config/$verarch/$uconf
+		    copydirs /ram $mntdir1/livecd-config/$verarch/$uconf
+		    rm -rf $mntdir1/livecd-config/$verarch/$uconf/tmp/{.??*,*}
+		fi
+		echo "$devname" > /boottmp/boot_restore_devname
+		echo "$uconf"   > /boottmp/boot_user_config
+		sync
+		sleep 5
+		closenotice "done: sync current ${memfstype} as $uconf"
+	    else
+		echoerr
+		echoerr "sync: $devname isn't for FuguIta's backup."
+		echoerr "sync: directory /livecd-config doesn't exist"
+	    fi
+	    umount $devname
+	fi
+    fi
+}
+
+#-------------------
+# archive - archive synced data to *.cpio.gz
+#
+cmd_archive () {
+    echo "I'm implementing this."
+}
+
+#-------------------
+# info - show status of storage device
+#
+cmd_info () {
+    if [[ -n "$devname" ]] && mount -r $devname $mntdir1; then
+	(cd $mntdir1/livecd-config
+	 echo
+	 df -hi $mntdir1
+	 echo "\nscanning...\n" && du -sh [1-9].[0-9]/*/* [1-9].[0-9]-*-*)  2>/dev/null
+	umount $devname
+    fi
+}
+
+#-------------------
+# saveas - set data set name
+#          default is our short hostname
+#
+cmd_saveas () {
+    if [[ -n "devname" ]] && mount $devname $mntdir1; then
+	[ -d $mntdir1/livecd-config/$verarch ] || mkdir -p $mntdir1/livecd-config/$verarch
+	confs=$(cd $mntdir1/livecd-config/$verarch && echo *)
+	umount $devname
+    fi
+    [[ -z "$uconf" ]] && uconf=$(hostname -s)
+    uconf=$(rl_wread "Name of saved data" $uconf $confs)
+    uconf=$(echo $uconf | tr -cd 0-9A-Za-z.,_-+=:%@)  # strip invalid chars
+    echo
+    if [[ -z "$uconf" ]]; then
+	echoerr "Unset the name of saving data"
+    else
+	echo "Your data will be saved as \"$uconf\"."
+    fi
+}
+
+#-------------------
+# target - set target device
+#          for sync and expand
+#
+cmd_target () {
+
+    # search and set storage device
+    #
+    echo
+    echo 'Searching storage device'
+    echo 'Please make sure the device inserted.'
+    [ $(wait_enter 'Then press ENTER') -lt 1 ] && return 1
+
+    # search partitions for saved data
+    #
+    while :; do
+	devname=''
+	devs_normal=' '
+	devs_crypto=' '
+	# listing storage devices with investigation
+	for rdev in $(sysctl -n hw.disknames \
+		     | sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'); do
+
+	    # vnd included
+	    (expr $rdev : '^[sw]d[0-9]' || expr $rdev : '^vnd[0-9]' ) >/dev/null \
+	    || return 1
+
+	    # # vnd execluded
+	    # expr $rdev : '^[sw]d[0-9]' >/dev/null || return 1
+
+	    # $rdev is detected storage name - e.g. "sd2"
+	    for ptfs in $(disklabel -c "$rdev" 2>/dev/null \
+			 | awk '/^  [abd-p]:/ { print $1 $4 }'); do
+		# $ptfs is "partition:fstype" - e.g. "d:4.2BSD"
+		dev="$rdev"${ptfs%:*}
+		fs=${ptfs#*:}
+		case "$fs" in
+		    RAID)
+			# check this RAID partition is crypto
+			if dd if=/dev/r$dev bs=1k count=9 2>/dev/null \
+			   | fgrep -q 'SR CRYPTO'; then
+			    devs_crypto="$devs_crypto$dev "
+			    echo -n "?$dev "
+			else
+			    echo -n "$dev "
+			fi
+			;;
+		    4.2BSD)
+			# check this FFS partition is for FuguIta's storage
+			if mount -r /dev/$dev $mntdir1 2>/dev/null; then
+			    if [ -d $mntdir1/livecd-config ]; then
+				devs_normal="$devs_normal$dev "
+				def_dev="$dev"
+				echo -n "+$dev "
+			    else
+				echo -n "$dev "
+			    fi
+			    umount $mntdir1
+			else
+			    echo -n "$dev "
+			fi
+			;;
+		esac
+	    done
+	done
+
+	# show result of scanning
+	# then prompt to user
+	#
+	if [ "${devs_normal}${devs_crypto}" = '  ' ]; then
+	    echo
+	    echo 'No device available for saving data'
+	    break
+	else
+	    echo
+	    dev=$(rl_wread "target device" "$def_dev" ${devs_normal}${devs_crypto})
+	    if [ 0 -lt $(expr "$devs_normal" : ".* $dev ") ]; then
+		devname=/dev/$dev
+		set -- ${devs_normal}${devs_crypto}
+		devnames="$@"  # trim heading/trailing spaces
+		break
+	    elif [ 0 -lt $(expr "$devs_crypto" : ".* $dev ") ]; then
+		bioctl -c C -l /dev/$dev softraid0
+		sleep 2  # wait for kernel message displayed
+	    else
+		break
+	    fi
+	fi
+    done
+}
+
+#-------------------
+# newdrive - remaster to another device
+#
+cmd_newdrive () {
+    echo
+    if mount | grep -q '^\/dev\/[0-9a-z][0-9a-z]* on \/sysmedia type '
+    then
+	echo 'Please make sure the device inserted.'
+	[ $(wait_enter 'Then press ENTER') -lt 1 ] && return 1
+    else
+	echo 'Sorry, cannot find /sysmedia.  You cannot do newdrive with this boot mode.'
+	return 1
+    fi
+
+    echo
+    echo '==== disk(s) and vnode devices  ============================'
+    dmesg | sed -e '/^[sw]d[0-9][0-9]*[ :]/!d; s/> .*/>/'
+    if vnconfig -l | grep -q '^vnd[0-3]: not in use'; then
+	newdev=img
+	echo "\n$newdev: create FuguIta raw disk image on current directory"
+    else
+	newdev=''
+    fi
+    echo '============================================================'
+    newdev=$(rl_wread "Enter the name of device which FuguIta will be installed" "" $(sysctl -n hw.disknames|tr :, \\\012|grep '^[sw]d[0-9]$') $newdev)
+    if [ -z "$newdev" ]; then
+	echoerr
+	echoerr "newdrive: no device name"
+	return 1
+    elif [ 0 -eq $(expr "$newdev" : '^[sw]d[0-9]$') ] && \
+       [ 0 -eq $(expr "$newdev" : '^vnd[0-9]$') ] && \
+       [ 0 -eq $(expr "$newdev" : '^img$') ]; then
+	echoerr
+	echoerr "newdrive: device $newdev is not supported."
+	return 1
+    fi
+
+    if mount | grep -q "^/dev/$newdev"; then
+	echoerr
+	echoerr "newdrive: $newdev is already mounted."
+	return 1
+    fi
+
+    if swapctl -l | grep -q "^/dev/$newdev"; then
+	echoerr
+	echoerr "newdrive: $newdev is being used for swap."
+	echoerr "newdrive: Consider 'swapctl -d' for deactivate the swap partition."
+	return 1
+    fi
+
+    # create vnode device file if specified
+    #
+    case "$newdev" in
+	img)
+	    vnfile=FuguIta-$(</usr/fuguita/version).img
+	    if [ -e "$vnfile" ]; then
+		echo
+		[ 1 -gt $(ask_yn "Image file $vnfile already exists\nRemove it and proceed?" r) ] && break
+	    fi
+	    while :; do
+		echo
+		echo "Enter size of a vnode device file."
+		echo "You can add suffix K, M, G or T (otherwise considered 'bytes')."
+		ans=$(rl_wread '' '')
+		echo
+		if [ 1 -lt $(expr "X$ans" : 'X[0-9][0-9]*') ]; then
+		    sect_size=$((1024*1024)) # block size for dd
+		    [ $(byte2sect 724M) -le $(byte2sect $ans) ] && break
+		    [ 1 -le $(ask_yn "$ans is very small value.\nDo you really take this value?" n) ] && break
+		fi
+	    done
+
+	    if which pv >/dev/null 2>&1 ; then
+		sects=$(byte2sect $ans)
+		dd if=/dev/zero bs=$sect_size count=$sects | pv --size $((sect_size*sects)) > $vnfile \
+		&& newdev=$(vnconfig $vnfile)
+	    else
+		(while :; do sleep 15; pkill -INFO dd || exit 0; done) &  # to display progress
+		dd if=/dev/zero of=$vnfile bs=$sect_size count=$(byte2sect $ans) \
+		&& newdev=$(vnconfig $vnfile)
+	    fi
+
+	    if [ -z "$newdev" ]; then
+		echoerr "newdrive: sorry, cannot allocate a new vnode device."
+		clear_vn $newdev $vnfile
+		return 1
+	    fi
+	    ;;
+    esac
+
+    echo
+    if ! fdisk $newdev; then
+	clear_vn $newdev $vnfile
+	return 1
+    fi
+
+    if [ $(fdisk $newdev | grep -c ' Unused$') != 4 ]; then
+	echo
+	echo 'This disk seems to have been partitioned already.'
+	if [ $(ask_yn "Continue anyway?" n) -lt 1 ]; then
+	    clear_vn $newdev $vnfile
+	    return 1
+	fi
+    fi
+
+    # get disk parameters
+    #
+    eval $(disk_scan $newdev)
+    if [ ! "$diskscan" = ok ]; then
+	echoerr "cannot get parameters of $newdev"
+	clear_vn $newdev $vnfile
+	return 1
+    fi
+    #
+    # from here, $scandev is used as target device name instead of $newdev
+    #
+
+    # disable boot items if specified
+    #
+    legacyitem='Legacy BIOS'
+    case "$disable_legacyboot" in [Yy][Ee][Ss]) unset legacyitem;; esac
+    uefiitem='UEFI'
+    case "$disable_uefiboot" in [Yy][Ee][Ss]) unset uefiitem;; esac
+    unset hybriditem
+    [ "$legacyitem$uefiitem" = 'Legacy BIOSUEFI' ] && hybriditem='Hybrid'
+
+    #-------------------
+    # ask boot method and partition type
+    #
+    if [ $sects_total -lt $(byte2sect 2T) ]; then
+	echo
+	instsys=$(ask_which "Select boot method:" 'UEFI' "$legacyitem" "$uefiitem" 'none (only for save data)' "$hybriditem")
+
+	echo
+	case $instsys in
+	    Legacy)
+		parttype=MBR
+		;;
+	    UEFI)
+		parttype=$(ask_which "Select partition type:" MBR MBR GPT)
+		;;
+	    none)
+		parttype=$(ask_which "Select partition type:" MBR MBR GPT Hybrid)
+		;;
+	    Hybrid)
+		cat <<EOT
+Notice:
+You have selected 'Hybrid' as boot type.
+
+This can be booted from either Legacy BIOS or UEFI.
+And has two partition tables both MBR and GPT.
+
+This is NOT normal configuration.
+Modifying partition table later may cause any problem.
+
+EOT
+		if [ 1 -gt $(ask_yn "Proceed anyway?" n) ]; then
+		    clear_vn $newdev $vnfile
+		    return 1
+		fi
+		parttype=Hybrid
+		;;
+	    *)
+		echo "Select one of above."
+		clear_vn $newdev $vnfile
+		return 1
+		;;
+	esac
+	if [ -z "$parttype" ]; then
+	    echo "Select one of above."
+	    clear_vn $newdev $vnfile
+	    return 1
+	fi
+    else
+	echo
+	instsys=$(ask_which "Select boot method:" '' "$uefiitem" 'none (only for save data)')
+	parttype=GPT
+    fi
+
+    #-------------------
+    # calculate sectors
+    #
+    ps_hgap=$disk_head_gap
+    ps_uefi=0
+    ps_fisys=0
+    ps_fiswp=0
+    ps_fidat=0
+    ps_fat=0
+    case "$parttype" in
+	GPT|Hybrid)
+	    ps_tgap=$ps_hgap ;;  # for 2nd GPT
+	*)
+	    ps_tgap=0 ;;
+    esac
+
+    case "$instsys" in
+	Legacy)
+	    ps_fisys=$(byte2sect "${fuguita_sys_mb}M")
+	    ;;
+	UEFI|Hybrid)
+	    ps_uefi=$(byte2sect "${fuguita_uefi_kb}K")
+	    ps_fisys=$(byte2sect "${fuguita_sys_mb}M")
+	    ;;
+	none)
+	    ;;
+	*)
+	    echo "Select one of above."
+	    clear_vn $newdev $vnfile
+	    return 1
+	    ;;
+    esac
+    ps_free=$((sects_total-(ps_hgap+ps_uefi+ps_fisys+ps_tgap)))
+
+    # change mem-based fs?
+    #
+    unset memfs_new
+    if [ $instsys != none ]; then
+	echo
+	# want prompt values with upper case
+	# and its string must be lower
+	memfs_new=$(ask_which 'Type of /ram:' MFS MFS TMPFS | tr A-Z a-z)
+    fi
+
+    #-------------------
+    # ask and calculate User's data area
+    # which is prepared as partition d
+    #
+    while :; do
+	echo
+	echo "Enter sizes for swap, user data and extra FAT."
+	echo "  You can add suffix K, M, G or T (otherwise considered 'bytes')."
+	echo "  '*' implies 'all'"
+	echo "  '0' doesn't make this partition."
+	echo
+	echo "$(sect2byte $ps_free) ($(sect2byte $ps_free 2)) (${ps_free}sectors) free"
+
+	ans=$(rl_wread 'swap' "$newdrive_defswap" "$newdrive_defswap")
+	echo
+	if [ 1 -lt $(expr "X$ans" : 'X[0-9][0-9]*') ]; then
+	    ps_fiswp=$(byte2sect "$ans")
+	    if [ $ps_free -lt $ps_fiswp ]; then
+		echo 'That size exceeds the limit.'
+		return 1
+	    fi
+	elif [ "X$ans" = 'X*' ]; then
+	    ps_fiswp=$ps_free
+	    ps_free=0
+	    break
+	else
+	    echoerr "$ans ... What?"
+	    continue
+	fi
+
+	ps_free=$((ps_free-ps_fiswp))
+
+	echo
+	echo "$(sect2byte $ps_free) ($(sect2byte $ps_free 2)) (${ps_free}sectors) free"
+	ans=$(rl_wread 'user data' '*')
+	echo
+	if [ 1 -lt $(expr "X$ans" : 'X[0-9][0-9]*') ]; then
+	    ps_fidat=$(byte2sect "$ans")
+	    if [ $ps_free -lt $ps_fidat ]; then
+		echo 'That size exceeds the limit.'
+		return 1
+	    elif [ 0 -gt $ps_fidat -a $ps_fidat -lt $(byte2sect 16M) ]; then
+		if [ 1 -le $(ask_yn "$ans ($ps_fidat sectors) is very small value.\nDo you really take this value?" n) ]; then
+		    break
+		else
+		    return 1
+		fi
+	    else
+		ps_free=$((ps_free-ps_fidat))
+	    fi
+	    break
+	elif [ "X$ans" = 'X*' ]; then
+	    ps_fidat=$ps_free
+	    ps_free=0
+	    break
+	else
+	    echoerr "$ans ... What?"
+	    continue
+	fi
+    done
+
+    #  Is FuguIta's Data Store encrypted?
+    #
+    if [ 0 -lt $ps_fidat ]; then
+	if [ 1 -le $(ask_yn "user data encryption?" n) ]; then
+	    enc_fidat='yes'
+	    cat <<EOT
+
+Enter passphrase twice. They'll be not echoed.
+
+//// CAUTION ////////////////////////////
+////   If you lost this passphrase,
+////   you'll never access ${scandev}d.
+/////////////////////////////////////////
+
+EOT
+	    stty -echo; 
+	    echo -n 'Passphrase:'; read enc_pp1; echo
+	    echo -n 'Passphrase:'; read enc_pp2; echo
+	    stty echo
+	    if [ ! "$enc_pp1" = "$enc_pp2" ]; then
+		echo 'passphrase not matched'
+		clear_vn $newdev $vnfile
+		unset enc_pp1 enc_pp2
+		return 1;
+	    fi
+	    unset enc_pp2
+	else
+	    enc_fidat='no'
+	fi
+    fi
+
+    # set unused area to FAT?
+    #
+    if [ 0 -lt $ps_free ]; then
+	echo
+	if [ 1 -le $(ask_yn "Create an extra FAT partition?" r) ]; then
+	    ps_fat=$ps_free
+	    ps_free=0
+	fi
+    fi
+
+    echo
+    showparams
+
+    echo
+    echo '***THIS IS THE LAST CHANCE***'
+    echo "If you type 'Y' now, all the data on $scandev will be lost."
+    if [ $(ask_yn "Are you sure to modify disk ${scandev}?" n) -lt 1 ]; then
+	clear_vn $newdev $vnfile
+	return 1
+    fi
+
+    #-------------------
+    # perform disk modifications
+    #
+    case "$parttype" in
+	MBR|GPT)
+	    zerofill_head
+	    fdisk_init $parttype
+	    setup_fs
+	    ;;
+	Hybrid)
+	    zerofill_head
+	    # first, create MBR partitions including UEFI Sys (ID=EF)
+	    fdisk_init $parttype
+	    setup_fs
+
+	    # save sector 0 (MBR) to a file
+	    dd if=/dev/r${scandev}c of=$lockdir/hybrid.mbr bs=$sect_size count=1
+
+	    # next, create a GPT with same contents as MBR's one
+	    # (also UEFI bootloader installed)
+	    fdisk_init GPT
+
+	    # install MBR boot loader, too
+	    if [ "$instsys" = Hybrid \
+		   -a $(expr "$disable_uefiboot" : '[Yy][Ee][Ss]') -eq 0 ]; then
+		notice "Installing UEFI boot loader"
+		if mount -t msdos -o -l /dev/${scandev}i $mntdir1; then
+		    mkdir -p $mntdir1/efi/BOOT
+		    cp /fuguita/usr/mdec/*.EFI $mntdir1/efi/BOOT
+		    umount $mntdir1
+		fi
+	    fi
+
+	    # overwrite protective MBR with saved MBR
+	    dd if=$lockdir/hybrid.mbr of=/dev/r${scandev}c
+	    rm $lockdir/hybrid.mbr
+	    ;;
+	*)
+	    echoerr "Partition type: '$parttype' - unknown"
+	    ;;
+    esac
+
+    # site-specific post processing
+    #
+    [ -r /etc/fuguita/usbfadm_postproc.sh ] && . /etc/fuguita/usbfadm_postproc.sh
+
+    if [ "$debugfile" ]; then
+	{ echo
+	  echo "////////// End of newdrive ////////////////////////////////////////"
+	  showparams verbose
+	} >> "$debugfile"
+    fi
+    clear_vn $scandev  # don't remove vn img file
+}
+
+#-------------------
+# expand - expand targeted storage partition to fill the device
+#
+cmd_expand () {
+    echo
+    if [[ -z "$devname" ]]; then
+	echoerr "Name of device not set. Use 'target' to perform this."
+	return 1
+    fi
+
+    expdev=${devname#/dev/}  # expdev initially e.g. 'sd2d'
+    exppar=${expdev#*[0-9]}  # partition to expand - 'd'
+    expdev=${expdev%?}       # device to expand - 'sd2'
+
+    eval $(disk_scan $expdev)  # to get sect_size for byte2sect
+    [[ $diskscan != 'ok' ]] && return 1
+
+    fdisk_output=$(fdisk -v $expdev)
+
+    # check partitioning types
+    #
+    if echo "$fdisk_output" | grep -q '^Disk: .* Usable LBA: '; then
+	exptype=gpt  # GPT with ESP
+    elif echo "$fdisk_output" | grep -q 'Signature: 0xAA55'; then
+	if echo "$fdisk_output" | grep -q '[0123]: EF .* EFI Sys'; then
+	    if echo "$fdisk_output" | grep -q '[0123]: EE .* EFI GPT'; then
+		exptype=hybrid    # MBR and GPT co-exist
+	    else
+		exptype=mbr_uefi  # MBR with UEFI bootloader
+	    fi
+	else
+	    exptype=mbr
+	fi
+    else
+	exptype=unknown  # random stuff
+    fi
+
+    # Get OpenBSD's partition ID
+    #
+    unset partid_obsd
+    case "$exptype" in
+	"mbr"|"mbr_uefi")
+	    partid_obsd=$(echo "$fdisk_output" | tr -d '*:' | awk '/A6.*OpenBSD/ {print $1}')
+	    fdisk_input="e ${partid_obsd}\nA6\nn\n\n*\nw\nq\n"
+	    ;;
+	"gpt")
+	    partid_obsd=$(echo "$fdisk_output" | sed '/^Primary GPT:/,/^Secondary GPT:/!d' | awk '/[0-9]: OpenBSD/{print $1+0}')
+	    fdisk_input="e ${partid_obsd}\nA6\nn\n\n*\nw\nq\n"
+	    ;;
+	"hybrid")
+	    echoerr "expand: $expdev - cannot modify Hybrid MBR"
+	    echoerr "expand: Please consider running newdrive against another device."
+	    return 1
+	    ;;
+	"unknown")
+	    echoerr "expand: cannot read any partition tables - $expdev"
+	    return 1
+	    ;;
+    esac
+
+    if [[ -z "$partid_obsd" ]]; then
+	echoerr "expand: OpenBSD partition not found"
+	return 1
+    fi
+
+    # check if another fdisk partition exists after a partition in OpenBSD
+    # ... if so, cannot be expanded (may be unbootable)
+    # 
+    if [[ "YES" == $(echo "$fdisk_output" | awk 'BEGIN { maxstart=-1 }  # max start sector
+
+						 # determine type of partition table
+						 /Usable LBA: [0-9]/ { tbtype = "gpt"; next }
+						 /geometry: [0-9]/   {
+						     if (tbtype != "gpt") {
+							 tbtype = "mbr"
+						     }
+						     next
+						 }
+
+						 # OpenBSD on MBR
+						 tbtype == "mbr" && /^.[0123]: A6 / {
+						     obsdstart = $11 + 0
+						     next
+						 }
+						 # other on MBR
+						 tbtype == "mbr" && /^.[0123]: [0-9A-F][0-9A-F] / {
+						     if (maxstart < $11 + 0)
+							 maxstart = $11 + 0
+						     next
+						 }
+
+						 # OpenBSD on GPT
+						 tbtype == "gpt" && $2 == "OpenBSD" {
+						     obsdstart = $(NF-2) + 0
+						     next
+						 }
+						 # other on GPT
+						 tbtype == "gpt" && /^ [ 12][ 0-9][0-9]: / {
+						     if (maxstart < $(NF-2) + 0)
+							 maxstart = $(NF-2) + 0
+						 }
+						 END {
+						     # exist other partition after OpenBSD?
+						     if (obsdstart<maxstart)
+							 print "YES"
+						     else
+							 print "NO"
+						 }') ]]; then
+	echo "$fdisk_output"
+	cat <<EOT
+
+There is another fdisk partition after the OpenBSD partition.
+If you run expand in this state, partitions may overlap and the system may not boot.
+Rather than expanding the partition on this flash device, consider using the newdrive subcommand to build your FuguIta system on another device.
+EOT
+	return 1
+    fi
+
+    expcmd=$(ask_which "Select the expansion method for ${expdev}${exppar}:" \
+		       'exit without expansion' \
+		       'growfs - expands the partition while retaining its contents' \
+		       'newfs - expand and format the partition' \
+		       'exit without expansion')
+
+    case "$expcmd" in
+	growfs)
+	    echo
+	    echo "This expands ${expdev}${exppar} as large as possible."
+	    echo 'It may take time.'
+	    echo 'It is recommended that you make a backup of your data before proceeding'
+	    echo 'with the subsequent expansion process.'
+	    [[ $(ask_yn 'Do you proceed?' n) != 1 ]] && return 1
+	    ;;
+	newfs)
+	    echo
+	    echo "This makes ${expdev}${exppar} as large as possible."
+	    echo "Note that all contents in ${expdev}${exppar} will be removed"
+	    [[ $(ask_yn 'Do you proceed?' n) != 1 ]] && return 1
+	    ;;
+	exit)
+	    return 1
+	    ;;
+    esac
+
+    echo
+
+    # fix GPT header
+    #   generate fdisk commands to fix GPT
+    #   then send them to fdisk -e
+    #
+    if [[ "$exptype" = 'gpt' ]]; then
+	gpt_orig=$(fdisk -v $expdev)
+	gpt_fix_cmds=$(echo "$gpt_orig" | fixgpt)
+
+	# error check
+	#   fixgpt outputs 'abort' without 'write'
+	#   when error occurred internally
+	#
+	if ! echo "$gpt_fix_cmds" | grep -q '^write$'; then
+	    echoerr 'expand: unable modify GPT, expand aborted'
+	    return 1
+	fi
+
+	# mofify GPT
+	#
+	if ! echo "$gpt_fix_cmds" | fdisk -e $expdev; then
+	    echoerr 'expand: error occurred at mofifying GPT'
+	    echoerr 'expand: So GPT info before modification saved as "OriginalGPT" at current directory'
+	    echoerr 'expand: Please check GPT, then recover GPT manually, if needed'
+	    echo "$gpt_orig" > OriginalGPT.${RANDOM}
+	    return 1
+	fi
+    fi
+
+    # expand fdisk or GPT partition
+    echo "$fdisk_input" | fdisk -e $expdev > /dev/null
+
+    # expand disklabel partition
+    echo "b\n\n*\nm ${exppar}\n\n*\n\nw\nq\n" | disklabel -c -E ${expdev}${exppar} > /dev/null
+
+    # setup the filesystem
+    #
+    case "$expcmd" in
+	growfs)
+	    growfs -y /dev/r${expdev}${exppar}
+	    fsck -fy /dev/r${expdev}${exppar}
+	    ;;
+	newfs)
+	    # get number of sectors of the expaneded partition
+	    expsect=$(disklabel -c ${expdev} | awk "\$1 == \"${exppar}:\" { print int(0.5+\$2) }" )
+
+	    if [ $expsect -lt $(byte2sect 2G) ]; then
+		# adjust inode density for little space
+		# because too many symlinks when booted mode 0
+		newfs -O 1 -m 0 -o space -i1024 -b4096 -f512 /dev/r${expdev}${exppar}
+	    elif [ $expsect -lt $(byte2sect 4G) ]; then
+		newfs -O 2 -m 0 -o space /dev/r${expdev}${exppar}
+	    elif [ $expsect -lt $(byte2sect 8G) ]; then
+		newfs -O 2 -m 0 /dev/r${expdev}${exppar}
+	    else
+		newfs -O 2 -m 0 -o time /dev/r${expdev}${exppar}
+	    fi
+
+	    fsck -fy /dev/r${expdev}${exppar}
+	    if mount /dev/${expdev}${exppar} $mntdir1; then
+		expduid=$(dev2duid $expdev)  # get DUID after disk_scan is OK
+		mkdir -p $mntdir1/livecd-config/${verarch}
+		umem="75%"
+		[[ "$memfstype" = 'tmpfs' ]] && umem=0
+		cat <<EOT >$mntdir1/livecd-config/${verarch}/noasks
+#
+# noasks - parameter settings for non-interactive boot
+#
+# Make statements uncommented
+# Then assign real values
+#
+#
+# FuguIta system device
+#${expduid:+   - Use one of two lines}
+#noask_rdev=${expdev}a  # device name format
+#${expduid:+noask_rdev=${expduid}.a  # DUID format}
+#
+# max ${memfstype} size
+#noask_umem=${umem}
+#
+# boot mode
+#noask_setup_rw_mode=3
+#
+# storage device
+#${expduid:+   - Use one of two lines}
+#noask_confdev=${expdev}${exppar}
+#${expduid:+noask_confdev=${expduid}.${exppar}  # DUID format}
+#
+# data set name in USB flash drive
+#noask_confdir=$(hostname -s)
+EOT
+		umount $mntdir1
+	    fi
+	    ;;
+	*)
+	    return 1
+	    ;;
+    esac
+}
+
+
+#==================================
 # Active Code from HERE.
 #==================================
 
@@ -1372,7 +2189,7 @@ while :; do
     d="${devname#/dev/}" ; [ -z "$devname" ] && d='?'
     u="$uconf"           ; [ -z "$uconf" ]   && u='?'
     echo
-    cmd=$(rl_wread "$d : $u " '' quit bye exit sync info saveas target newdrive expand help ?)
+    cmd=$(rl_wread "$d : $u " '' quit bye exit sync archive info saveas target newdrive expand help ?)
 
     set X $cmd
 
@@ -1389,809 +2206,13 @@ while :; do
         break;
         ;;
 
-        #-------------------
-        # write back memory file system
-        # to the storage device
-        #
-        sync)
-        echo
-        if [[ -z "$devname" ]]; then
-            echoerr "Name of device not set. Use 'target' to perform this."
-            continue
-        fi
-        if [[ -z "$uconf" ]]; then
-            echoerr "Name of saving data not set. Use 'saveas' to perform this."
-            continue
-        fi
-
-        notice "sync current ${memfstype} as $uconf"
-        if [ 1 = $(ask_yn "OK?" n) ]; then
-            if mount -o async,noatime $devname $mntdir1; then
-                echo
-                if [ -d $mntdir1/livecd-config ]; then
-                    if [ -d $mntdir1/livecd-config/$verarch/$uconf ]; then
-                        # previous backup exists ... do differencial copy
-                        rsync -v -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. $mntdir1/livecd-config/$verarch/$uconf/.
-                    else
-                        # first backup ... use cpio
-                        mkdir -p $mntdir1/livecd-config/$verarch/$uconf
-                        copydirs /ram $mntdir1/livecd-config/$verarch/$uconf
-                        rm -rf $mntdir1/livecd-config/$verarch/$uconf/tmp/{.??*,*}
-                    fi
-                    echo "$devname" > /boottmp/boot_restore_devname
-                    echo "$uconf"   > /boottmp/boot_user_config
-                    sync
-                    sleep 5
-                    closenotice "done: sync current ${memfstype} as $uconf"
-                else
-                    echoerr
-                    echoerr "sync: $devname isn't for FuguIta's backup."
-                    echoerr "sync: directory /livecd-config doesn't exist"
-                fi
-                umount $devname
-            fi
-        fi
-        ;;
-
-        #-------------------
-        # show status of storage device
-        #
-        info)
-        if [[ -n "$devname" ]] && mount -r $devname $mntdir1; then
-            (cd $mntdir1/livecd-config
-             echo
-             df -hi $mntdir1
-             echo "\nscanning...\n" && du -sh [1-9].[0-9]/*/* [1-9].[0-9]-*-*) 2>/dev/null
-            umount $devname
-        fi
-        ;;
-
-        #-------------------
-        # set data set name
-        # default is our FQDN.
-        #
-        saveas)
-        if [[ -n "devname" ]] && mount $devname $mntdir1; then
-            [ -d $mntdir1/livecd-config/$verarch ] || mkdir -p $mntdir1/livecd-config/$verarch
-            confs=$(cd $mntdir1/livecd-config/$verarch && echo *)
-            umount $devname
-        fi
-        [[ -z "$uconf" ]] && uconf=$(hostname -s)
-        uconf=$(rl_wread "Name of saved data" $uconf $confs)
-        uconf=$(echo $uconf | tr -cd 0-9A-Za-z.,_-+=:%@)  # strip invalid chars
-        echo
-        if [[ -z "$uconf" ]]; then
-            echoerr "Unset the name of saving data"
-        else
-            echo "Your data will be saved as \"$uconf\"."
-        fi
-        ;;
-
-        #-------------------
-        # search and set storage device
-        #
-        target)
-        echo
-        echo 'Searching storage device'
-        echo 'Please make sure the device inserted.'
-        [ $(wait_enter 'Then press ENTER') -lt 1 ] && continue
-
-        #-----------------------
-        # search partitions for saved data
-        #
-        while :; do
-            devname=''
-            devs_normal=' '
-            devs_crypto=' '
-            # listing storage devices with investigation
-            for rdev in $(sysctl -n hw.disknames \
-                         | sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'); do
-
-                # vnd included
-                (expr $rdev : '^[sw]d[0-9]' || expr $rdev : '^vnd[0-9]' ) >/dev/null \
-                || continue
-
-                # # vnd execluded
-                # expr $rdev : '^[sw]d[0-9]' >/dev/null || continue
-
-                # $rdev is detected storage name - e.g. "sd2"
-                for ptfs in $(disklabel -c "$rdev" 2>/dev/null \
-                             | awk '/^  [abd-p]:/ { print $1 $4 }'); do
-                    # $ptfs is "partition:fstype" - e.g. "d:4.2BSD"
-                    dev="$rdev"${ptfs%:*}
-                    fs=${ptfs#*:}
-                    case "$fs" in
-                        RAID)
-                            # check this RAID partition is crypto
-                            if dd if=/dev/r$dev bs=1k count=9 2>/dev/null \
-                               | fgrep -q 'SR CRYPTO'; then
-                                devs_crypto="$devs_crypto$dev "
-                                echo -n "?$dev "
-                            else
-                                echo -n "$dev "
-                            fi
-                            ;;
-                        4.2BSD)
-                            # check this FFS partition is for FuguIta's storage
-                            if mount -r /dev/$dev $mntdir1 2>/dev/null; then
-                                if [ -d $mntdir1/livecd-config ]; then
-                                    devs_normal="$devs_normal$dev "
-                                    def_dev="$dev"
-                                    echo -n "+$dev "
-                                else
-                                    echo -n "$dev "
-                                fi
-                                umount $mntdir1
-                            else
-                                echo -n "$dev "
-                            fi
-                            ;;
-                    esac
-                done
-            done
-
-            # show result of scanning
-            # then prompt to user
-            #
-            if [ "${devs_normal}${devs_crypto}" = '  ' ]; then
-                echo
-                echo 'No device available for saving data'
-                break
-            else
-                echo
-                dev=$(rl_wread "target device" "$def_dev" ${devs_normal}${devs_crypto})
-                if [ 0 -lt $(expr "$devs_normal" : ".* $dev ") ]; then
-                    devname=/dev/$dev
-                    set -- ${devs_normal}${devs_crypto}
-                    devnames="$@"  # trim heading/trailing spaces
-                    break
-                elif [ 0 -lt $(expr "$devs_crypto" : ".* $dev ") ]; then
-                    bioctl -c C -l /dev/$dev softraid0
-                    sleep 2  # wait for kernel message displayed
-                else
-                    break
-                fi
-            fi
-        done
-        ;;
-
-        #-------------------
-        # make new FuguIta storage device
-        #
-        newdrive)
-
-        echo
-        if mount | grep -q '^\/dev\/[0-9a-z][0-9a-z]* on \/sysmedia type '
-        then
-            echo 'Please make sure the device inserted.'
-            [ $(wait_enter 'Then press ENTER') -lt 1 ] && continue
-        else
-            echo 'Sorry, cannot find /sysmedia.  You cannot do newdrive with this boot mode.'
-            continue
-        fi
-
-        echo
-        echo '==== disk(s) and vnode devices  ============================'
-        dmesg | sed -e '/^[sw]d[0-9][0-9]*[ :]/!d; s/> .*/>/'
-        if vnconfig -l | grep -q '^vnd[0-3]: not in use'; then
-            newdev=img
-            echo "\n$newdev: create FuguIta raw disk image on current directory"
-        else
-            newdev=''
-        fi
-        echo '============================================================'
-        newdev=$(rl_wread "Enter the name of device which FuguIta will be installed" "" $(sysctl -n hw.disknames|tr :, \\\012|grep '^[sw]d[0-9]$') $newdev)
-        if [ -z "$newdev" ]; then
-            echoerr
-            echoerr "newdrive: no device name"
-            continue
-        elif [ 0 -eq $(expr "$newdev" : '^[sw]d[0-9]$') ] && \
-           [ 0 -eq $(expr "$newdev" : '^vnd[0-9]$') ] && \
-           [ 0 -eq $(expr "$newdev" : '^img$') ]; then
-            echoerr
-            echoerr "newdrive: device $newdev is not supported."
-            continue
-        fi
-
-        if mount | grep -q "^/dev/$newdev"; then
-            echoerr
-            echoerr "newdrive: $newdev is already mounted."
-            continue
-        fi
-
-        if swapctl -l | grep -q "^/dev/$newdev"; then
-            echoerr
-            echoerr "newdrive: $newdev is being used for swap."
-            echoerr "newdrive: Consider 'swapctl -d' for deactivate the swap partition."
-            continue
-        fi
-
-        # create vnode device file if specified
-        #
-        case "$newdev" in
-            img)
-                vnfile=FuguIta-$(</usr/fuguita/version).img
-                if [ -e "$vnfile" ]; then
-                    echo
-                    [ 1 -gt $(ask_yn "Image file $vnfile already exists\nRemove it and proceed?" r) ] && break
-                fi
-                while :; do
-                    echo
-                    echo "Enter size of a vnode device file."
-                    echo "You can add suffix K, M, G or T (otherwise considered 'bytes')."
-                    ans=$(rl_wread '' '')
-                    echo
-                    if [ 1 -lt $(expr "X$ans" : 'X[0-9][0-9]*') ]; then
-                        sect_size=$((1024*1024)) # block size for dd
-                        [ $(byte2sect 724M) -le $(byte2sect $ans) ] && break
-                        [ 1 -le $(ask_yn "$ans is very small value.\nDo you really take this value?" n) ] && break
-                    fi
-                done
-
-                if which pv >/dev/null 2>&1 ; then
-                    sects=$(byte2sect $ans)
-                    dd if=/dev/zero bs=$sect_size count=$sects | pv --size $((sect_size*sects)) > $vnfile \
-                    && newdev=$(vnconfig $vnfile)
-                else
-                    (while :; do sleep 15; pkill -INFO dd || exit 0; done) &  # to display progress
-                    dd if=/dev/zero of=$vnfile bs=$sect_size count=$(byte2sect $ans) \
-                    && newdev=$(vnconfig $vnfile)
-                fi
-
-                if [ -z "$newdev" ]; then
-                    echoerr "newdrive: sorry, cannot allocate a new vnode device."
-                    clear_vn $newdev $vnfile
-                    continue
-                fi
-                ;;
-        esac
-
-        echo
-        if ! fdisk $newdev; then
-            clear_vn $newdev $vnfile
-            continue
-        fi
-
-        if [ $(fdisk $newdev | grep -c ' Unused$') != 4 ]; then
-            echo
-            echo 'This disk seems to have been partitioned already.'
-            if [ $(ask_yn "Continue anyway?" n) -lt 1 ]; then
-                clear_vn $newdev $vnfile
-                continue
-            fi
-        fi
-
-        # get disk parameters
-        #
-        eval $(disk_scan $newdev)
-        if [ ! "$diskscan" = ok ]; then
-            echoerr "cannot get parameters of $newdev"
-            clear_vn $newdev $vnfile
-            continue
-        fi
-        #
-        # from here, $scandev is used as target device name instead of $newdev
-        #
-
-        # disable boot items if specified
-        #
-        legacyitem='Legacy BIOS'
-        case "$disable_legacyboot" in [Yy][Ee][Ss]) unset legacyitem;; esac
-        uefiitem='UEFI'
-        case "$disable_uefiboot" in [Yy][Ee][Ss]) unset uefiitem;; esac
-        unset hybriditem
-        [ "$legacyitem$uefiitem" = 'Legacy BIOSUEFI' ] && hybriditem='Hybrid'
-
-        #-------------------
-        # ask boot method and partition type
-        #
-        if [ $sects_total -lt $(byte2sect 2T) ]; then
-            echo
-            instsys=$(ask_which "Select boot method:" 'UEFI' "$legacyitem" "$uefiitem" 'none (only for save data)' "$hybriditem")
-
-            echo
-            case $instsys in
-                Legacy)
-                    parttype=MBR
-                    ;;
-                UEFI)
-                    parttype=$(ask_which "Select partition type:" MBR MBR GPT)
-                    ;;
-                none)
-                    parttype=$(ask_which "Select partition type:" MBR MBR GPT Hybrid)
-                    ;;
-                Hybrid)
-                    cat <<EOT
-Notice:
-  You have selected 'Hybrid' as boot type.
-
-  This can be booted from either Legacy BIOS or UEFI.
-  And has two partition tables both MBR and GPT.
-
-  This is NOT normal configuration.
-  Modifying partition table later may cause any problem.
-
-EOT
-                    if [ 1 -gt $(ask_yn "Proceed anyway?" n) ]; then
-                        clear_vn $newdev $vnfile
-                        continue
-                    fi
-                    parttype=Hybrid
-                    ;;
-                *)
-                    echo "Select one of above."
-                    clear_vn $newdev $vnfile
-                    continue
-                    ;;
-            esac
-            if [ -z "$parttype" ]; then
-                echo "Select one of above."
-                clear_vn $newdev $vnfile
-                continue
-            fi
-        else
-            echo
-            instsys=$(ask_which "Select boot method:" '' "$uefiitem" 'none (only for save data)')
-            parttype=GPT
-        fi
-
-        #-------------------
-        # calculate sectors
-        #
-        ps_hgap=$disk_head_gap
-        ps_uefi=0
-        ps_fisys=0
-        ps_fiswp=0
-        ps_fidat=0
-        ps_fat=0
-        case "$parttype" in
-            GPT|Hybrid)
-                ps_tgap=$ps_hgap ;;  # for 2nd GPT
-            *)
-                ps_tgap=0 ;;
-        esac
-
-        case "$instsys" in
-            Legacy)
-                ps_fisys=$(byte2sect "${fuguita_sys_mb}M")
-                ;;
-            UEFI|Hybrid)
-                ps_uefi=$(byte2sect "${fuguita_uefi_kb}K")
-                ps_fisys=$(byte2sect "${fuguita_sys_mb}M")
-                ;;
-            none)
-                ;;
-            *)
-                echo "Select one of above."
-                clear_vn $newdev $vnfile
-                continue
-                ;;
-        esac
-        ps_free=$((sects_total-(ps_hgap+ps_uefi+ps_fisys+ps_tgap)))
-
-        # change mem-based fs?
-        #
-        unset memfs_new
-        if [ $instsys != none ]; then
-            echo
-            # want prompt values with upper case
-            # and its string must be lower
-            memfs_new=$(ask_which 'Type of /ram:' MFS MFS TMPFS | tr A-Z a-z)
-        fi
-
-        #-------------------
-        # ask and calculate User's data area
-        # which is prepared as partition d
-        #
-        while :; do
-            echo
-            echo "Enter sizes for swap, user data and extra FAT."
-            echo "  You can add suffix K, M, G or T (otherwise considered 'bytes')."
-            echo "  '*' implies 'all'"
-            echo "  '0' doesn't make this partition."
-            echo
-            echo "$(sect2byte $ps_free) ($(sect2byte $ps_free 2)) (${ps_free}sectors) free"
-
-            ans=$(rl_wread 'swap' "$newdrive_defswap" "$newdrive_defswap")
-            echo
-            if [ 1 -lt $(expr "X$ans" : 'X[0-9][0-9]*') ]; then
-                ps_fiswp=$(byte2sect "$ans")
-                if [ $ps_free -lt $ps_fiswp ]; then
-                    echo 'That size exceeds the limit.'
-                    continue
-                fi
-            elif [ "X$ans" = 'X*' ]; then
-                ps_fiswp=$ps_free
-                ps_free=0
-                break
-            else
-                echoerr "$ans ... What?"
-                continue
-            fi
-
-            ps_free=$((ps_free-ps_fiswp))
-
-            echo
-            echo "$(sect2byte $ps_free) ($(sect2byte $ps_free 2)) (${ps_free}sectors) free"
-            ans=$(rl_wread 'user data' '*')
-            echo
-            if [ 1 -lt $(expr "X$ans" : 'X[0-9][0-9]*') ]; then
-                ps_fidat=$(byte2sect "$ans")
-                if [ $ps_free -lt $ps_fidat ]; then
-                    echo 'That size exceeds the limit.'
-                    continue
-                elif [ 0 -gt $ps_fidat -a $ps_fidat -lt $(byte2sect 16M) ]; then
-                    if [ 1 -le $(ask_yn "$ans ($ps_fidat sectors) is very small value.\nDo you really take this value?" n) ]; then
-                        break
-                    else
-                        continue
-                    fi
-                else
-                    ps_free=$((ps_free-ps_fidat))
-                fi
-                break
-            elif [ "X$ans" = 'X*' ]; then
-                ps_fidat=$ps_free
-                ps_free=0
-                break
-            else
-                echoerr "$ans ... What?"
-                continue
-            fi
-        done
-
-        #  Is FuguIta's Data Store encrypted?
-        #
-        if [ 0 -lt $ps_fidat ]; then
-            if [ 1 -le $(ask_yn "user data encryption?" n) ]; then
-                enc_fidat='yes'
-                cat <<EOT
-
-Enter passphrase twice. They'll be not echoed.
-
-//// CAUTION ////////////////////////////
-////   If you lost this passphrase,
-////   you'll never access ${scandev}d.
-/////////////////////////////////////////
-
-EOT
-                stty -echo; 
-                echo -n 'Passphrase:'; read enc_pp1; echo
-                echo -n 'Passphrase:'; read enc_pp2; echo
-                stty echo
-                if [ ! "$enc_pp1" = "$enc_pp2" ]; then
-                    echo 'passphrase not mathed'
-                    clear_vn $newdev $vnfile
-                    unset enc_pp1 enc_pp2
-                    continue;
-                fi
-                unset enc_pp2
-            else
-                enc_fidat='no'
-            fi
-        fi
-
-        # set unused area to FAT?
-        #
-        if [ 0 -lt $ps_free ]; then
-            echo
-            if [ 1 -le $(ask_yn "Create an extra FAT partition?" r) ]; then
-                ps_fat=$ps_free
-                ps_free=0
-            fi
-        fi
-
-        echo
-        showparams
-
-        echo
-        echo '***THIS IS THE LAST CHANCE***'
-        echo "If you type 'Y' now, all the data on $scandev will be lost."
-        if [ $(ask_yn "Are you sure to modify disk ${scandev}?" n) -lt 1 ]; then
-            clear_vn $newdev $vnfile
-            continue
-        fi
-
-        #-------------------
-        # perform disk modifications
-        #
-        case "$parttype" in
-            MBR|GPT)
-                zerofill_head
-                fdisk_init $parttype
-                setup_fs
-                ;;
-            Hybrid)
-                zerofill_head
-                # first, create MBR partitions including UEFI Sys (ID=EF)
-                fdisk_init $parttype
-                setup_fs
-
-                # save sector 0 (MBR) to a file
-                dd if=/dev/r${scandev}c of=$lockdir/hybrid.mbr bs=$sect_size count=1
-
-                # next, create a GPT with same contents as MBR's one
-                # (also UEFI bootloader installed)
-                fdisk_init GPT
-
-                # install MBR boot loader, too
-                if [ "$instsys" = Hybrid \
-                       -a $(expr "$disable_uefiboot" : '[Yy][Ee][Ss]') -eq 0 ]; then
-                    notice "Installing UEFI boot loader"
-                    if mount -t msdos -o -l /dev/${scandev}i $mntdir1; then
-                        mkdir -p $mntdir1/efi/BOOT
-                        cp /fuguita/usr/mdec/*.EFI $mntdir1/efi/BOOT
-                        umount $mntdir1
-                    fi
-                fi
-
-                # overwrite protective MBR with saved MBR
-                dd if=$lockdir/hybrid.mbr of=/dev/r${scandev}c
-                rm $lockdir/hybrid.mbr
-                ;;
-            *)
-                echoerr "Partition type: '$parttype' - unknown"
-                ;;
-        esac
-
-        # site-specific post processing
-        #
-        [ -r /etc/fuguita/usbfadm_postproc.sh ] && . /etc/fuguita/usbfadm_postproc.sh
-
-        if [ "$debugfile" ]; then
-            { echo
-              echo "////////// End of newdrive ////////////////////////////////////////"
-              showparams verbose
-            } >> "$debugfile"
-        fi
-        clear_vn $scandev  # don't remove vn img file
-        ;;
-
-        #-------------------
-        # expand targeted storage partition to fill the device
-        #
-        expand)
-
-        echo
-        if [[ -z "$devname" ]]; then
-            echoerr "Name of device not set. Use 'target' to perform this."
-            continue
-        fi
-
-        expdev=${devname#/dev/}  # expdev initially e.g. 'sd2d'
-        exppar=${expdev#*[0-9]}  # partition to expand - 'd'
-        expdev=${expdev%?}       # device to expand - 'sd2'
-
-        eval $(disk_scan $expdev)  # to get sect_size for byte2sect
-        [[ $diskscan != 'ok' ]] && continue
-
-        fdisk_output=$(fdisk -v $expdev)
-
-        # check partitioning types
-        #
-        if echo "$fdisk_output" | grep -q '^Disk: .* Usable LBA: '; then
-            exptype=gpt  # GPT with ESP
-        elif echo "$fdisk_output" | grep -q 'Signature: 0xAA55'; then
-            if echo "$fdisk_output" | grep -q '[0123]: EF .* EFI Sys'; then
-                if echo "$fdisk_output" | grep -q '[0123]: EE .* EFI GPT'; then
-                    exptype=hybrid    # MBR and GPT co-exist
-                else
-                    exptype=mbr_uefi  # MBR with UEFI bootloader
-                fi
-            else
-                exptype=mbr
-            fi
-        else
-            exptype=unknown  # random stuff
-        fi
-
-        # Get OpenBSD's partition ID
-        #
-        unset partid_obsd
-        case "$exptype" in
-            "mbr"|"mbr_uefi")
-                partid_obsd=$(echo "$fdisk_output" | tr -d '*:' | awk '/A6.*OpenBSD/ {print $1}')
-                fdisk_input="e ${partid_obsd}\nA6\nn\n\n*\nw\nq\n"
-                ;;
-            "gpt")
-                partid_obsd=$(echo "$fdisk_output" | sed '/^Primary GPT:/,/^Secondary GPT:/!d' | awk '/[0-9]: OpenBSD/{print $1+0}')
-                fdisk_input="e ${partid_obsd}\nA6\nn\n\n*\nw\nq\n"
-                ;;
-            "hybrid")
-                echoerr "expand: $expdev - cannot modify Hybrid MBR"
-                echoerr "expand: Please consider running newdrive against another device."
-                continue
-                ;;
-            "unknown")
-                echoerr "expand: cannot read any partition tables - $expdev"
-                continue
-                ;;
-        esac
-
-        if [[ -z "$partid_obsd" ]]; then
-            echoerr "expand: OpenBSD partition not found"
-            continue
-        fi
-
-        # check if another fdisk partition exists after a partition in OpenBSD
-        # ... if so, cannot be expanded (may be unbootable)
-        # 
-        if [[ "YES" == $(echo "$fdisk_output" | awk 'BEGIN { maxstart=-1 }  # max start sector
-
-                                                     # determine type of partition table
-                                                     /Usable LBA: [0-9]/ { tbtype = "gpt"; next }
-                                                     /geometry: [0-9]/   {
-                                                         if (tbtype != "gpt") {
-                                                             tbtype = "mbr"
-                                                         }
-                                                         next
-                                                     }
-
-                                                     # OpenBSD on MBR
-                                                     tbtype == "mbr" && /^.[0123]: A6 / {
-                                                         obsdstart = $11 + 0
-                                                         next
-                                                     }
-                                                     # other on MBR
-                                                     tbtype == "mbr" && /^.[0123]: [0-9A-F][0-9A-F] / {
-                                                         if (maxstart < $11 + 0)
-                                                             maxstart = $11 + 0
-                                                         next
-                                                     }
-
-                                                     # OpenBSD on GPT
-                                                     tbtype == "gpt" && $2 == "OpenBSD" {
-                                                         obsdstart = $(NF-2) + 0
-                                                         next
-                                                     }
-                                                     # other on GPT
-                                                     tbtype == "gpt" && /^ [ 12][ 0-9][0-9]: / {
-                                                         if (maxstart < $(NF-2) + 0)
-                                                             maxstart = $(NF-2) + 0
-                                                     }
-                                                     END {
-                                                         # exist other partition after OpenBSD?
-                                                         if (obsdstart<maxstart)
-                                                             print "YES"
-                                                         else
-                                                             print "NO"
-                                                     }') ]]; then
-            echo "$fdisk_output"
-            cat <<EOT
-
-There is another fdisk partition after the OpenBSD partition.
-If you run expand in this state, partitions may overlap and the system may not boot.
-Rather than expanding the partition on this flash device, consider using the newdrive subcommand to build your FuguIta system on another device.
-EOT
-            continue
-        fi
-
-        expcmd=$(ask_which "Select the expansion method for ${expdev}${exppar}:" \
-                           'exit without expansion' \
-                           'growfs - expands the partition while retaining its contents' \
-                           'newfs - expand and format the partition' \
-                           'exit without expansion')
-
-        case "$expcmd" in
-            growfs)
-                echo
-                echo "This expands ${expdev}${exppar} as large as possible."
-                echo 'It may take time.'
-                echo 'It is recommended that you make a backup of your data before proceeding'
-                echo 'with the subsequent expansion process.'
-                [[ $(ask_yn 'Do you proceed?' n) != 1 ]] && continue
-                ;;
-            newfs)
-                echo
-                echo "This makes ${expdev}${exppar} as large as possible."
-                echo "Note that all contents in ${expdev}${exppar} will be removed"
-                [[ $(ask_yn 'Do you proceed?' n) != 1 ]] && continue
-                ;;
-            exit)
-                continue
-                ;;
-        esac
-
-        echo
-
-        # fix GPT header
-        #   generate fdisk commands to fix GPT
-        #   then send them to fdisk -e
-        #
-        if [[ "$exptype" = 'gpt' ]]; then
-            gpt_orig=$(fdisk -v $expdev)
-            gpt_fix_cmds=$(echo "$gpt_orig" | fixgpt)
-
-            # error check
-            #   fixgpt outputs 'abort' without 'write'
-            #   when error occurred internally
-            #
-            if ! echo "$gpt_fix_cmds" | grep -q '^write$'; then
-                echoerr 'expand: unable modify GPT, expand aborted'
-                continue
-            fi
-
-            # mofify GPT
-            #
-            if ! echo "$gpt_fix_cmds" | fdisk -e $expdev; then
-                echoerr 'expand: error occurred at mofifying GPT'
-                echoerr 'expand: So GPT info before modification saved as "OriginalGPT" at current directory'
-                echoerr 'expand: Please check GPT, then recover GPT manually, if needed'
-                echo "$gpt_orig" > OriginalGPT.${RANDOM}
-                continue
-            fi
-        fi
-
-        # expand fdisk or GPT partition
-        echo "$fdisk_input" | fdisk -e $expdev > /dev/null
-        
-        # expand disklabel partition
-        echo "b\n\n*\nm ${exppar}\n\n*\n\nw\nq\n" | disklabel -c -E ${expdev}${exppar} > /dev/null
-
-        # setup the filesystem
-        #
-        case "$expcmd" in
-            growfs)
-                growfs -y /dev/r${expdev}${exppar}
-                fsck -fy /dev/r${expdev}${exppar}
-                ;;
-            newfs)
-                # get number of sectors of the expaneded partition
-                expsect=$(disklabel -c ${expdev} | awk "\$1 == \"${exppar}:\" { print int(0.5+\$2) }" )
-
-                if [ $expsect -lt $(byte2sect 2G) ]; then
-                    # adjust inode density for little space
-                    # because too many symlinks when booted mode 0
-                    newfs -O 1 -m 0 -o space -i1024 -b4096 -f512 /dev/r${expdev}${exppar}
-                elif [ $expsect -lt $(byte2sect 4G) ]; then
-                    newfs -O 2 -m 0 -o space /dev/r${expdev}${exppar}
-                elif [ $expsect -lt $(byte2sect 8G) ]; then
-                    newfs -O 2 -m 0 /dev/r${expdev}${exppar}
-                else
-                    newfs -O 2 -m 0 -o time /dev/r${expdev}${exppar}
-                fi
-
-                fsck -fy /dev/r${expdev}${exppar}
-                if mount /dev/${expdev}${exppar} $mntdir1; then
-                    expduid=$(dev2duid $expdev)  # get DUID after disk_scan is OK
-                    mkdir -p $mntdir1/livecd-config/${verarch}
-                    umem="75%"
-                    [[ "$memfstype" = 'tmpfs' ]] && umem=0
-                    cat <<EOT >$mntdir1/livecd-config/${verarch}/noasks
-#
-# noasks - parameter settings for non-interactive boot
-#
-# Make statements uncommented
-# Then assign real values
-#
-#
-# FuguIta system device
-#${expduid:+   - Use one of two lines}
-#noask_rdev=${expdev}a  # device name format
-#${expduid:+noask_rdev=${expduid}.a  # DUID format}
-#
-# max ${memfstype} size
-#noask_umem=${umem}
-#
-# boot mode
-#noask_setup_rw_mode=3
-#
-# storage device
-#${expduid:+   - Use one of two lines}
-#noask_confdev=${expdev}${exppar}
-#${expduid:+noask_confdev=${expduid}.${exppar}  # DUID format}
-#
-# data set name in USB flash drive
-#noask_confdir=$(hostname -s)
-EOT
-                    umount $mntdir1
-                fi
-                ;;
-            *)
-                continue
-                ;;
-        esac
-        ;;
+        sync)     cmd_sync;;
+        archive)  cmd_archive;;
+        info)     cmd_info;;
+        saveas)   cmd_saveas;;
+        target)   cmd_target;;
+        newdrive) cmd_newdrive;;
+        expand)   cmd_expand;;
 
         #-------------------
         # null command
@@ -2211,6 +2232,7 @@ Interactive commands are;
     target    -  set the partition for sync, info and expand
     saveas    -  set the name of the data to be saved
     sync      -  sync the target with the current ${memfstype}
+    archive   -  archive saved directory to *.cpio.gz
     info      -  show info about the target partition
     newdrive  -  make a new FuguIta LiveUSB
     expand    -  expand the target partition as large as possible

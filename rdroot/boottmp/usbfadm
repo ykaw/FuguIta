@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.118 2025/03/17 07:40:34 kaw Exp $
+# $Id: usbfadm,v 1.119 2025/03/17 07:54:03 kaw Exp $
 #
 #========================================
 
@@ -1275,7 +1275,7 @@ cmd_target () {
     echo
     echo 'Searching storage device'
     echo 'Please make sure the device inserted.'
-    [ $(wait_enter 'Then press ENTER') -lt 1 ] && return 1
+    [ $(wait_enter 'Then press ENTER') -lt 1 ] && return
 
     # search partitions for saved data
     #
@@ -1363,7 +1363,7 @@ cmd_newdrive () {
     if mount | grep -q '^\/dev\/[0-9a-z][0-9a-z]* on \/sysmedia type '
     then
 	echo 'Please make sure the device inserted.'
-	[ $(wait_enter 'Then press ENTER') -lt 1 ] && return 1
+	[ $(wait_enter 'Then press ENTER') -lt 1 ] && return
     else
 	echo 'Sorry, cannot find /sysmedia.  You cannot do newdrive with this boot mode.'
 	return 1
@@ -1456,7 +1456,7 @@ cmd_newdrive () {
 	echo 'This disk seems to have been partitioned already.'
 	if [ $(ask_yn "Continue anyway?" n) -lt 1 ]; then
 	    clear_vn $newdev $vnfile
-	    return 1
+	    return
 	fi
     fi
 
@@ -1513,7 +1513,7 @@ Modifying partition table later may cause any problem.
 EOT
 		if [ 1 -gt $(ask_yn "Proceed anyway?" n) ]; then
 		    clear_vn $newdev $vnfile
-		    return 1
+		    return
 		fi
 		parttype=Hybrid
 		;;
@@ -1688,7 +1688,7 @@ EOT
     echo "If you type 'Y' now, all the data on $scandev will be lost."
     if [ $(ask_yn "Are you sure to modify disk ${scandev}?" n) -lt 1 ]; then
 	clear_vn $newdev $vnfile
-	return 1
+	return
     fi
 
     #-------------------
@@ -1753,7 +1753,7 @@ cmd_expand () {
     echo
     if [[ -z "$devname" ]]; then
 	echoerr "Name of device not set. Use 'target' to perform this."
-	return 1
+	return
     fi
 
     expdev=${devname#/dev/}  # expdev initially e.g. 'sd2d'
@@ -1877,16 +1877,16 @@ EOT
 	    echo 'It may take time.'
 	    echo 'It is recommended that you make a backup of your data before proceeding'
 	    echo 'with the subsequent expansion process.'
-	    [[ $(ask_yn 'Do you proceed?' n) != 1 ]] && return 1
+	    [[ $(ask_yn 'Do you proceed?' n) != 1 ]] && return
 	    ;;
 	newfs)
 	    echo
 	    echo "This makes ${expdev}${exppar} as large as possible."
 	    echo "Note that all contents in ${expdev}${exppar} will be removed"
-	    [[ $(ask_yn 'Do you proceed?' n) != 1 ]] && return 1
+	    [[ $(ask_yn 'Do you proceed?' n) != 1 ]] && return
 	    ;;
 	exit)
-	    return 1
+	    return
 	    ;;
     esac
 
@@ -1986,7 +1986,7 @@ EOT
 	    fi
 	    ;;
 	*)
-	    return 1
+	    return
 	    ;;
     esac
 }

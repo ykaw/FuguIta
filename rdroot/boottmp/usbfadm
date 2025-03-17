@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.116 2025/03/15 05:04:13 kaw Exp $
+# $Id: usbfadm,v 1.117 2025/03/17 07:13:29 kaw Exp $
 #
 #========================================
 
@@ -100,7 +100,7 @@ wait_enter () {
 
     echoerr -n "$prompt -> "; read line
 
-    if [ X"$line" = X ]; then
+    if [[ -z "$line" ]]; then
         echo 1
     else
         echo -1
@@ -196,11 +196,11 @@ ask_which () {
     while [ -n "${item[$i]}" ]; do
         if [ "$default" = "${item[$i]}" ]; then
             OIFS="$IFS"
-            IFS= prompt="$prompt\n"`printf '%3d: [%s]' $((i+1)) ${item[$i]}`
+            IFS= prompt="$prompt\n"$(printf '%3d: [%s]' $((i+1)) ${item[$i]})
             IFS="$OIFS"
         else
             OIFS="$IFS"
-            IFS= prompt="$prompt\n"`printf '%3d:  %s' $((i+1)) ${item[$i]}`
+            IFS= prompt="$prompt\n"$(printf '%3d:  %s' $((i+1)) ${item[$i]})
             IFS="$OIFS"
         fi
         i=$((i+1))
@@ -208,7 +208,7 @@ ask_which () {
     echo "$prompt" >&2
 
     local ans
-    ans=`rl_wread '' ''`
+    ans=$(rl_wread '' '')
 
     # take first argument
     #
@@ -251,13 +251,13 @@ rl_wread () {
         #-------------------
         # fallback to dumb input
         #
-        if [ X"$default" = X ]; then
+        if [[ -z "$default" ]]; then
             echoerr -n "${prompt}->"
             read w
         else
             echoerr -n "$prompt [$default] -> "
             read w
-            if [ X"$w" = X ]; then
+            if [[ -z "$w" ]]; then
               w="$default"
             fi
         fi
@@ -378,7 +378,7 @@ copydirs () {
 # scan specified disk
 # then outputs its parameters with form of sh var assignment
 #
-# Usage: eval `disk_scan disk`
+# Usage: eval $(disk_scan disk)
 #
 # Outputs: scandev    : name of device, e.g. 'sd0'
 #          sect_size  : sector size - bytes/sector
@@ -505,13 +505,13 @@ EOT
 --------------------,------
 partition,size
 --------------------,------
-whole disk,`sect2byte $sects_total`
-partition tables,`sect2byte $((ps_hgap+ps_tgap))`
-UEFI system,`sect2byte $ps_uefi`
-FuguIta system,`sect2byte $ps_fisys`
-FuguIta swap,`sect2byte $ps_fiswp`
-FuguIta user data,`sect2byte $ps_fidat`
-MSDOS FAT,`sect2byte $ps_fat`
+whole disk,$(sect2byte $sects_total)
+partition tables,$(sect2byte $((ps_hgap+ps_tgap)))
+UEFI system,$(sect2byte $ps_uefi)
+FuguIta system,$(sect2byte $ps_fisys)
+FuguIta swap,$(sect2byte $ps_fiswp)
+FuguIta user data,$(sect2byte $ps_fidat)
+MSDOS FAT,$(sect2byte $ps_fat)
 --------------------,------
 EOT
     fi
@@ -529,7 +529,7 @@ zerofill_head () {
     [ "$diskscan" = ok ]  || return
 
     # clear partition table and disklabel
-    dd if=/dev/zero of=/dev/r"$scandev"c bs=$((2048*sect_size)) count=$(((bound_start+`byte2sect 1M`)/2048))
+    dd if=/dev/zero of=/dev/r"$scandev"c bs=$((2048*sect_size)) count=$(((bound_start+$(byte2sect 1M))/2048))
 }
 
 #-------------------
@@ -613,8 +613,8 @@ fdisk_init () {
 setup_fs () {
     [ "$diskscan" = ok ]  || return
 
-    if [ 0 -eq `expr "$scandev" : '^[sw]d[0-9]$'` ] &&
-       [ 0 -eq `expr "$scandev" : '^vnd[0-9]$'` ]; then
+    if [ 0 -eq $(expr "$scandev" : '^[sw]d[0-9]$') ] &&
+       [ 0 -eq $(expr "$scandev" : '^vnd[0-9]$') ]; then
         return
     fi
 
@@ -632,7 +632,7 @@ setup_fs () {
     local disklabel_input='' part
 
     # commands to delete existing FFS/RAID/swap partitions
-    for part in `disklabel -c $scandev | awk '/^  [a-p]: .*  (4\.2BSD|RAID|swap)/{print $1}' | tr -d :`; do
+    for part in $(disklabel -c $scandev | awk '/^  [a-p]: .*  (4\.2BSD|RAID|swap)/{print $1}' | tr -d :); do
         disklabel_input="${disklabel_input}d $part\n"
     done
 
@@ -658,7 +658,7 @@ setup_fs () {
         echo -n "$disklabel_input" | disklabel -c -E "$scandev" >/dev/null
     fi
 
-    local disklabel=`disklabel -c $scandev`
+    local disklabel=$(disklabel -c $scandev)
 
     echo "$disklabel" | grep -q 'i:.*MSDOS' && newfs_msdos ${scandev}i
     echo "$disklabel" | grep -q 'j:.*MSDOS' && newfs_msdos ${scandev}j
@@ -746,7 +746,7 @@ setup_fs () {
         # setup passphrase file
         #
         rm -f $enc_ppfile
-        local def_umask=`umask`
+        local def_umask=$(umask)
         umask 077
         echo "$enc_pp1" > $enc_ppfile
         chmod 0600 $enc_ppfile
@@ -767,7 +767,7 @@ setup_fs () {
 
         # create a FFS partition in the crypto volume
         #
-        if [ 0 -lt `expr "$datdev" : '^sd[0-9]'` ]; then
+        if [ 0 -lt $(expr "$datdev" : '^sd[0-9]') ]; then
             fdisk -iy $datdev
             echo "a d\n\n*\n4.2BSD\nw\nq\n" | disklabel -c -E $datdev >/dev/null
         else
@@ -781,13 +781,13 @@ setup_fs () {
     #
     if disklabel -c $datdev | grep -q 'd:.*4\.2BSD'; then
         notice "Setting up a partition for user's data"
-        if [ $ps_fidat -lt `byte2sect 2G` ]; then
+        if [ $ps_fidat -lt $(byte2sect 2G) ]; then
             # adjust inode density for little space
             # because too many symlinks when booted mode 0
             newfs -O 1 -m 0 -o space -i1024 -b4096 -f512 ${datdev}d
-        elif [ $ps_fidat -lt `byte2sect 4G` ]; then
+        elif [ $ps_fidat -lt $(byte2sect 4G) ]; then
             newfs -O 2 -m 0 -o space ${datdev}d
-        elif [ $ps_fidat -lt `byte2sect 8G` ]; then
+        elif [ $ps_fidat -lt $(byte2sect 8G) ]; then
             newfs -O 2 -m 0 ${datdev}d
         else
             newfs -O 2 -m 0 -o time ${datdev}d
@@ -1185,8 +1185,8 @@ fixgpt () {
   lockdir=/usbfadm.d
   mntdir1="$lockdir/mnt1"
   mntdir2="$lockdir/mnt2"
-    osrel=`sysctl -n kern.osrelease`
-    hwmac=`sysctl -n hw.machine`
+    osrel=$(sysctl -n kern.osrelease)
+    hwmac=$(sysctl -n hw.machine)
   verarch=${osrel}/${hwmac}
 
 #-------------------
@@ -1197,7 +1197,7 @@ if [ ! -r /usr/fuguita/version ]; then
     exit 1
 fi
 
-if [ ! `id -un` = root ]; then
+if [ ! $(id -un) = root ]; then
     echoerr "${0##*/} must be run as a root."
     exit 1
 fi
@@ -1214,7 +1214,7 @@ if [ 1 -le $(expr X"$(pwd)" : X$mntdir1) ]; then
     exit 1
 fi
 
-umask_o=`umask`; umask 077
+umask_o=$(umask); umask 077
 if mkdir $lockdir 2>/dev/null; then
     mkdir $mntdir1
 else
@@ -1231,9 +1231,9 @@ trap 'echo ${0##*/}: interrupted. >&2; clear_exit 1' INT
 
 # read status files
 #
-[ -r /boottmp/boot_mode ]            && bootmode=`cat /boottmp/boot_mode`
-[ -r /boottmp/boot_restore_devname ] && devname=`cat /boottmp/boot_restore_devname`
-[ -r /boottmp/boot_user_config ]     && uconf=`cat /boottmp/boot_user_config`
+[ -r /boottmp/boot_mode ]            && bootmode=$(cat /boottmp/boot_mode)
+[ -r /boottmp/boot_restore_devname ] && devname=$(cat /boottmp/boot_restore_devname)
+[ -r /boottmp/boot_user_config ]     && uconf=$(cat /boottmp/boot_user_config)
 
 # systemwide defaults
 #
@@ -1253,7 +1253,7 @@ fi
 
 # command line arguments
 #
-cmdargs=`getopt qritdh $*`
+cmdargs=$(getopt qritdh $*)
 set -- $cmdargs
 while [ 1 -lt $# ]; do
     case "$1" in
@@ -1261,7 +1261,7 @@ while [ 1 -lt $# ]; do
         -i) opt_mode=info;   shift;;
         -q) opt_quiet=yes;   shift;;
         -t) opt_trace=yes; set -x; shift;;
-        -d) debugfile=`pwd`/usbf.debugout  # This is also flag.
+        -d) debugfile=$(pwd)/usbf.debugout  # This is also flag.
             shift;;
         *) cat <<EOT 2>&1
 Usage: ${0##*/} [-riqtdh]
@@ -1317,7 +1317,7 @@ case "$opt_mode" in
         cat <<EOT
 FuguIta's persistent storage status:
 
- Version/Arch: $verarch  (FuguIta-`cat /usr/fuguita/version`)
+ Version/Arch: $verarch  (FuguIta-$(cat /usr/fuguita/version))
     Boot mode: $bootmode
 Target device: ${devname:-not set}
 Data saved as: ${uconf:-not set}
@@ -1345,7 +1345,7 @@ cat <<EOT
 Welcome to usbfadm.
 USB flash drive administration tool for FuguIta
 
- Version/Arch: $verarch  (FuguIta-`cat /usr/fuguita/version`)
+ Version/Arch: $verarch  (FuguIta-$(cat /usr/fuguita/version))
     Boot mode: $bootmode
 Target device: $d
 Data saved as: $u
@@ -1372,18 +1372,18 @@ while :; do
     d="${devname#/dev/}" ; [ -z "$devname" ] && d='?'
     u="$uconf"           ; [ -z "$uconf" ]   && u='?'
     echo
-    cmd=`rl_wread "$d : $u " '' quit bye exit sync info saveas target newdrive expand help ?`
+    cmd=$(rl_wread "$d : $u " '' quit bye exit sync info saveas target newdrive expand help ?)
 
     set X $cmd
 
     #-------------------
     # process every command
     #
-    case X"$2" in
+    case "$2" in
         #-------------------
         # finish all
         #
-        Xq|Xquit|Xbye|Xexit|XEOF|XRL_ERR)
+        q|quit|bye|exit|EOF|RL_ERR)
         echo
         echo 'Bye bye...'
         break;
@@ -1393,19 +1393,19 @@ while :; do
         # write back memory file system
         # to the storage device
         #
-        Xsync)
+        sync)
         echo
-        if [ X"$devname" = X ]; then
+        if [[ -z "$devname" ]]; then
             echoerr "Name of device not set. Use 'target' to perform this."
             continue
         fi
-        if [ X"$uconf" = X ]; then
+        if [[ -z "$uconf" ]]; then
             echoerr "Name of saving data not set. Use 'saveas' to perform this."
             continue
         fi
 
         notice "sync current ${memfstype} as $uconf"
-        if [ 1 = `ask_yn "OK?" n` ]; then
+        if [ 1 = $(ask_yn "OK?" n) ]; then
             if mount -o async,noatime $devname $mntdir1; then
                 echo
                 if [ -d $mntdir1/livecd-config ]; then
@@ -1436,7 +1436,7 @@ while :; do
         #-------------------
         # show status of storage device
         #
-        Xinfo)
+        info)
         if [[ -n "$devname" ]] && mount -r $devname $mntdir1; then
             (cd $mntdir1/livecd-config
              echo
@@ -1450,31 +1450,31 @@ while :; do
         # set data set name
         # default is our FQDN.
         #
-        Xsaveas)
-        if [ X"devname" != X ] && mount $devname $mntdir1; then
+        saveas)
+        if [[ -n "devname" ]] && mount $devname $mntdir1; then
             [ -d $mntdir1/livecd-config/$verarch ] || mkdir -p $mntdir1/livecd-config/$verarch
-            confs=`cd $mntdir1/livecd-config/$verarch && echo *`
+            confs=$(cd $mntdir1/livecd-config/$verarch && echo *)
             umount $devname
         fi
-        [ X"$uconf" = X ] && uconf=`hostname -s`
-        uconf=`rl_wread "Name of saved data" $uconf $confs`
-        uconf=`echo $uconf | tr -cd 0-9A-Za-z.,_-+=:%@`  # strip invalid chars
+        [[ -z "$uconf" ]] && uconf=$(hostname -s)
+        uconf=$(rl_wread "Name of saved data" $uconf $confs)
+        uconf=$(echo $uconf | tr -cd 0-9A-Za-z.,_-+=:%@)  # strip invalid chars
         echo
-        if [ X"$uconf" = X ]; then
+        if [[ -z "$uconf" ]]; then
             echoerr "Unset the name of saving data"
         else
-            echo "Your data will be saved as \`\`$uconf''."
+            echo "Your data will be saved as \"$uconf\"."
         fi
         ;;
 
         #-------------------
         # search and set storage device
         #
-        Xtarget)
+        target)
         echo
         echo 'Searching storage device'
         echo 'Please make sure the device inserted.'
-        [ `wait_enter 'Then press ENTER'` -lt 1 ] && continue
+        [ $(wait_enter 'Then press ENTER') -lt 1 ] && continue
 
         #-----------------------
         # search partitions for saved data
@@ -1484,8 +1484,8 @@ while :; do
             devs_normal=' '
             devs_crypto=' '
             # listing storage devices with investigation
-            for rdev in `sysctl -n hw.disknames \
-                         | sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'`; do
+            for rdev in $(sysctl -n hw.disknames \
+                         | sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'); do
 
                 # vnd included
                 (expr $rdev : '^[sw]d[0-9]' || expr $rdev : '^vnd[0-9]' ) >/dev/null \
@@ -1495,8 +1495,8 @@ while :; do
                 # expr $rdev : '^[sw]d[0-9]' >/dev/null || continue
 
                 # $rdev is detected storage name - e.g. "sd2"
-                for ptfs in `disklabel -c "$rdev" 2>/dev/null \
-                             | awk '/^  [abd-p]:/ { print $1 $4 }'`; do
+                for ptfs in $(disklabel -c "$rdev" 2>/dev/null \
+                             | awk '/^  [abd-p]:/ { print $1 $4 }'); do
                     # $ptfs is "partition:fstype" - e.g. "d:4.2BSD"
                     dev="$rdev"${ptfs%:*}
                     fs=${ptfs#*:}
@@ -1539,13 +1539,13 @@ while :; do
                 break
             else
                 echo
-                dev=`rl_wread "target device" "$def_dev" ${devs_normal}${devs_crypto}`
-                if [ 0 -lt `expr "$devs_normal" : ".* $dev "` ]; then
+                dev=$(rl_wread "target device" "$def_dev" ${devs_normal}${devs_crypto})
+                if [ 0 -lt $(expr "$devs_normal" : ".* $dev ") ]; then
                     devname=/dev/$dev
                     set -- ${devs_normal}${devs_crypto}
                     devnames="$@"  # trim heading/trailing spaces
                     break
-                elif [ 0 -lt `expr "$devs_crypto" : ".* $dev "` ]; then
+                elif [ 0 -lt $(expr "$devs_crypto" : ".* $dev ") ]; then
                     bioctl -c C -l /dev/$dev softraid0
                     sleep 2  # wait for kernel message displayed
                 else
@@ -1558,7 +1558,7 @@ while :; do
         #-------------------
         # make new FuguIta storage device
         #
-        Xnewdrive)
+        newdrive)
 
         echo
         if mount | grep -q '^\/dev\/[0-9a-z][0-9a-z]* on \/sysmedia type '
@@ -1950,7 +1950,7 @@ EOT
         #-------------------
         # expand targeted storage partition to fill the device
         #
-        Xexpand)
+        expand)
 
         echo
         if [[ -z "$devname" ]]; then
@@ -2139,13 +2139,13 @@ EOT
                 # get number of sectors of the expaneded partition
                 expsect=$(disklabel -c ${expdev} | awk "\$1 == \"${exppar}:\" { print int(0.5+\$2) }" )
 
-                if [ $expsect -lt `byte2sect 2G` ]; then
+                if [ $expsect -lt $(byte2sect 2G) ]; then
                     # adjust inode density for little space
                     # because too many symlinks when booted mode 0
                     newfs -O 1 -m 0 -o space -i1024 -b4096 -f512 /dev/r${expdev}${exppar}
-                elif [ $expsect -lt `byte2sect 4G` ]; then
+                elif [ $expsect -lt $(byte2sect 4G) ]; then
                     newfs -O 2 -m 0 -o space /dev/r${expdev}${exppar}
-                elif [ $expsect -lt `byte2sect 8G` ]; then
+                elif [ $expsect -lt $(byte2sect 8G) ]; then
                     newfs -O 2 -m 0 /dev/r${expdev}${exppar}
                 else
                     newfs -O 2 -m 0 -o time /dev/r${expdev}${exppar}
@@ -2196,7 +2196,7 @@ EOT
         #-------------------
         # null command
         # ... only RET
-        X)
+        '')
         : # do nothing
         ;;
 

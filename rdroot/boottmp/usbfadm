@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.120 2025/03/18 03:50:59 kaw Exp $
+# $Id: usbfadm,v 1.121 2025/03/18 04:29:19 kaw Exp $
 #
 #========================================
 
@@ -1097,7 +1097,7 @@ e75caf8f-f680-4cee-afa3-b001e56efc2d,Windows Storage Spaces
 listpart () {
     local OIFS="$IFS"
     awk \
-        '/^[    ]*[0-9]+: .* \[ .* \]$/{
+        '/^[ 	]*[0-9]+: .* \[ .* \]$/{
              partno=$1+0
              parttype=substr($0, 7, 36); sub(" +$", "", parttype)
              secstart=$(NF-2); secstart=secstart+0

@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.132 2025/01/01 00:58:54 kaw Exp $
+# $Id: Makefile,v 1.133 2025/03/19 04:26:09 kaw Exp $
 
 #========================================
 # global definitions
@@ -324,7 +324,7 @@ rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV\
 	sed '/^daemon:/,/:tc=default:/ s/:datasize=[^:][^:]*:/:datasize=infinity:/'\
 	    /usr/src/etc/etc.$(ARCH)/login.conf > /mnt/boottmp/login.conf
 	cp -p lib/bootbin/obj/bootbin /mnt/boottmp
-	for prog in disklabel halt init ln mount mount_cd9660 mount_ext2fs\
+	for prog in disklabel gzip halt init ln mount mount_cd9660 mount_ext2fs\
 	            mount_ffs mount_mfs mount_msdos mount_ntfs mount_vnd newfs\
 	            reboot sed sleep swapctl swapon sysctl umount vnconfig; do\
 	    ln -f /mnt/boottmp/bootbin /mnt/boottmp/$$prog;\

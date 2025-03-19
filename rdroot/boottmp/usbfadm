@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.121 2025/03/18 04:29:19 kaw Exp $
+# $Id: usbfadm,v 1.122 2025/03/19 04:26:09 kaw Exp $
 #
 #========================================
 
@@ -1231,12 +1231,6 @@ cmd_sync () {
 # archive - archive synced data to *.cpio.gz
 #
 cmd_archive () {
-    if true; then  # sentinel for debug
-        echo
-        echo "We are implementing this, please wait."
-        return
-    fi
-
     # some checks
     #
     echo
@@ -1306,7 +1300,7 @@ cmd_archive () {
     (if cd "$srcdir"; then
          echo "measuring disk usage, please wait..."
          set -- $(du -sk "$srcdir")
-         pax -x cpio -w . | pv -s "$1"K | gzip -9 > "$arcbase/$destarc"
+         pax -x cpio -wX . | pv -s "$1"K | gzip -9 > "$arcbase/$destarc"
          if [[ $? != 0 ]]; then
              echoerr $destarc not archived normally, abort
              rm -f "$arcbase/$destarc"

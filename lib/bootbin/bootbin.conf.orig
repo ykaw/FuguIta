@@ -1,7 +1,7 @@
 srcdirs ../special
 srcdirs /usr/src/distrib/special
 
-progs init ln disklabel mount mount_ffs mount_cd9660 mount_msdos mount_ntfs mount_ext2fs mount_vnd vnconfig umount newfs sed sleep sysctl swapctl reboot
+progs init gzip ln disklabel mount mount_ffs mount_cd9660 mount_msdos mount_ntfs mount_ext2fs mount_vnd vnconfig umount newfs sed sleep sysctl swapctl reboot
 
 ln swapctl swapon
 ln reboot halt

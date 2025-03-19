@@ -1094,7 +1094,10 @@ EOT
             # copying to ram
             #
             echo "Copying files from persistent storage to ram ... "
+
+            # an archive file
             if [ -f /mnt/livecd-config/$osrel/$osmac/$confdata ]; then
+                echo "usbflash_arc" > /boottmp/boot_mode  # overwrite "usbflash"
                 if cd /ram; then
                     # locate crunched binary gzip to temporary /usr/bin
                     # because pax has fixed command search PATH in it.
@@ -1111,6 +1114,8 @@ EOT
                     # cleanup temporary /usr/bin/gzip
                     rm -rf /usr
                 fi
+
+            # synced dir tree
             elif cd /mnt/livecd-config/$osrel/$osmac/$confdata 2> /dev/null || \
                cd /mnt/livecd-config/$confdata; then
                 if ! pax -rwpe . /ram; then

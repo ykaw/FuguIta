@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.123 2025/03/19 08:43:16 kaw Exp $
+# $Id: usbfadm,v 1.124 2025/03/19 15:52:39 kaw Exp $
 #
 #========================================
 
@@ -2131,6 +2131,12 @@ trap 'echo ${0##*/}: interrupted. >&2; clear_exit 1' INT
 [ -r /boottmp/boot_mode ]            && bootmode=$(cat /boottmp/boot_mode)
 [ -r /boottmp/boot_restore_devname ] && devname=$(cat /boottmp/boot_restore_devname)
 [ -r /boottmp/boot_user_config ]     && uconf=$(cat /boottmp/boot_user_config)
+
+# to avoid accidentally overwriting past archive files with current
+# sync data
+if [[ "$bootmode" = 'usbflash_arc' ]]; then
+    unset uconf
+fi
 
 # systemwide defaults
 #

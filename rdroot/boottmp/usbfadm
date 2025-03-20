@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.124 2025/03/19 15:52:39 kaw Exp $
+# $Id: usbfadm,v 1.125 2025/03/20 03:37:42 kaw Exp $
 #
 #========================================
 
@@ -1487,43 +1487,41 @@ cmd_newdrive () {
 
     # create vnode device file if specified
     #
-    case "$newdev" in
-        img)
-            vnfile=FuguIta-$(</usr/fuguita/version).img
-            if [ -e "$vnfile" ]; then
-                echo
-                [ 1 -gt $(ask_yn "Image file $vnfile already exists\nRemove it and proceed?" r) ] && break
+    if [[ "$newdev" = 'img' ]]; then
+        vnfile=FuguIta-$(</usr/fuguita/version).img
+        if [ -e "$vnfile" ]; then
+            echo
+            [ 1 -gt $(ask_yn "Image file $vnfile already exists\nRemove it and proceed?" r) ] && break
+        fi
+        while :; do
+            echo
+            echo "Enter size of a vnode device file."
+            echo "You can add suffix K, M, G or T (otherwise considered 'bytes')."
+            ans=$(rl_wread '' '')
+            echo
+            if [ 1 -lt $(expr "X$ans" : 'X[0-9][0-9]*') ]; then
+                sect_size=$((1024*1024)) # block size for dd
+                [ $(byte2sect 724M) -le $(byte2sect $ans) ] && break
+                [ 1 -le $(ask_yn "$ans is very small value.\nDo you really take this value?" n) ] && break
             fi
-            while :; do
-                echo
-                echo "Enter size of a vnode device file."
-                echo "You can add suffix K, M, G or T (otherwise considered 'bytes')."
-                ans=$(rl_wread '' '')
-                echo
-                if [ 1 -lt $(expr "X$ans" : 'X[0-9][0-9]*') ]; then
-                    sect_size=$((1024*1024)) # block size for dd
-                    [ $(byte2sect 724M) -le $(byte2sect $ans) ] && break
-                    [ 1 -le $(ask_yn "$ans is very small value.\nDo you really take this value?" n) ] && break
-                fi
-            done
+        done
 
-            if which pv >/dev/null 2>&1 ; then
-                sects=$(byte2sect $ans)
-                dd if=/dev/zero bs=$sect_size count=$sects | pv --size $((sect_size*sects)) > $vnfile \
-                && newdev=$(vnconfig $vnfile)
-            else
-                (while :; do sleep 15; pkill -INFO dd || exit 0; done) &  # to display progress
-                dd if=/dev/zero of=$vnfile bs=$sect_size count=$(byte2sect $ans) \
-                && newdev=$(vnconfig $vnfile)
-            fi
+        if which pv >/dev/null 2>&1 ; then
+            sects=$(byte2sect $ans)
+            dd if=/dev/zero bs=$sect_size count=$sects | pv --size $((sect_size*sects)) > $vnfile \
+            && newdev=$(vnconfig $vnfile)
+        else
+            (while :; do sleep 15; pkill -INFO dd || exit 0; done) &  # to display progress
+            dd if=/dev/zero of=$vnfile bs=$sect_size count=$(byte2sect $ans) \
+            && newdev=$(vnconfig $vnfile)
+        fi
 
-            if [ -z "$newdev" ]; then
-                echoerr "newdrive: sorry, cannot allocate a new vnode device."
-                clear_vn $newdev $vnfile
-                return 1
-            fi
-            ;;
-    esac
+        if [ -z "$newdev" ]; then
+            echoerr "newdrive: sorry, cannot allocate a new vnode device."
+            clear_vn $newdev $vnfile
+            return 1
+        fi
+    fi
 
     echo
     if ! fdisk $newdev; then
@@ -1823,7 +1821,10 @@ EOT
           showparams verbose
         } >> "$debugfile"
     fi
-    clear_vn $scandev  # don't remove vn img file
+
+    if [[ -n "$vnfile" ]]; then
+        clear_vn $scandev  # don't remove vn img file
+    fi
 }
 
 #-------------------

@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.125 2025/03/20 03:37:42 kaw Exp $
+# $Id: usbfadm,v 1.126 2025/03/20 04:13:01 kaw Exp $
 #
 #========================================
 
@@ -89,10 +89,6 @@
 #    enc_pp1    : Primary entered passphrase
 #    enc_pp2    : Secondary entered passphrase (cleared after check)
 #    enc_ppfile : file containing passphrase
-# 
-# vnode devices
-#
-#    vnfile     : raw disk image file
 # 
 # memory-based file systems
 #
@@ -1439,6 +1435,8 @@ cmd_target () {
 # newdrive - remaster to another device
 #
 cmd_newdrive () {
+    local vnfile
+
     echo
     if mount | grep -q '^\/dev\/[0-9a-z][0-9a-z]* on \/sysmedia type '
     then

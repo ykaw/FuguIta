@@ -1,0 +1,60 @@
+#!/bin/ksh
+
+if [[ $(id -u) -ne 0 ]]; then
+    echo "${0##*/}: must be a root" >&2
+    exit 1
+fi
+
+if [[ -z "$2" ]]; then
+    echo "usage: ${0##*/} imgfile directory [headroom]" >&2
+    exit 1
+fi
+   
+imgfile="$1"
+    dir="$2"
+ hdroom="${3:-4m}"
+
+trap cleanup ERR
+
+cleanup () {
+    trap '' ERR
+    [[ -n "$vn" ]] && vnconfig -u "$vn"
+    rm -f "$imgfile"
+    exit 1
+}
+
+set -e
+
+gap_bl=128              # blocks
+ gap_b=$((512*gap_bl))  # bytes
+
+makefs -t ffs \
+       -b "$hdroom" \
+       -f 10% \
+       -o bsize=4096,fsize=512,minfree=0,optimization=space,version=1 \
+       -O "$gap_b" \
+       "$imgfile" \
+       "$dir"
+
+vn=$(vnconfig "$imgfile")
+
+fdisk -e "$vn" <<EOT
+e 3
+A6
+n
+$gap_bl
+*
+w
+q
+EOT
+
+disklabel -E "$vn" <<EOT
+a a
+$gap_bl
+*
+4.2BSD
+w
+q
+EOT
+
+vnconfig -u "$vn"

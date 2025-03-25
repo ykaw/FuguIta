@@ -922,7 +922,13 @@ usbfadm_r () {
 }
 
 [[ "\$force_umount" = [Yy][Ee][Ss] ]] && stop_daemons
-[[ "\$force_resync" = [Yy][Ee][Ss] ]] && usbfadm_r
+
+# not to set default 'saveas' when archive deployed
+# to avoid misoperation of usbfadm sync
+if [[ \$(cat /boottmp/boot_mode) != usbflash_arc ]]; then
+    [[ "\$force_resync" = [Yy][Ee][Ss] ]] && usbfadm_r
+fi
+
 kill_daemons
 [[ "\$force_umount" = [Yy][Ee][Ss] ]] && /boottmp/umount -f /ram
 EOT

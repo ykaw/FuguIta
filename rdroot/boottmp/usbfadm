@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.127 2025/03/20 05:19:47 kaw Exp $
+# $Id: usbfadm,v 1.128 2025/03/25 04:53:58 kaw Exp $
 #
 #========================================
 
@@ -1208,6 +1208,13 @@ cmd_sync () {
                     copydirs /ram "$mntdir1/livecd-config/$verarch/$uconf"
                     rm -rf $mntdir1/livecd-config/$verarch/"$uconf"/tmp/{.??*,*}
                 fi
+
+                # not to reset $uconf at subsequent usbfadm invocation
+                #
+                if [[ ${bootmode} = 'usbflash_arc' ]]; then
+                    echo 'usbflash' > /boottmp/boot_mode
+                fi
+
                 echo "$devname" > /boottmp/boot_restore_devname
                 echo "$uconf"   > /boottmp/boot_user_config
                 sync
@@ -1298,14 +1305,7 @@ cmd_archive () {
          set -- $(du -sk "$srcdir")
          echo "${1}K: $uconf -> $destarc"
          pax -x cpio -wX -s '|^\./tmp/..*||' . | pv -s "${1}K" | gzip -9 > "$arcbase/$destarc"
-         if [[ $? = 0 ]]; then
-             # when archiving succeeded
-             # set devname and uconf to default
-             #
-             echo "$devname" > /boottmp/boot_restore_devname
-             echo "$uconf"   > /boottmp/boot_user_config
-             echo 'usbflash' > /boottmp/boot_mode
-         else
+         if [[ $? != 0 ]]; then
              echoerr $destarc not archived normally, abort
              rm -f "$arcbase/$destarc"
          fi

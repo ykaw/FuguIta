@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.128 2025/03/25 04:53:58 kaw Exp $
+# $Id: usbfadm,v 1.129 2025/03/30 17:12:18 kaw Exp $
 #
 #========================================
 
@@ -50,7 +50,6 @@
 # global parameters
 #    bootmode   : initial boot mode - e.g. 'usbflash'
 #    devname    : path of target device for sync - e.g. '/dev/sd0d'
-#    devnames   : all disk names attached to this machine - e.g. ' sd1d sd2d'
 #    uconf      : name of configuration - e.g. 'userdemo'
 # 
 # constants
@@ -87,7 +86,6 @@
 # crypto stuffs
 #    enc_fidat  : Is FuguIta's Data Store encrypted?
 #    enc_pp1    : Primary entered passphrase
-#    enc_pp2    : Secondary entered passphrase (cleared after check)
 #    enc_ppfile : file containing passphrase
 # 
 # memory-based file systems
@@ -230,17 +228,19 @@ ask_yn () {
 #               returns empty line unless selected normally
 #
 ask_which () {
+    local oifs="$IFS"
+
     if [ $# -lt 3 ]; then
         return
     fi
 
     local prompt="$1";  shift
     local default="$1"; shift
-    local i item val
 
     # skip null item
     #
-    i=0
+    local item val
+    local i=0
     for val in "$@"; do
         if [ -n "$val" ]; then
            item[$i]="$val"
@@ -255,13 +255,11 @@ ask_which () {
     i=0
     while [ -n "${item[$i]}" ]; do
         if [ "$default" = "${item[$i]}" ]; then
-            OIFS="$IFS"
             IFS= prompt="$prompt\n"$(printf '%3d: [%s]' $((i+1)) ${item[$i]})
-            IFS="$OIFS"
+            IFS="$oifs"
         else
-            OIFS="$IFS"
             IFS= prompt="$prompt\n"$(printf '%3d:  %s' $((i+1)) ${item[$i]})
-            IFS="$OIFS"
+            IFS="$oifs"
         fi
         i=$((i+1))
     done
@@ -364,14 +362,19 @@ byte2sect () {
 #   null string unless converted sucessfully
 #
 sect2byte () {
-    local val
-    val=$(expr "$1" : '00*$') && { echo "0B"; return; }
+    if expr "$1" : '00*$' >/dev/null; then
+        echo "0B"
+        return
+    fi
+
     local scale
     case "$2" in
         2) scale=$((1024*1024));;
         3) scale=$((1024*1024*1024));;
         *) scale=1024;;
     esac
+
+    local val
     if val=$(expr "$1" : '\([1-9][0-9]*\)'); then
         val=$((sect_size*val))
         [ "$val" -lt $scale ] && { echo "${val}B"; return; }
@@ -424,7 +427,7 @@ copydirs () {
     [ -d "$srcdir" ]  || { echoerr "source directory $srcdir not found";       return; }
     [ -d "$destdir" ] || { echoerr "destination directory $destdir not found"; return; }
     if which pv >/dev/null 2>&1 ; then
-        local srcsize; srcsize=$(df -k /ram | awk '/ \/ram$/ { print $3 "K"}')
+        local srcsize=$(df -k /ram | awk '/ \/ram$/ { print $3 "K"}')
         echo "copying $srcdir to $destdir (${srcsize}B approx.):"
         (cd "$srcdir" && pax -wX -x cpio .) | (pv -s $srcsize; echo -n "waiting for pax to finish ... " >&2) | (cd "$destdir" && pax -rpe)
         (echo -n "syncing ... "; sync; sync; sync; echo done.) >&2
@@ -545,8 +548,8 @@ fdisk_init () {
 
     local ptype="$1"
 
-    if [ ! $secs_total = $((ps_hgap+ps_uefi+ps_fisys+ps_fiswp+ps_fidat+ps_fat+ps_tgap)) ]; then
-        echoerr "Inconsistent sector sizes: $secs_total != $ps_hgap + $ps_uefi + $ps_fisys + $ps_fiswp + $ps_fidat + $ps_fat + $ps_tgap"
+    if [ ! "$sects_total" = $((ps_hgap+ps_uefi+ps_fisys+ps_fiswp+ps_fidat+ps_fat+ps_tgap)) ]; then
+        echoerr "Inconsistent sector sizes: $sects_total != $ps_hgap + $ps_uefi + $ps_fisys + $ps_fiswp + $ps_fidat + $ps_fat + $ps_tgap"
         return
     fi
 
@@ -793,8 +796,8 @@ setup_fs () {
             newfs -O 2 -m 0 -o time ${datdev}d
         fi
 
-        sys_duid=$(dev2duid $scandev)
-        dat_duid=$(dev2duid $datdev)
+        local sys_duid=$(dev2duid $scandev)
+        local dat_duid=$(dev2duid $datdev)
         mount -o async /dev/${datdev}d $mntdir1
         mkdir -p $mntdir1/livecd-config/${verarch}
         local umem="75%"
@@ -856,7 +859,7 @@ clear_vn () {
         vnd[0-3])
             if vnconfig -l | grep -q "^$vndev: covering "; then
                 vnconfig -u "$vndev"
-                fi
+            fi
             ;;
     esac
     [ -n "$vnrm" ] && rm -f $vnrm
@@ -1091,7 +1094,8 @@ e75caf8f-f680-4cee-afa3-b001e56efc2d,Windows Storage Spaces
 #  if error detected, outputs "abort" fdisk command
 #
 listpart () {
-    local OIFS="$IFS"
+    local oifs="$IFS"
+
     awk \
         '/^[ 	]*[0-9]+: .* \[ .* \]$/{
              partno=$1+0
@@ -1110,7 +1114,7 @@ listpart () {
       | while read line; do
           IFS=','
           set -- $line
-          IFS="$OIFS"
+          IFS="$oifs"
           # echo "$1,$(getguid "$2"),$3,$4,$5,$6"
           cat <<EOT
 edit $1
@@ -1334,7 +1338,7 @@ cmd_info () {
 cmd_saveas () {
     if [[ -n "devname" ]] && mount $devname $mntdir1; then
         [ -d $mntdir1/livecd-config/$verarch ] || mkdir -p $mntdir1/livecd-config/$verarch
-        confs=$(cd $mntdir1/livecd-config/$verarch && echo *)
+        local confs=$(cd $mntdir1/livecd-config/$verarch && echo *)
         umount $devname
     fi
     [[ -z "$uconf" ]] && uconf=$(hostname -s)
@@ -1353,6 +1357,8 @@ cmd_saveas () {
 #          for sync and expand
 #
 cmd_target () {
+    local dev fs
+
     # search and set storage device
     #
     echo
@@ -1364,9 +1370,10 @@ cmd_target () {
     #
     while :; do
         devname=''
-        devs_normal=' '
-        devs_crypto=' '
+        local devs_normal=' '
+        local devs_crypto=' '
         # listing storage devices with investigation
+        local rdev
         for rdev in $(sysctl -n hw.disknames \
                      | sed -E -e 's/:[0-9a-f]+/:/g; s/[:,]+/ /g;'); do
 
@@ -1378,6 +1385,7 @@ cmd_target () {
             # expr $rdev : '^[sw]d[0-9]' >/dev/null || continue
 
             # $rdev is detected storage name - e.g. "sd2"
+            local ptfs
             for ptfs in $(disklabel -c "$rdev" 2>/dev/null \
                          | awk '/^  [abd-p]:/ { print $1 $4 }'); do
                 # $ptfs is "partition:fstype" - e.g. "d:4.2BSD"
@@ -1399,7 +1407,7 @@ cmd_target () {
                         if mount -r /dev/$dev $mntdir1 2>/dev/null; then
                             if [ -d $mntdir1/livecd-config ]; then
                                 devs_normal="$devs_normal$dev "
-                                def_dev="$dev"
+                                local def_dev="$dev"
                                 echo -n "+$dev "
                             else
                                 echo -n "$dev "
@@ -1425,8 +1433,6 @@ cmd_target () {
             dev=$(rl_wread "target device" "$def_dev" ${devs_normal}${devs_crypto})
             if [ 0 -lt $(expr "$devs_normal" : ".* $dev ") ]; then
                 devname=/dev/$dev
-                set -- ${devs_normal}${devs_crypto}
-                devnames="$@"  # trim heading/trailing spaces
                 break
             elif [ 0 -lt $(expr "$devs_crypto" : ".* $dev ") ]; then
                 bioctl -c C -l /dev/$dev softraid0
@@ -1442,6 +1448,7 @@ cmd_target () {
 # newdrive - remaster to another device
 #
 cmd_newdrive () {
+    local newdev
     local vnfile
 
     echo
@@ -1502,7 +1509,7 @@ cmd_newdrive () {
             echo
             echo "Enter size of a vnode device file."
             echo "You can add suffix K, M, G or T (otherwise considered 'bytes')."
-            ans=$(rl_wread '' '')
+            local ans=$(rl_wread '' '')
             echo
             if [ 1 -lt $(expr "X$ans" : 'X[0-9][0-9]*') ]; then
                 sect_size=$((1024*1024)) # block size for dd
@@ -1511,13 +1518,13 @@ cmd_newdrive () {
             fi
         done
 
+        local sects=$(byte2sect $ans)
         if which pv >/dev/null 2>&1 ; then
-            sects=$(byte2sect $ans)
             dd if=/dev/zero bs=$sect_size count=$sects | pv --size $((sect_size*sects)) > $vnfile \
             && newdev=$(vnconfig $vnfile)
         else
             (while :; do sleep 15; pkill -INFO dd || exit 0; done) &  # to display progress
-            dd if=/dev/zero of=$vnfile bs=$sect_size count=$(byte2sect $ans) \
+            dd if=/dev/zero of=$vnfile bs=$sect_size count=$sects \
             && newdev=$(vnconfig $vnfile)
         fi
 
@@ -1557,11 +1564,13 @@ cmd_newdrive () {
 
     # disable boot items if specified
     #
-    legacyitem='Legacy BIOS'
-    case "$disable_legacyboot" in [Yy][Ee][Ss]) unset legacyitem;; esac
-    uefiitem='UEFI'
-    case "$disable_uefiboot" in [Yy][Ee][Ss]) unset uefiitem;; esac
-    unset hybriditem
+    local legacyitem='Legacy BIOS'
+    case "$disable_legacyboot" in [Yy][Ee][Ss]) legacyitem='' ;; esac
+
+    local uefiitem='UEFI'
+    case "$disable_uefiboot" in [Yy][Ee][Ss]) uefiitem='' ;; esac
+
+    local hybriditem=''
     [ "$legacyitem$uefiitem" = 'Legacy BIOSUEFI' ] && hybriditem='Hybrid'
 
     #-------------------
@@ -1738,7 +1747,8 @@ Enter passphrase twice. They'll be not echoed.
 
 EOT
             stty -echo; 
-            echo -n 'Passphrase:'; read enc_pp1; echo
+            echo -n 'Passphrase:'; read enc_pp1; echo  # note: enc_pp1 is global
+            local enc_pp2                              #       enc_pp2 is local
             echo -n 'Passphrase:'; read enc_pp2; echo
             stty echo
             if [ ! "$enc_pp1" = "$enc_pp2" ]; then
@@ -1836,6 +1846,10 @@ EOT
 # expand - expand targeted storage partition to fill the device
 #
 cmd_expand () {
+    local expcmd expdev expbuid exppar expsect exptype
+    local fdisk_input fdisk_output
+    local gpt_fix_cmds gpt_orig
+
     echo
     if [[ -z "$devname" ]]; then
         echoerr "Name of device not set. Use 'target' to perform this."
@@ -1871,7 +1885,7 @@ cmd_expand () {
 
     # Get OpenBSD's partition ID
     #
-    unset partid_obsd
+    local partid_obsd=''
     case "$exptype" in
         "mbr"|"mbr_uefi")
             partid_obsd=$(echo "$fdisk_output" | tr -d '*:' | awk '/A6.*OpenBSD/ {print $1}')
@@ -2037,9 +2051,9 @@ EOT
 
             fsck -fy /dev/r${expdev}${exppar}
             if mount /dev/${expdev}${exppar} $mntdir1; then
-                expduid=$(dev2duid $expdev)  # get DUID after disk_scan is OK
+                local expduid=$(dev2duid $expdev)  # get DUID after disk_scan is OK
                 mkdir -p $mntdir1/livecd-config/${verarch}
-                umem="75%"
+                local umem="75%"
                 [[ "$memfstype" = 'tmpfs' ]] && umem=0
                 cat <<EOT >$mntdir1/livecd-config/${verarch}/noasks
 #
@@ -2085,12 +2099,12 @@ EOT
 #-------------------
 # systemwide constants
 #
-  lockdir=/usbfadm.d
-  mntdir1="$lockdir/mnt1"
-  mntdir2="$lockdir/mnt2"
-    osrel=$(sysctl -n kern.osrelease)
-    hwmac=$(sysctl -n hw.machine)
-  verarch=${osrel}/${hwmac}
+readonly lockdir=/usbfadm.d
+readonly mntdir1="$lockdir/mnt1"
+readonly mntdir2="$lockdir/mnt2"
+readonly   osrel=$(sysctl -n kern.osrelease)
+readonly   hwmac=$(sysctl -n hw.machine)
+readonly verarch=${osrel}/${hwmac}
 
 #-------------------
 # environment check

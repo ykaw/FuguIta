@@ -61,6 +61,7 @@ while (<>) {
 
 # listing functions with global variables
 #
+print "\n";
 print "*global vars:\n";
 $i=1;
 foreach $name (sort keys %var) {
@@ -72,10 +73,9 @@ foreach $name (sort keys %var) {
   }
 }
 
-print "\n";
-
 # listing local variables with functions
 #
+print "\n";
 print "+local vars:\n";
 foreach $func (sort keys %localvar) {
   if (%{$localvar{$func}}) {

@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.129 2025/03/30 17:12:18 kaw Exp $
+# $Id: usbfadm,v 1.130 2025/04/04 22:57:43 kaw Exp $
 #
 #========================================
 
@@ -1938,7 +1938,7 @@ cmd_expand () {
                                                  }
 
                                                  # OpenBSD on GPT
-                                                 tbtype == "gpt" && $2 == "OpenBSD" {
+                                                 tbtype == "gpt" && /^ [ 12][ 0-9][0-9]: OpenBSD/ {
                                                      obsdstart = $(NF-2) + 0
                                                      next
                                                  }

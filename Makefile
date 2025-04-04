@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.133 2025/03/19 04:26:09 kaw Exp $
+# $Id: Makefile,v 1.134 2025/04/04 05:39:17 kaw Exp $
 
 #========================================
 # global definitions
@@ -51,6 +51,8 @@ REV     != if [[ -r rev.count ]] ; then\
 AUTHOR = Yoshihiro Kawamata <kaw@on.rim.or.jp>
 FIBASE = $(VERSION)$(VERSTAT)-$(ARCH)-$(DATE)$(REV)
 FI = $(PROJNAME)-$(FIBASE)
+
+SYSMEDIA=sysmedia-$(VERSION)-$(ARCH)
 
 BLDDIR != realpath $$(pwd)
 
@@ -112,7 +114,7 @@ liveusb: $(FI).img.gz
 #
 $(FI).iso.gz: livecd.iso
 	@echo generating $(FI).iso.gz
-	@pv livecd.iso | $(COMPRESS) -9f -c > $(FI).iso.gz
+	pv livecd.iso | $(COMPRESS) -9f -c > $(FI).iso.gz
 
 # build a disk image
 # This needs sysmedia.img
@@ -128,7 +130,7 @@ $(FI).img.gz: sysmedia.time
 	echo "$(FIBASE)" > fuguita/usr/fuguita/version
 	$(MAKE) close-all
 	@echo generating $(FI).img.gz
-	@pv sysmedia.img | $(COMPRESS) -9f -c > $(FI).img.gz
+	pv sysmedia.img | $(COMPRESS) -9f -c > $(FI).img.gz
 .else
 $(FI).img.gz:
 	@echo You need sysmedia.img to build $(FI).img.gz.
@@ -432,8 +434,8 @@ init:
 	cd special;\
 	ln -sf /usr/src/distrib/special/Makefile.inc .;\
 	make obj
-.if exists(sysmedia-$(VERSION)-$(ARCH).img.gz)
-	$(COMPRESS) -dc sysmedia-$(VERSION)-$(ARCH).img.gz > sysmedia.img
+.if exists($(SYSMEDIA).img.gz)
+	pv $(SYSMEDIA).img.gz | $(COMPRESS) -d -c > sysmedia.img
 .endif
 
 # full compilation kernels
@@ -545,3 +547,41 @@ dvd2usb:
 .PHONY: imgclean
 imgclean:
 	rm -f $(FI).img.gz $(FI).img $(FI).iso
+
+#========================================
+# generate blank disk image for LiveUSB
+#
+.PHONY: blank-img
+blank-img: $(SYSMEDIA).img.gz
+
+$(SYSMEDIA).img.gz: $(SYSMEDIA).img
+	# initialize
+	$(MAKE) close-all
+	mkdir -p $(SYSMEDIA)
+	vnconfig vnd1 $(SYSMEDIA).img
+	mount /dev/vnd1a $(SYSMEDIA)
+	[ -f  $(SYSMEDIA)/boot ]
+	# zerofill partition A
+	# this is for possible smallest compressed image
+	cd  $(SYSMEDIA) && rm -rf !(boot)
+	-dd if=/dev/zero bs=16m | pv -s $$(df -k | grep vnd1a | awk '{print $$2}')K >  $(SYSMEDIA)/zerofill
+	-cat  $(SYSMEDIA)/zerofill >>  $(SYSMEDIA)/zerofill
+	rm -f  $(SYSMEDIA)/zerofill
+	umount  $(SYSMEDIA)
+	# zerofill partition D
+	# this is for possible smallest compressed image
+	mount /dev/vnd1d  $(SYSMEDIA)
+	-dd if=/dev/zero bs=16m | pv -s $$(df -k | grep vnd1d | awk '{print $$2}')K >  $(SYSMEDIA)/zerofill
+	-cat  $(SYSMEDIA)/zerofill >>  $(SYSMEDIA)/zerofill
+	rm -f  $(SYSMEDIA)/zerofill
+	umount  $(SYSMEDIA)
+	vnconfig -u vnd1
+	pv $(SYSMEDIA).img | $(COMPRESS) -c -9 > $(SYSMEDIA).img.gz
+
+$(SYSMEDIA).img: $(FI).img.gz
+	pv $(FI).img.gz | $(COMPRESS) -d -c > $(SYSMEDIA).img
+
+.PHONY: blank-img-clean
+blank-img-clean:
+	rm -f $(SYSMEDIA).img
+	rm -rf $(SYSMEDIA)

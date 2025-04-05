@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.134 2025/04/04 05:39:17 kaw Exp $
+# $Id: Makefile,v 1.135 2025/04/05 07:57:29 kaw Exp $
 
 #========================================
 # global definitions
@@ -50,14 +50,14 @@ REV     != if [[ -r rev.count ]] ; then\
            echo $$rev
 AUTHOR = Yoshihiro Kawamata <kaw@on.rim.or.jp>
 FIBASE = $(VERSION)$(VERSTAT)-$(ARCH)-$(DATE)$(REV)
-FI = $(PROJNAME)-$(FIBASE)
+FI ?= $(PROJNAME)-$(FIBASE)
 
 SYSMEDIA=sysmedia-$(VERSION)-$(ARCH)
 
 BLDDIR != realpath $$(pwd)
 
 KERNSRC = $(BLDDIR)/sys
-KERNOPT = -j2
+KERNOPT ?= -j2
 BSD_SP  = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/bsd
 BSD_SPG = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/gapdummy.o
 BSD_SPV = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT/obj/vers.o
@@ -67,7 +67,7 @@ BSD_MPV = $(KERNSRC)/arch/$(ARCH)/compile/RDROOT.MP/obj/vers.o
 KERN_SP = $(BLDDIR)/sysmedia/bsd-fi
 KERN_MP = $(BLDDIR)/sysmedia/bsd-fi.mp
 
-COMPRESS = gzip
+COMPRESS ?= gzip
 
 # define and setup UEFI CD boot
 # if UEFI applications exist

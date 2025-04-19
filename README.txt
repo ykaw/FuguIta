@@ -1,29 +1,40 @@
                     FuguIta - The OpenBSD-based Live System
 
                                                              Yoshihiro Kawamata
-                                                                     2024/05/03
+                                                                     2025/04/19
 
 
 Table of Contents
 
 * What is FuguIta?
- * Features
-  * Easy to use
-  * Tracking patches of OpenBSD
-  * Flexible Operation
-  * Utilize LiveUSB features
-  * Support tools provided
-  * Remastering and Customization
- * More Informations
-* Build FuguIta LiveDVD
- * Build procedure
-  * Preparing the build environment
-  * Build FuguIta
-  * Post-build adjustments
-   * Create mode0symlinks.cpio.gz
-   * Adjust fuguita_sys_mb
-* Build FuguIta LiveUSB
-
+ ** Features
+  *** Easy to use
+  *** Tracking patches of OpenBSD
+  *** Flexible Operation
+  *** Utilize LiveUSB features
+  *** Support tools provided
+  *** Remastering and Customization
+ ** More Informations
+* Build FuguIta from the source repository
+ ** Getting started
+  *** About notation
+ ** Preparing the build environment
+  *** Setting environment variables
+  *** OpenBSD full build
+  *** Installing the commands for build
+  *** Get the source code of FuguIta
+  *** Get the source code archives for fiopt
+ ** Generate a LiveDVD ISO image file
+  *** Initialize the FuguIta build tool
+  *** Build fiopt
+  *** Placement of necessary files
+  *** Generate the ISO file
+ ** Creating the LiveUSB disk image file
+ ** Adjustment
+ ** Final Processing
+  *** Generate a blank LiveUSB image
+  *** Cleaning up the build environment
+ ** Batch generation of LiveDVDs and LiveUSBs
 
 *What is FuguIta?
 
@@ -34,7 +45,6 @@ system, easily accessible to everyone.
 
 In addition, we have implemented a variety of unique features that take
 advantage of the characteristics of a live system.
-
 
 **Features
 
@@ -49,14 +59,12 @@ advantage of the characteristics of a live system.
   - Additional software can be installed using OpenBSD's package management
     system.
 
-
 ***Tracking patches of OpenBSD
 
   - We publish new release of FuguIta as soon as the OpenBSD development group
     announces new errata (security fixes and reliability enhancements).
 
   - FuguIta itself is also modified and added functions as needed.
-
 
 ***Flexible Operation
 
@@ -76,19 +84,16 @@ advantage of the characteristics of a live system.
   - Multiple FuguIta devices can be attached to accommodate irregular hardware
     configurations.
 
-
 ***Utilize LiveUSB features
 
   - Save files and load them at the subsequence boot (can be automated).
 
   - Update tool for easy and safe updating.
 
-
 ***Support tools provided
 
   - Interactive tools are included for network setup and desktop
     environment setup.
-
 
 ***Remastering and Customization
 
@@ -102,8 +107,7 @@ advantage of the characteristics of a live system.
 
   - LiveUSB duplication can also encrypt the partition for data storage.
 
-
-**More Informations
+**More Information
 
 The official site of FuguIta is https://fuguita.org .
 
@@ -116,232 +120,233 @@ The official site of FuguIta is https://fuguita.org .
     advanced usage, development.
     https://fuguita.org/?FuguItaGuide
 
+*Build FuguIta from the source repository
 
-*Build FuguIta using this build tool
+**Getting Started
 
-We publish the tools we use to build the FuguIta live system, albeit
-irregularly.
+The build system for the OpenBSD-based Live System "FuguIta" is
+available on GitHub as a copy from the original CVS repository.
 
-This section explains the steps to build the FuguIta file.
+This document explains how to obtain the FuguIta build tool from the
+GitHub repository and use it to build FuguIta.
 
-This build tool can create an ISO image file for LiveDVD for i386 and
-amd64 platforms.
+The steps to build FuguIta are roughly as follows:
 
-For the arm64 platform, booting from an ISO image file is not common,
-so a raw disk image file for LiveSD or LiveUSB is created.
+ 1. Prepare the working environment, including a full build of OpenBSD
 
-This explanation assumes the following environment.
+ 2. Generate ISO image file for FuguIta LiveDVD
 
-  - Release: OpenBSD 7.5
+ 3. Boot the created ISO image file and create a LiveUSB disk image
+    file on it.
 
-  - Platform: amd64
+ 4. Create a blank file for creating a LiveUSB from the created
+    LiveUSB disk image file.
 
-In other cases, please read the explanation as appropriate.
+ 5. After making the final adjustments, generate the final version of
+    the LiveDVD ISO image file and LiveUSB disk image file.
 
-All following operations are performed with root privileges.
+***About Notation
 
+In this document, the following notation is used:
+
+<BASEDIR>
+    Location of working directory (e.g. /home/kaw/local)
+<WORKDIR>
+    Directory where the build work will be performed (directory of the
+    build tool obtained from GitHub = <BASEDIR>/FuguIta-master)
+<RELDIR>
+    Location of the OpenBSD installation set
+    (e.g. /opt/build/dist/amd64)
+<REL>
+    OpenBSD release (e.g. 7.6)
+<SREL>
+    REL without the dot (e.g. 76)
+<ARCH>
+    The target platform (e.g. amd64)
+
+When running a build, replace these notations with the actual values.
 
 **Preparing the build environment
 
-  - Please follow the OpenBSD online manual release(8) to build the entire
-    OpenBSD.
+From now on, everything from preparing the build environment to
+completing the build process will be done with root privileges.
 
-  - Also, use ports(7) to create a package for rsync, rlwrap, and pv commands.
+***Setting environment variables
 
-Download the FuguIta build tool tools-7.5.tar.gz and extract it:
-https://fuguita.org/?FuguIta/Download#build
+Set the following environment variables as necessary.  These
+environment variables are optional, so the build system will work even
+if you do not set them. If you set them, you can take advantage of the
+performance of multi-core CPUs to reduce processing time.
 
-    # tar xvzpf tools-7.5.tar.gz
+  export KERNOPT=-j4    # Number of parallel executions when building the kernel
+  export COMPRESS=pigz  # Multi-core compatible gzip alternative
 
-Move to the top directory of the build tools.
+***OpenBSD full build
 
-    # cd tools-7.5
+To build FuguIta, you need the OpenBSD source code, an installation
+set created from the source code, and a ports tree. Follow the
+instructions in the OpenBSD release(8) manual page
+https://man.openbsd.org/release.8
+to do the following:
 
-For arm64 platform, please also download sysmedia-7.5-arm64.img.gz, which is
-supplied with tools-7.5.tar.gz, and place it in the top directory of the build
-tool without extracting it.
+  - Obtaining and updating the OpenBSD source code
+  - OpenBSD full build
+  - Generate an installation set
+  - Obtaining and updating the ports tree
 
-Execute the following command to initialize the build tool.
+***Installing commands for build
 
- # make init
+Install third-party commands required to build FuguIta from packages
+to the build environment.
 
-This will create the files and directories needed for the build.
+  pkg_add gmake rsync pv
+  pkg_add pigz  # (If you set the COMPRESS environment variable)
 
-  [Memo]
-  You can also download and use the installation set *75.tgz and package files
-  rsync-*.tgz, etc. from the official OpenBSD mirror.
+***Get the source code for FuguIta
 
-  However, in this case, FuguIta created will be based on OpenBSD at the time
-  the release was made public, so no later patches have been applied.
+Get the FuguIta build system from GitHub
 
-  Also, even if you create FuguIta using this method, you need to extract the
-  OpenBSD source code under /usr/src or /usr/xenocara.
+mkdir -p <BASEDIR> # If <BASEDIR> does not exist, create it.
 
+  cd <BASEDIR>
+  ftp https://github.com/ykaw/FuguIta/archive/refs/heads/master.tar.gz
+  tar xvzf master.tar.gz  # The FuguIta-master directory will be created.
+  cd <WORKDIR>
 
-**Build FuguIta
+***Get the source code archives for fiopt
 
-Copy the installation set (*75.tgz) generated by building OpenBSD to the
-install_sets directory of FuguIta build tool.
+fiopt (FuguIta Optional) is third-party software required to run
+FuguIta.
+In the current release, there are three: rsync, rlwrap, and pv. These
+are built separately from ports and installed under /usr/fuguita/bin.
+Obtain the source code for these using the OpenBSD ports system as
+follows. The source code is placed in /usr/ports/distfiles.
 
-    # cp RELDIR/*75.tgz install_sets
+  cd /usr/ports
+  for tgz in rsync xxhash rlwrap pv; do (cd */$tgz && make fetch); done
 
-RELDIR is the directory where generated release sets are stored, as described
-in release(8).
+xxhash is a fast hashing library used when building rsync.
 
-  [Memo]
-  You can customize FuguIta by placing a file called site75.tgz under
-  install_sets. This customization method complies with OpenBSD's
-  https://www.openbsd.org/faq/faq4.html#site.
+***Creating a LiveDVD ISO image file
 
-  If install.site is included in site75.tgz, its contents will be added to
-  /etc/rc.firsttime.
+Initialize the FuguIta build tool
 
-  Please note that if the file sysmedia/fuguita-7.5-amd64.ffsimg exceeds 2GB as
-  a result of building FuguIta by adding site75.tgz, the ISO image will not be
-  created correctly.
+Create the directories required for the build.
 
-Copy rsync, rlwrap, pv and its dependents (gettext-runtime and
-libiconv) created from the ports tree to the install_pkgs directory.
+  cd <WORKDIR>
+  make init
 
-Also install rsync and pv in the build environment itself.
+***Build fiopt
 
-    # cp /usr/ports/packages/amd64/all/rsync-*.tgz install_pkgs
-    # cp /usr/ports/packages/amd64/all/rlwrap-*.tgz install_pkgs
-    # cp /usr/ports/packages/amd64/all/pv-*.tgz install_pkgs
-    # cp /usr/ports/packages/amd64/all/gettext-runtime-*.tgz install_pkgs
-    # cp /usr/ports/packages/amd64/all/libiconv-*.tgz install_pkgs
-    # pkg_add -D unsigned /usr/ports/packages/amd64/all/rsync-*.tgz
-    # pkg_add -D unsigned /usr/ports/packages/amd64/all/pv-*.tgz
+Compile and install each piece of fiopt software. The installed
+software will be compiled into an archive named fiopt.tgz.
 
-Next, run the following command to set up the build environment.
+  cd <WORKDIR>/lib/fiopt
+  ln -s /usr/ports/distfiles/*.tar.gz .
+  make RSYNC=rsync-3.4.1 XXHASH=xxHash-0.8.2 RLWRAP=rlwrap-0.46.1 PV=pv-1.8.5
 
-    # make setup
+The version of each software should match what was actually acquired.
 
-Finally, build FuguIta LiveDVD.
+***Placement of necessary files
 
-    # make
+Place OpenBSD release sets and third-party software in the
+install_sets directory.
 
+  cd <WORKDIR>/install_sets
+  ln -s <RELDIR>/*<SREL>.tgz .
+  ln -s <WORKDIR>/lib/fiopt/fiopt<SREL>.tgz .
 
-**Post-build adjustments
+In this example, a symbolic link is used, but copying is also possible.
 
-***Create mode0symlinks.cpio.gz
+***Generate the ISO file
 
-This file is intended to save time when starting LiveDVD in mode 0 (even if
-this file is not present, there is no problem in starting FuguIta itself).
+Generate the LiveDVD release file
 
-To create mode0symlinks.cpio.gz, boot the completed LiveDVD in mode 0 and run
-the gen_mode0sldir command as root with root privileges. After execution, a
-file called /etc/fuguita/mode0symlinks.cpio.gz will be created.
+  cd <WORKDIR>
+  make setup    # Set up the bootloader, RAMdisk root, and fuguita-<REL>-<ARCH>.ffsimg
+  make livedvd  # Set up the OS file tree and write it to an image file
 
-Place this file in the build tool's lib directory with the file name
-mode0symlinks.cpio.gz.amd64 and rerun make to create an ISO file containing
-mode0symlinks.cpio.gz.
 
+**Creating the LiveUSB disk image file
 
-***Adjust fuguita_sys_mb
+This build system does not have the ability to create a LiveUSB
+release image from scratch, so boot the LiveDVD ISO image you just
+generated.
 
-FuguIta has a file called /etc/fuguita/global.conf, which contains settings
-related to the entire system as shown below.
+  - On the launched FuguIta, use the newdrive function of the usbfadm
+    utility to create a LiveUSB release image .
+  - Create a fast boot cache
 
-    fuguita_sys_mb=1042  # size of sysmedia.img
-    newdrive_defswap=16M # default swap size at usbfadm newdrive
-    memfstype=mfs        # 'mfs' or 'tmpfs'
-    mfs_max_mb=30720     # mfs hard limit - 30GB
+      cd /etc/fuguita
+      gen_mode0sldir
+      ls -l  # Verify that the mode0symlinks.cpio.gz file has been created
 
-Among these, fuguita_sys_mb defines the size of the partition that stores the
-FuguIta system, and this value is used when remastering FuguIta LiveUSB.
+Copy the LiveUSB image and fast boot cache you created to the original
+build environment.
 
-The setting value of fuguita_sys_mb corresponds to the size of the livecd.iso
-file generated when building a LiveDVD, but it is safe to leave about 10MB in
-consideration of updates using the fiupdate utility.
+  mount /dev/sdXn /mnt
+  cp FuguIta-<REL>-<ARCH>-yyyymmddn.img /mnt/<WORKDIR>
+  cp /etc/fuguita/mode0symlinks.cpio.gz /mnt/<WORKDIR>/lib/mode0symlinks.cpio.gz.<ARCH>
+  umount /mnt
 
-    # echo $(( $(wc -c < livecd.iso)/1024/1024+10 ))
+Stop the environment in which the LiveUSB release image was created
+and return to the original build environment.
 
-Write the values displayed by this command to the lib/global.conf.amd64 file
-and rerun make.
+**Adjustment
 
+The file <WORKDIR>/lib/global.conf.<ARCH> defines the system constants
+for FuguIta, but you should rewrite these to the optimal values
+​​obtained by actually building the package.
 
-*Build FuguIta LiveUSB
+  expr $(wc -c < livecd.iso) / 1024 / 1024 + 10
+  1149  # Size of LiveUSB a partition
+  vi lib/global.conf.<ARCH>
 
-This build tool does not currently have the ability to build FuguIta LiveUSB
-for i386/amd64 platforms.
+  fuguita_sys_mb=1149   # size of sysmedia.img <-- Set the value calculated earlier here
+  newdrive_defswap=16M  # default swap size at usbfadm newdrive
+  memfstype=mfs         # 'mfs' or 'tmpfs'
+  mfs_max_mb=30720      # mfs hard limit - 30GB
 
-To build FuguIta LiveUSB, boot the LiveDVD built as described in the previous
-section, log in as root, and run the LiveUSB administration utility usbfadm.
+**Final Processing
 
-    # usbfadm
+***Generate a blank LiveUSB image
 
-    Welcome to usbfadm.
-    USB flash drive administration tool for FuguIta
+A LiveUSB blank image is a raw LiveUSB disk image that has been erased
+with everything except the partition configuration, boot loader, and
+livecd-config/<REL>/<ARCH>/noasks in the d partition.
+Using a blank LiveUSB image allows you to generate a LiveUSB image
+directly from the build system, without having to boot a LiveCD and
+then use usbfadm newdrive to create a LiveUSB image.
 
-     Version/Arch: 7.5/amd64  (FuguIta-7.5-amd64-202405021)
-        Boot mode: manual
-    Target device: not set
-    Data saved as: not set
+Follow the steps below to create a blank LiveUSB image:
 
-    readline capability available
-    TAB to complete the reserved words
+  make blank-img
+  make blank-img-clean
 
-    Type ? for help.
+After this step, a file called sysmedia-<REL>-<ARCH>.img.gz will be
+generated, which is the compressed blank LiveUSB image.
 
-Then, remaster a LiveUSB from currently running LiveDVD using newdrive
-subcommand of usbfadm
+***Cleaning up the build environment
 
-    ? : ? ->newdrive
+The following steps will initialize the build system, leaving only the
+blank LiveUSB image.
 
-    Please make sure the device inserted.
-    Then press ENTER ->
+  rm -rf sysmedia/*
+  rm -f FuguIta-<REL>-<ARCH>-*.iso FuguIta-<REL>-<ARCH>-*.img
+  make distclean
 
-    ==== disk(s) and vnode devices	============================
-    sd0 at scsibus1 targ 0 lun 0: <VirtIO, Block Device, >
-    sd0: 32768MB, 512 bytes/sector, 67108864 sectors
-    vnd0: not in use
-    vnd1: not in use
-    vnd2: not in use
-    vnd3: not in use
-    vnd4: not in use
-    vnd5: covering /sysmedia/fuguita-7.5-amd64.ffsimg on cd0a, inode 48172
-    ============================================================
-    Enter the name of device which FuguIta will be installed->sd0
+**Batch creation of LiveDVDs and LiveUSBs
 
-Once you have specified the USB device to be remastered, you will be
-asked to enter various parameters.
-All default values (press only ENTER) are OK.
+Generate the official distribution from the initialized build system.
+Execute "make all" to generate the FuguIta LiveDVD ISO image and
+LiveUSB disk image in one go.
 
-    Select boot method:
-      1:  Legacy BIOS
-      2: [UEFI]
-      3:  none (only for save data)
-      4:  Hybrid
-    ->
-    ...(omitted)...
+  make init
+  cd <WORKDIR>/install_sets
+  ln -s <WORKDIR>/lib/fiopt/fiopt<SREL>.tgz .
+  ln -s <RELDIR>/*<SREL>.tgz .
+  cd <WORKDIR>
+  make setup && make all
 
-Please answer "y" only to the last creation instruction.
-
-    ***THIS IS THE LAST CHANCE***
-    If you type 'Y' now, all the data on sd0 will be lost.
-    Are you sure to modify disk sd0? [y/N] -> y
-
-A FuguIta LiveDVD will now be created on the specified USB device.
-
-    ========================================
-    = Clearing MBR, GPT and BSD disklabel
-    =
-    1+0 records in
-    1+0 records out
-    1048576 bytes transferred in 0.152 secs (6876820 bytes/sec)
-
-    ...(omitted)...
-
-    ** Phase 4 - Check Reference Counts
-    ** Phase 5 - Check Cyl groups
-    5 files, 5 used, 15724009 free (17 frags, 1965499 blocks, 0.0% fragmentation)
-
-    ? : ? ->quit
-
-    Bye bye...
-    #
-
-For more information on this remastering, please see "LiveUSB
-remastering" in the FuguIta Guide:
-https://fuguita.org/?FuguItaGuide/3-Operation#liveusb_remaster
+Finally, FuguIta-<REL>-<ARCH>-yymmddn.iso.gz and
+FuguIta-<REL>-<ARCH>-yymmddn.iso.gz will be generated.

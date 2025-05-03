@@ -7,6 +7,7 @@ cd 'bootstuff.arm64' || exit 1
 
 mkdir -p efi
 mkdir -p efi/boot
+mkdir -p efi/openbsd
 mkdir -p overlays
 cp -p /usr/local/share/raspberrypi-firmware/boot/bcm2710-rpi-2-b.dtb bcm2710-rpi-2-b.dtb
 cp -p /usr/local/share/raspberrypi-firmware/boot/bcm2710-rpi-3-b-plus.dtb bcm2710-rpi-3-b-plus.dtb
@@ -25,6 +26,9 @@ cp /usr/mdec/BOOTAA64.EFI efi/boot/bootaa64.efi
 
 # startup.nsh not found: replace this with a command line to create efi/boot/startup.nsh
 echo bootaa64.efi > efi/boot/startup.nsh
+
+# bootaa64.efi not found: replace this with a command line to create efi/openbsd/bootaa64.efi
+cp /usr/mdec/BOOTAA64.EFI efi/openbsd/bootaa64.efi
 
 cp -p /usr/local/share/raspberrypi-firmware/boot/fixup.dat fixup.dat
 cp -p /usr/local/share/raspberrypi-firmware/boot/fixup4.dat fixup4.dat

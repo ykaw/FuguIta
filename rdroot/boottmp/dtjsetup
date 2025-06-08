@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.34 2025/01/01 00:58:54 kaw Exp $
+# $Id: dtjsetup,v 1.35 2025/06/08 08:29:07 kaw Exp $
 #
 #========================================
 
@@ -611,12 +611,18 @@ if [ "$ja_env" = YES ]; then
     echo
     msg When you use this machine both running OpenBSD and Windows.
     msg You can set the hardware clock to JST instead of UTC.
-    if [ $(ask_yn 'Set hardware clock to JST?' n) = 1 ]; then
-        check_rootcmd
-        _rootcmd echo 'kern.utc_offset=540' '>>' '/etc/fuguita/netconfs/templ.head/sysctl.conf'
+
+    sysctl_conf='/etc/fuguita/netconfs/templ.head/sysctl.conf'
+    offset_tz=JST
+    offset_min=540
+    utc_offset='^[\ \	]\*kern\\.utc_offset='$offset_min'[\ \	]\*\$'
+    check_rootcmd
+    _rootcmd sed -i "/$utc_offset/d" $sysctl_conf
+    if [ $(ask_yn "Set hardware clock to ${offset_tz}?" n) = 1 ]; then
+        _rootcmd echo "kern.utc_offset=$offset_min" '>>' $sysctl_conf
         _rootcmd chnetconf -d
-        msg This will take effect on the next boot.
     fi
+    msg This will take effect on the next boot.
 
     # Workaround:
     #   Japanese glyphs are not displayed by IceWm's default.

@@ -5,7 +5,7 @@
 #             with dirs under netconfs
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: chnetconf,v 1.20 2025/01/01 00:58:54 kaw Exp $
+# $Id: chnetconf,v 1.21 2025/06/08 08:29:07 kaw Exp $
 #========================================
 
 # Copyright (c) 2021--2025
@@ -245,8 +245,22 @@ if [[ $cmd = 'dont_netstart' ]]; then
     exit
 fi
 
-# starting network by new configuration
+# apply sysctls
+#
+if [[ -r /etc/sysctl.conf ]]; then
+    errout="$(sysctl -q -f /etc/sysctl.conf 2>&1)"
+    if echo "$errout" | grep -q "^sysctl: .*: Operation not permitted"; then
+        echo "${0##*/}: can't change following settings now, please reboot to complete it:"
+    fi
+    [[ -n "$errout" ]] && echo "${0##*/}: $errout"
+fi
+
+# reset/reconfig network interfaces
+# with new configuration
 #
 resetif
 hostname $(</etc/myname)
 sh /etc/netstart
+if [[ -r /etc/pf.conf ]]; then
+    pfctl -f /etc/pf.conf
+fi

@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.130 2025/04/04 22:57:43 kaw Exp $
+# $Id: usbfadm,v 1.131 2025/06/14 18:13:00 kaw Exp $
 #
 #========================================
 
@@ -543,14 +543,32 @@ zerofill_head () {
 # results of previous execution of disk_scan affects this.
 #
 fdisk_init () {
-    [ "$diskscan" = ok ]  || return
-    [ -z "$1" ] && return
+    if [[ "$diskscan" != ok ]]; then
+	echoerr 'fdisk_init: $diskcan is not OK: ' "$diskscan"
+	return 1
+    fi
 
     local ptype="$1"
-
-    if [ ! "$sects_total" = $((ps_hgap+ps_uefi+ps_fisys+ps_fiswp+ps_fidat+ps_fat+ps_tgap)) ]; then
-        echoerr "Inconsistent sector sizes: $sects_total != $ps_hgap + $ps_uefi + $ps_fisys + $ps_fiswp + $ps_fidat + $ps_fat + $ps_tgap"
-        return
+    if [[ -z "$ptype" ]]; then
+	echoerr 'fdisk_init: no partition type specified'
+	return 1
+    fi
+ 
+    # check sector numbers
+    #
+    local sects_sumup=$((ps_hgap+ps_uefi+ps_fisys+ps_fiswp+ps_fidat+ps_fat+ps_tgap))
+    if [ 0 -lt $ps_fat ]; then
+	# in case of FAT specified
+	if [ $sects_total -ne $sects_sumup ]; then
+            echoerr "Inconsistent sector sizes: $sects_total != $ps_hgap + $ps_uefi + $ps_fisys + $ps_fiswp + $ps_fidat + $ps_fat + $ps_tgap"
+	    return 1
+	fi
+    else
+	# in case of no FAT specified
+	if [ $sects_total -lt $sects_sumup ]; then
+            echoerr "Inconsistent sector sizes: $sects_total < $ps_hgap + $ps_uefi + $ps_fisys + $ps_fiswp + $ps_fidat + $ps_fat + $ps_tgap"
+	    return 1
+	fi
     fi
 
     notice "Setting up fdisk partitions"
@@ -603,6 +621,7 @@ fdisk_init () {
         fi
         echo -n "$fdisk_input" | fdisk -e "$scandev" >/dev/null
     fi
+    return 0
 }
 
 #-------------------
@@ -1790,36 +1809,33 @@ EOT
     case "$parttype" in
         MBR|GPT)
             zerofill_head
-            fdisk_init $parttype
-            setup_fs
+            fdisk_init $parttype && setup_fs
             ;;
         Hybrid)
             zerofill_head
             # first, create MBR partitions including UEFI Sys (ID=EF)
-            fdisk_init $parttype
-            setup_fs
+            fdisk_init $parttype && setup_fs
 
             # save sector 0 (MBR) to a file
             dd if=/dev/r${scandev}c of=$lockdir/hybrid.mbr bs=$sect_size count=1
 
             # next, create a GPT with same contents as MBR's one
             # (also UEFI bootloader installed)
-            fdisk_init GPT
-
-            # install MBR boot loader, too
-            if [ "$instsys" = Hybrid \
-                   -a $(expr "$disable_uefiboot" : '[Yy][Ee][Ss]') -eq 0 ]; then
-                notice "Installing UEFI boot loader"
-                if mount -t msdos -o -l /dev/${scandev}i $mntdir1; then
-                    mkdir -p $mntdir1/efi/BOOT
-                    cp /fuguita/usr/mdec/*.EFI $mntdir1/efi/BOOT
-                    umount $mntdir1
-                fi
-            fi
-
-            # overwrite protective MBR with saved MBR
-            dd if=$lockdir/hybrid.mbr of=/dev/r${scandev}c
-            rm $lockdir/hybrid.mbr
+            if fdisk_init GPT; then
+		# install MBR boot loader, too
+		if [ "$instsys" = Hybrid \
+				-a $(expr "$disable_uefiboot" : '[Yy][Ee][Ss]') -eq 0 ]; then
+                    notice "Installing UEFI boot loader"
+                    if mount -t msdos -o -l /dev/${scandev}i $mntdir1; then
+			mkdir -p $mntdir1/efi/BOOT
+			cp /fuguita/usr/mdec/*.EFI $mntdir1/efi/BOOT
+			umount $mntdir1
+                    fi
+		fi
+		# overwrite protective MBR with saved MBR
+		dd if=$lockdir/hybrid.mbr of=/dev/r${scandev}c
+		rm $lockdir/hybrid.mbr
+	    fi
             ;;
         *)
             echoerr "Partition type: '$parttype' - unknown"

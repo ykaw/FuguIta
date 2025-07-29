@@ -89,7 +89,7 @@ scan_disks () {
             4.2BSD|ISO9660|MSDOS|NTFS|ext2fs)
                 if mount -r /dev/$part /mnt 2> /dev/null; then
                     set -- /mnt/ISO/FuguIta-${osrel}-${osmac}-?????????.iso
-                    if [ -f /mnt/fuguita-${osrel}-${osmac}.ffsimg -o ! X"$1" = X"/mnt/ISO/FuguIta-${osrel}-${osmac}-?????????.iso" ]; then
+                    if [ -f /mnt/fuguita-${osrel}-${osmac}.ffsimg -o ! "$1" = "/mnt/ISO/FuguIta-${osrel}-${osmac}-?????????.iso" ]; then
                         part_sys=${part_sys:+"$part_sys "}$part
                     fi
                     if [ -d /mnt/livecd-config ]; then
@@ -101,7 +101,7 @@ scan_disks () {
                         unset noask_rdev noask_umem noask_setup_rw_mode noask_confdev noask_confdata  # after unset, they become global
                         local noask_rdev noask_umem noask_setup_rw_mode noask_confdev noask_confdata  # so redefine them as local
                         . /mnt/livecd-config/${osrel}/${osmac}/noasks
-                        if [ "X${noask_rdev}${noask_umem}${noask_setup_rw_mode}${noask_confdev}${noask_confdata}" != X ]; then
+                        if [ -n "${noask_rdev}${noask_umem}${noask_setup_rw_mode}${noask_confdev}${noask_confdata}" ]; then
                             # any of noask parameters is set
                             part_noask=${part_noask:+"$part_noask "}${part}:/livecd-config/${osrel}/${osmac}/noasks
                         fi
@@ -316,99 +316,119 @@ echo '
 =
 =  Welcome to FuguIta  -  OpenBSD-based Live System
 =                              https://fuguita.org/
-===================================================
-'
-
-scan_disks
+==================================================='
 
 #-------------------------------
-# set noask parameters
-# from a single noasks file
+# device detection loop
+# ... until success of mounting FuguIta system device
 #
-set -- $part_noask
-if [ $# -eq 1 ]; then
-    if [ ! X"$1" = X ] &&
-    mount -r /dev/${1%%:*} /mnt; then  # strip after ":" from "devname:path"
-        if [ -r /mnt/livecd-config/${osrel}/${osmac}/noasks ]; then
-            . /mnt/livecd-config/${osrel}/${osmac}/noasks
-        fi
-        umount /mnt
-    fi
-elif [ $# -gt 1 ]; then
-    echo "Warning: multiple noask files found: "
-    for f in $part_noask; do
-        echo "    $f"
-    done
-    echo "disabling non-interactive boot ..."
-fi
+while :; do
+    echo
+    scan_disks
 
-#-------------------------------
-# wait for cancelling non-interactive boot
-#
-if [ "X${noask_rdev}${noask_umem}${noask_setup_rw_mode}${noask_confdev}${noask_confdata}" != X ]; then
-    trap "unset noask_rdev noask_umem noask_setup_rw_mode noask_confdev noask_confdata; echo ' ... cancelled'" 2
-    echo "Press ^C to cancel non-interactive boot"
-    sleep 5
-fi
-trap - 2
-
-
-#-------------------------------
-# ask user for FuguIta's operating device
-#
-if [ X"$part_sys" = X ]; then
-    echo "Warning: None of FuguIta's operating device(s) found." 
-else
-    echo "FuguIta's operating device(s): ${part_sys}."
-    set -- $part_sys
+    #-------------------------------
+    # set noask parameters
+    # from a single noasks file
+    #
+    set -- $part_noask
     if [ $# -eq 1 ]; then
-        def_rdev="$1"
+        if [ -n "$1" ] &&
+        mount -r /dev/${1%%:*} /mnt; then  # strip after ":" from "devname:path"
+            if [ -r /mnt/livecd-config/${osrel}/${osmac}/noasks ]; then
+                . /mnt/livecd-config/${osrel}/${osmac}/noasks
+            fi
+            umount /mnt
+        fi
+    elif [ $# -gt 1 ]; then
+        echo "Warning: multiple noask files found: "
+        for f in $part_noask; do
+            echo "    $f"
+        done
+        echo "disabling non-interactive boot ..."
     fi
-fi
 
-noask_rdev=`duid2dev $noask_rdev`
-if [ X = X"$noask_rdev" ]; then
-    while :; do
+    #-------------------------------
+    # wait for cancelling non-interactive boot
+    #
+    if [ -n "${noask_rdev}${noask_umem}${noask_setup_rw_mode}${noask_confdev}${noask_confdata}" ]; then
+        trap "unset noask_rdev noask_umem noask_setup_rw_mode noask_confdev noask_confdata; echo ' ... cancelled'" 2
+        echo "Press ^C to cancel non-interactive boot"
+        sleep 5
+    fi
+    trap - 2
+
+    #-------------------------------
+    # ask user for FuguIta's operating device
+    #
+    if [ -z "$part_sys" ]; then
+        echo "Error: None of FuguIta's operating device(s) found." 
+        echo -n 'Check your device, then press ENTER --> '; read dummy
+        continue
+    else
+        echo "FuguIta's operating device(s): ${part_sys}."
+        set -- $part_sys
+        if [ $# -eq 1 ]; then
+            def_rdev="$1"
+        fi
+    fi
+
+    noask_rdev=$(duid2dev $noask_rdev)
+    if [ -z "$noask_rdev" ]; then
         echo
         echo -n "Which is FuguIta's operating device? ${def_rdev:+[default: ${def_rdev}] }-> "
         read rdev
-        [ -n "${def_rdev}${rdev}" ] && break
-    done
-    [ -z "${rdev}" ] && rdev="$def_rdev"
-else
-    echo "Which is FuguIta's operating device? -> $noask_rdev"
-    rdev="$noask_rdev"
-    noask_rdev=''
-fi
-
-
-#-------------------------------
-# mount system-stored device
-#
-    vn_devname="vnd5"
-vn_devname_iso="vnd4"
-
-/sbin/mount -r /dev/${rdev} /fuguita || exit
-if [ -f /fuguita/fuguita-${osrel}-${osmac}.ffsimg ]; then
-    /sbin/umount /fuguita
-    /sbin/mount -r /dev/${rdev} /sysmedia
-    /sbin/vnconfig ${vn_devname} /sysmedia/fuguita-${osrel}-${osmac}.ffsimg
-    /sbin/mount -r /dev/${vn_devname}a /fuguita
-elif [ -d /fuguita/ISO ]; then
-    /sbin/umount /fuguita
-    /sbin/mount -r /dev/${rdev} /sysmedia
-    set -- /sysmedia/ISO/FuguIta-${osrel}-${osmac}-?????????.iso
-    shift $(($# - 1))
-    if [ ! X"$1" = X -a \
-         ! X"$1" = "X/sysmedia/ISO/FuguIta-${osrel}-${osmac}-?????????.iso" ] ;then
-        umount /sysmedia
-        mount -r /dev/${rdev} /sysmedia-iso
-        /sbin/vnconfig ${vn_devname_iso} /sysmedia-iso/ISO/${1##*/}
-        /sbin/mount -r /dev/${vn_devname_iso}a /sysmedia
-        /sbin/vnconfig ${vn_devname} /sysmedia/fuguita-${osrel}-${osmac}.ffsimg
-        /sbin/mount -r /dev/${vn_devname}a /fuguita
+        [ -z "${def_rdev}${rdev}" ] && continue
+        [ -z "${rdev}" ] && rdev="$def_rdev"
+    else
+        echo "Which is FuguIta's operating device? -> $noask_rdev"
+        rdev="$noask_rdev"
+        noask_rdev=''
     fi
-fi
+
+    #-------------------------------
+    # mount system-stored device
+    #
+	vn_devname="vnd5"
+    vn_devname_iso="vnd4"
+
+    if ! /sbin/mount -r /dev/${rdev} /fuguita; then
+	echo "Error: can't mount /dev/${rdev}"
+	continue
+    fi
+
+    if [ -f /fuguita/fuguita-${osrel}-${osmac}.ffsimg ]; then
+	/sbin/umount /fuguita
+	/sbin/mount -r /dev/${rdev} /sysmedia
+	/sbin/vnconfig ${vn_devname} /sysmedia/fuguita-${osrel}-${osmac}.ffsimg
+	/sbin/mount -r /dev/${vn_devname}a /fuguita && break  # normal exit
+	echo "Error: can't find /dev/${vn_devname}a:fuguita-${osrel}-${osmac}.ffsimg"
+    elif [ -d /fuguita/ISO ]; then
+	/sbin/umount /fuguita
+	/sbin/mount -r /dev/${rdev} /sysmedia
+	set -- /sysmedia/ISO/FuguIta-${osrel}-${osmac}-?????????.iso
+	shift $(($# - 1))
+	if [ -n "$1" -a \
+	     ! "$1" = "/sysmedia/ISO/FuguIta-${osrel}-${osmac}-?????????.iso" ] ;then
+	    umount /sysmedia
+	    mount -r /dev/${rdev} /sysmedia-iso
+	    /sbin/vnconfig ${vn_devname_iso} /sysmedia-iso/ISO/${1##*/}
+	    /sbin/mount -r /dev/${vn_devname_iso}a /sysmedia
+	    /sbin/vnconfig ${vn_devname} /sysmedia/fuguita-${osrel}-${osmac}.ffsimg
+	    /sbin/mount -r /dev/${vn_devname}a /fuguita && break  # normal exit
+	fi
+	echo "Error: can't find fuguita-${osrel}-${osmac}.ffsimg in /sysmedia/ISO/FuguIta-${osrel}-${osmac}-*.iso"
+    else
+	echo "Error: can't find fuguita-${osrel}-${osmac}.ffsimg in /dev/${rdev}"
+    fi
+
+    #-------------------------------
+    # mount fuguita-*.ffsimg failed - cleanups for next try
+    #
+    (umount -f /fuguita
+     vnconfig -u $vn_devname
+     umount -f /fuguita-iso
+     vnconfig -u $vn_devname_iso) >/dev/null 2>&1
+done
 
 #-------------------------------
 # read global system configurations

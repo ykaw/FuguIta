@@ -65,14 +65,14 @@ scan_disks () {
     #-------------------------------
     # inspecting every disk partitions
     #
-    echo -n "scanning partitions:"
+    echo -n "scanning partitions: "
     unset partlst part_sys part_sto part_enc part_swp part_noask
     while read ln; do
         set -- $ln
         part="$1"
         fstype="$4"
         partlst=${partlst:+"$partlst "}$part
-        echo -n " $part"
+        echo -n "$part "
         case $fstype in
             swap)
                 part_swp=${part_swp:+"$part_swp "}$part

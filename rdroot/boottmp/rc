@@ -1140,7 +1140,6 @@ EOT
                     # cleanup temporary /usr/bin/gzip
                     rm -rf /usr
                 fi
-
             # synced dir tree
             elif cd /mnt/livecd-config/$osrel/$osmac/$confdata 2> /dev/null || \
                cd /mnt/livecd-config/$confdata; then
@@ -1164,9 +1163,26 @@ EOT
             # tmpfs bug work around
             # retry copying to ram again
             #
-            if [ "$pax_failed" = "yes" ]; then
-                if cd /mnt/livecd-config/$osrel/$osmac/$confdata 2> /dev/null || \
-                   cd /mnt/livecd-config/$confdata; then
+            if [ "$pax_arc_failed" = "yes" ]; then
+                if cd /ram; then
+                    # locate crunched binary gzip to temporary /usr/bin
+                    # because pax has fixed command search PATH in it.
+		    # gzip must be included in PATH
+                    mkdir -p /usr/bin
+                    ln -s /boottmp/gzip /usr/bin
+
+                    for i in 1 2 3; do  # retry 3 time max
+                        if pax -rzpe < /mnt/livecd-config/$osrel/$osmac/$confdata; then
+                            echo "done"
+                            break
+                        fi
+                    done
+
+                    # cleanup temporary /usr/bin/gzip
+                    rm -rf /usr
+                fi
+            elif [ "$pax_failed" = "yes" ]; then
+                if cd /mnt/livecd-config/$osrel/$osmac/$confdata 2> /dev/null; then
                     for i in 1 2 3; do  # retry 3 time max
                         echo "Copying to ram was partially failed, retrying..."
                         if PATH=$PATH:/fuguita/usr/local/bin:/fuguita/usr/fuguita/bin \

@@ -36,7 +36,7 @@
 # 020_extract.sh - modify OpenBSD's file tree for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 020_modify_tree.sh,v 1.17 2025/03/24 03:29:58 kaw Exp $
+# $Id: 020_modify_tree.sh,v 1.18 2025/08/04 03:36:20 kaw Exp $
 #
 #========================================
 
@@ -111,7 +111,7 @@ for dir in OTF TTF Type1
 do
     mkfontscale /usr/X11R6/lib/X11/fonts/\$dir
 done
-fc-cache
+fc-cache --system-only
 EOT
 
 # setup FuguIta specific files/directories again

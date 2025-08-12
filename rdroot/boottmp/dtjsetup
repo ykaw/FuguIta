@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.35 2025/06/08 08:29:07 kaw Exp $
+# $Id: dtjsetup,v 1.36 2025/08/12 16:57:24 kaw Exp $
 #
 #========================================
 
@@ -635,7 +635,7 @@ if [ "$ja_env" = YES ]; then
                 | sed -e 's/^# *//; s/[Dd]eja[Vv]u //' >> $HOME/.icewm/preferences
             if [[ "$copytoskel" = "yes" ]]; then
                 check_rootcmd
-                _rootcmd 'cd && cp -pR .icewm /etc/skel/'
+                _rootcmd "cp -R $HOME/.icewm /etc/skel/"
             fi
         fi
     fi

@@ -868,7 +868,7 @@ force_umount=Yes  # set Yes for forced umount /ram at shutdown
 force_resync=No   # set Yes to re-sync at shutdown
 
 # list of daemons
-# both heading and trailing spaces needed for pattern match
+# daemons must be space separated (not tabs)
 #
 skip_daemons='mountd'  # skipped in stop_daemons()
 kill_daemons='mountd'  # -KILLed in kill_daemons()

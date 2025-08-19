@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.36 2025/08/12 16:57:24 kaw Exp $
+# $Id: dtjsetup,v 1.37 2025/08/19 07:05:10 kaw Exp $
 #
 #========================================
 
@@ -289,6 +289,225 @@ function check_rootcmd {
     msg OK.
 }
 
+#-------------------
+# setup apmd and obsdfreqd
+# 
+setup_cpufreq () {
+    echo
+    msg 'enabling apmd to control CPU frequency for battery lifetime'
+    msg 'For more functionality, you can add the obsdfreqd daemon.'
+    if [ 1 = $(ask_yn "Will you install obsdfreqd?" n) ]; then
+        _rootcmd 'rcctl enable apmd
+rcctl set apmd flags -H
+rcctl start apmd
+pkg_add obsdfreqd
+rcctl enable obsdfreqd
+rcctl start obsdfreqd'
+        msg 'obsdfreqd installed'
+        msg 'This will control CPU frequency with apmd.'
+    else
+        _rootcmd 'rcctl enable apmd
+rcctl set apmd flags -A
+rcctl start apmd'
+        msg 'apmd enabled with auto mode'
+    fi
+}
+
+#-------------------
+# enable video and audio input
+# 
+enable_va () {
+    echo
+    msg 'Video and Audio handlings:'
+    [ 1 = $(ask_yn "Will you enable video/audio inputs?" r) ] || return
+
+    _rootcmd 'cat <<EOF >>/etc/fuguita/netconfs/templ.head/sysctl.conf
+kern.video.record=1 
+kern.audio.record=1
+EOF
+
+# copy above settings to /etc/sysctl.conf
+#
+chnetconf -d
+
+cat <<EOF >>/etc/rc.local
+#enable video also for wheel group
+chmod g+rw /dev/video*
+EOF
+
+sysctl kern.audio.record=1
+sysctl kern.video.record=1
+chmod g+rw /dev/video*'
+}
+
+#-------------------
+# select and install common applications
+# 
+install_apps () {
+    # installable package list
+    # note: blank lines must contain white space
+    #
+    local sellist
+    if [[ $ja_env = YES ]]; then
+        sellist='== Network ==
+a:Mozilla Firefox:firefox-i18n-ja
+b:Chromium:chromium
+c:Thunderbird:thunderbird-i18n-ja
+d:Sylpheed:sylpheed
+e:Filezilla:filezilla
+f:Transmission:transmission
+ 
+== Media ==
+g:Viewnior:viewnior
+h:GIMP:gimp--%stable
+i:Inkscape:inkscape
+j:VLC:vlc
+k:Audacious:audacious
+  
+== Documents ==
+l:GNU Emacs:emacs--gtk3%emacs
+m:VIM:vim
+n:Nano:nano
+o:LibreOffice:libreoffice-i18n-ja
+ 
+== Misc ==
+p:ML Term:mlterm
+q:additional fonts:hanazono mplus-fonts vlgothic noto-cjk genei-latin'
+    else
+        sellist='== Network ==
+a:Mozilla Firefox:firefox
+b:Chromium:chromium
+c:Thunderbird:thunderbird
+d:Sylpheed:sylpheed
+e:Filezilla:filezilla
+f:Transmission:transmission
+ 
+== Media ==
+g:Viewnior:viewnior
+h:GIMP:gimp--%stable
+i:Inkscape:inkscape
+j:VLC:vlc
+k:Audacious:audacious
+ 
+== Documents ==
+l:GNU Emacs:emacs--gtk3%emacs
+m:VIM:vim
+n:Nano:nano
+o:LibreOffice:libreoffice'
+    fi
+
+    local pkgs
+    local c
+
+    echo
+    msg "Install applications:"
+    echo
+    echo "$sellist" | sed -e 's/^\([^:]*\):\([^:]*\).*/\1)\2/' | rs -t -c 0 3
+    echo
+    echo "Enter the symbols for the packages you want to install."
+    echo "For example, to install Firefox and VIM, enter \"am\"."
+    echo "Just press ENTER to skip install."
+    echo -n 'install->'; read pkgs
+
+    # sanitize input
+    #
+    pkgs=$(echo -n "$pkgs" | tr A-Z a-z | tr -dc 0-9a-z)  # ignore bad chars
+    local instpkgs=''
+    for c in $(echo "$pkgs" | sed 's/./& /g'); do             # uniq every char
+        [[ "$instpkgs" = *${c}* ]] || instpkgs="$instpkgs$c"  # with keep appearance order
+    done
+
+    # make list for pkg_add
+    #
+    local pkg_adds=$(for c in $(echo "$instpkgs" | sed 's/./& /g'); do
+                         echo "$sellist" | grep "^${c}:" | cut -d: -f3
+                     done)
+    echo
+    if [[ -n "$pkg_adds" ]]; then
+        msg 'You have selected the following packages:'
+        echo "$pkg_adds"
+        echo
+        if [ 1 = $(ask_yn "Will you install those packages?" r) ]; then
+            _rootcmd pkg_add $pkg_adds
+
+            echo
+            msg "To install software not listed above, use the OpenBSD pkg_add command."
+            msg "You can also search for packages using the pkg_info -Q command."
+
+	    # fix up for firefox
+	    #
+	    local unveil_main=/etc/firefox/unveil.main
+	    if [[ -f $unveil_main ]] && \
+		   ! grep -q '^/fuguita/.*' $unveil_main; then
+		_rootcmd sh -c "echo >> $unveil_main
+echo '# fixed up by dtjsetup'   >> $unveil_main
+echo '/fuguita/usr/X11R6/lib r' >> $unveil_main"
+	    fi
+        fi
+    else
+        msg 'No packages selected.'
+    fi
+}
+
+#-------------------
+# Japanese Specific Setups
+#
+setup_ja_confs () {
+    if [ "$ja_env" = YES ]; then
+
+	# set timezone unless already set
+	#
+	if ! ls -l /etc/localtime | egrep -q 'zoneinfo/(Japan|Asia/Tokyo)' ; then
+	    echo
+	    msg Japanese environment and related software have been set up.
+	    msg However, the time zone has not yet been set to JST.
+	    if [ $(ask_yn 'Set timezone to JST?' y) = 1 ]; then
+	       _rootcmd ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+	    fi
+	fi
+
+	# set localtime offset of kernel clock if wanted
+	#
+	echo
+	msg When you use this machine both running OpenBSD and Windows.
+	msg You can set the hardware clock to JST instead of UTC.
+
+	local sysctl_conf='/etc/fuguita/netconfs/templ.head/sysctl.conf'
+	local offset_tz=JST
+	local offset_min=540
+	local utc_offset='^[\ \	]\*kern\\.utc_offset='$offset_min'[\ \	]\*\$'
+	_rootcmd sed -i "/$utc_offset/d" $sysctl_conf
+	if [ $(ask_yn "Set hardware clock to ${offset_tz}?" n) = 1 ]; then
+	    _rootcmd echo "kern.utc_offset=$offset_min" '>>' $sysctl_conf
+	    _rootcmd chnetconf -d
+	fi
+	msg This will take effect on the next boot.
+
+	# Workaround:
+	#   Japanese glyphs are not displayed by IceWm's default.
+	#   Settings suitable for Japanese will be written in personal preferences.
+
+        # Is IceWM installed?
+        #
+	[[ "$wm" = "icewm" && -f /usr/local/share/icewm/preferences ]] || return
+
+        # already fixed?
+        #
+	mkdir -p $HOME/.icewm
+	grep -qi 'font.*sans' $HOME/.icewm/preferences 2>/dev/null && return
+
+        # fix font names for japanese
+        #
+	grep -i dejavu /usr/local/share/icewm/preferences \
+	    | sed -e 's/^# *//; s/[Dd]eja[Vv]u //' >> $HOME/.icewm/preferences
+
+	if [[ "$copytoskel" = "yes" ]]; then
+	    _rootcmd "cp -R $HOME/.icewm /etc/skel/"
+	fi
+    fi
+}
+
+
 #=======================
 # Active code from here
 #=======================
@@ -319,6 +538,10 @@ cat <<EOF
 # for FuguIta-$fi_version
 #==========================================
 EOF
+
+# check if this user account is administrative
+#
+check_rootcmd
 
 # select Desktop Environment
 #
@@ -370,7 +593,7 @@ esac
 echo
 if [ $(ask_yn "Will you setup Japanese language environment?" n) = 1 ]; then
     ja_env=YES
-    pkgs="$pkgs ja-nkf ja-kterm-- ja-fonts-funet ja-fonts-gnu ja-sazanami-ttf hanazono mixfont-mplus-ipa mplus-fonts vlgothic"
+    pkgs="$pkgs ja-nkf ja-kterm-- ja-fonts-funet ja-fonts-gnu ja-sazanami-ttf mixfont-mplus-ipa"
 
     # if so, select input method software
     while :; do
@@ -401,10 +624,6 @@ fi
 # do pkg_add
 #
 if [ -n "$pkgs" ]; then
-    # check if this account administrative
-    #
-    check_rootcmd
-
     # adjusting clock for TLS (HTTPS)
     #
     echo
@@ -584,63 +803,17 @@ EOF
 echo
 if [ $(ask_yn 'Copy this .xsession file to /etc/skel ?' n) -eq 1 ]; then
     copytoskel=yes
-    check_rootcmd
     _rootcmd cp $HOME/.xsession /etc/skel/.
 else
     copytoskel=no
 fi
 
-# Japanese Specific Setups
+# post-install setups
 #
-if [ "$ja_env" = YES ]; then
-
-    # set timezone unless already set
-    #
-    if ! ls -l /etc/localtime | egrep -q 'zoneinfo/(Japan|Asia/Tokyo)' ; then
-        echo
-        msg Japanese environment and related software have been set up.
-        msg However, the time zone has not yet been set to JST.
-        if [ $(ask_yn 'Set timezone to JST?' y) = 1 ]; then
-            check_rootcmd
-           _rootcmd ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
-        fi
-    fi
-
-    # set localtime offset of kernel clock if wanted
-    #
-    echo
-    msg When you use this machine both running OpenBSD and Windows.
-    msg You can set the hardware clock to JST instead of UTC.
-
-    sysctl_conf='/etc/fuguita/netconfs/templ.head/sysctl.conf'
-    offset_tz=JST
-    offset_min=540
-    utc_offset='^[\ \	]\*kern\\.utc_offset='$offset_min'[\ \	]\*\$'
-    check_rootcmd
-    _rootcmd sed -i "/$utc_offset/d" $sysctl_conf
-    if [ $(ask_yn "Set hardware clock to ${offset_tz}?" n) = 1 ]; then
-        _rootcmd echo "kern.utc_offset=$offset_min" '>>' $sysctl_conf
-        _rootcmd chnetconf -d
-    fi
-    msg This will take effect on the next boot.
-
-    # Workaround:
-    #   Japanese glyphs are not displayed by IceWm's default.
-    #   Settings suitable for Japanese will be written in personal preferences.
-    #
-    if [[ "$wm" = "icewm" && -f /usr/local/share/icewm/preferences ]]; then
-        mkdir -p $HOME/.icewm
-        if ! grep -qi 'font.*sans' $HOME/.icewm/preferences 2>/dev/null; then
-            grep -i dejavu /usr/local/share/icewm/preferences \
-                | sed -e 's/^# *//; s/[Dd]eja[Vv]u //' >> $HOME/.icewm/preferences
-            if [[ "$copytoskel" = "yes" ]]; then
-                check_rootcmd
-                _rootcmd "cp -R $HOME/.icewm /etc/skel/"
-            fi
-        fi
-    fi
-fi
-
+setup_cpufreq   # CPU frequency control for battery lifetime
+install_apps    # Install Popular Applications
+enable_va       # enable video and audio input
+setup_ja_confs  # Japanese Specific Setups
 
 # That's all
 #

@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.38 2025/08/20 07:25:53 kaw Exp $
+# $Id: dtjsetup,v 1.39 2025/08/20 07:45:37 kaw Exp $
 #
 #========================================
 
@@ -414,7 +414,7 @@ o:LibreOffice:libreoffice'
         echo "$sellist" | sed -e 's/^\([^:]*\):\([^:]*\).*/\1)\2/' | rs -t -c 0 3
         echo "
 Example:  'am' - install Firefox and VIM
-         'am?' - show infos about Firefox and VIM
+         'am?' - show info about Firefox and VIM
     Just ENTER - skip install."
         pkgs=$(rl_wread 'install' '')
 

@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.37 2025/08/19 07:05:10 kaw Exp $
+# $Id: dtjsetup,v 1.38 2025/08/20 07:25:53 kaw Exp $
 #
 #========================================
 
@@ -44,6 +44,7 @@
 #-------------------
 # clean-ups
 #
+
 RL_WORDS=/tmp/rl_words_$$
 function clear_exit {
     rm -f $RL_WORDS
@@ -342,7 +343,11 @@ chmod g+rw /dev/video*'
 
 #-------------------
 # select and install common applications
-# 
+#
+#   local sellist is a local variable
+#   which holds colon-separated values
+#   <item char>:<desc str>:<pkg name(s)>
+#
 install_apps () {
     # installable package list
     # note: blank lines must contain white space
@@ -396,43 +401,79 @@ n:Nano:nano
 o:LibreOffice:libreoffice'
     fi
 
-    local pkgs
-    local c
-
-    echo
-    msg "Install applications:"
-    echo
-    echo "$sellist" | sed -e 's/^\([^:]*\):\([^:]*\).*/\1)\2/' | rs -t -c 0 3
-    echo
-    echo "Enter the symbols for the packages you want to install."
-    echo "For example, to install Firefox and VIM, enter \"am\"."
-    echo "Just press ENTER to skip install."
-    echo -n 'install->'; read pkgs
-
-    # sanitize input
+    # select apps then install them
+    # if not performed, retry this loop
     #
-    pkgs=$(echo -n "$pkgs" | tr A-Z a-z | tr -dc 0-9a-z)  # ignore bad chars
-    local instpkgs=''
-    for c in $(echo "$pkgs" | sed 's/./& /g'); do             # uniq every char
-        [[ "$instpkgs" = *${c}* ]] || instpkgs="$instpkgs$c"  # with keep appearance order
-    done
+    while :; do
+        local pkgs
+        local c
 
-    # make list for pkg_add
-    #
-    local pkg_adds=$(for c in $(echo "$instpkgs" | sed 's/./& /g'); do
-                         echo "$sellist" | grep "^${c}:" | cut -d: -f3
-                     done)
-    echo
-    if [[ -n "$pkg_adds" ]]; then
+        echo
+        msg "Install applications:"
+        echo
+        echo "$sellist" | sed -e 's/^\([^:]*\):\([^:]*\).*/\1)\2/' | rs -t -c 0 3
+        echo "
+Example:  'am' - install Firefox and VIM
+         'am?' - show infos about Firefox and VIM
+    Just ENTER - skip install."
+        pkgs=$(rl_wread 'install' '')
+
+        # check help needed
+        #
+        local needhelp=$(expr "$pkgs" : '.*\?')
+
+        # sanitize input
+        #
+        pkgs=$(echo -n "$pkgs" | tr A-Z a-z | tr -dc 0-9a-z)  # ignore bad chars
+        local instpkgs=''
+        for c in $(echo "$pkgs" | sed 's/./& /g'); do             # uniq every char
+            [[ "$instpkgs" = *${c}* ]] || instpkgs="$instpkgs$c"  # with keep appearance order
+        done
+
+        # make list for pkg_add
+        #
+        #local pkg_adds=$(for c in $(echo "$instpkgs" | sed 's/./& /g'); do
+        #                     echo "$sellist" | grep "^${c}:" | cut -d: -f3
+        #                 done)
+        local pkg_adds=''
+        for c in $(echo "$instpkgs" | sed 's/./& /g'); do
+            local pkg_name=$(echo "$sellist" | grep "^${c}:" | cut -d: -f3)
+            if [[ -z "$pkg_name" ]]; then
+                msg "'$c' not in the list"
+            else
+                pkg_adds=$(printf '%s\n%s' "$pkg_adds" "$pkg_name")
+            fi
+        done
+
+        # show description if help requested
+        #   for input like '?am', exec "pkg_info firefox vim" with pager
+        #
+        if [[ 0 < $needhelp ]]; then
+            if [[ -n "$pkg_adds" ]]; then
+                pkg_info $pkg_adds | ${PAGER:-more}
+                continue
+            else
+                msg "Please put symbol letter with '?', like '?am'"
+                continue
+            fi
+        else
+            if [[ -z "$pkg_adds" ]]; then
+                msg 'No packages selected.'
+                return  # from this function
+            else
+                :  # proceed to install
+            fi
+        fi
+
+        echo
         msg 'You have selected the following packages:'
         echo "$pkg_adds"
         echo
         if [ 1 = $(ask_yn "Will you install those packages?" r) ]; then
-            _rootcmd pkg_add $pkg_adds
 
-            echo
-            msg "To install software not listed above, use the OpenBSD pkg_add command."
-            msg "You can also search for packages using the pkg_info -Q command."
+	    # install specified pkgs
+	    #
+            _rootcmd pkg_add $pkg_adds
 
 	    # fix up for firefox
 	    #
@@ -443,10 +484,16 @@ o:LibreOffice:libreoffice'
 echo '# fixed up by dtjsetup'   >> $unveil_main
 echo '/fuguita/usr/X11R6/lib r' >> $unveil_main"
 	    fi
+
+            echo
+            msg "To install software not listed above, use the OpenBSD pkg_add command."
+            msg "You can also search for packages using the pkg_info -Q command."
+
+            return  # from this function: normal end
+        else
+            continue
         fi
-    else
-        msg 'No packages selected.'
-    fi
+    done
 }
 
 #-------------------
@@ -525,7 +572,7 @@ if [ ! -r /usr/fuguita/version ]; then
     if [ $(ask_yn 'Do you want to run this installer anyway?' y) -ne 1 ]; then
         exit 1
     fi
-    fi_version='IS_NOT_HERE'
+    fi_version='ISNT_THIS'
 else
     fi_version=$(</usr/fuguita/version)
 fi
@@ -821,7 +868,7 @@ echo
 msg all installation and configuration completed.
 msg Check if your $xs is OK, then re-login to X.
 
-if [ "$fi_version" != 'IS_NOT_HERE' ]; then
+if [ "$fi_version" != 'ISNT_THIS' ]; then
     echo
     msg 'Note: You can save this configuration and addtionally installed softwares'
     msg '      by using usbfadm utility.'

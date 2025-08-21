@@ -1,0 +1,880 @@
+#!/bin/ksh
+
+#========================================
+#
+# dtjsetup - Desktop (and Japanese) setup utility
+# KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
+# $Id: dtjsetup,v 1.41 2025/08/21 01:13:44 kaw Exp $
+#
+#========================================
+
+# Copyright (c) 2020--2025
+# Yoshihiro Kawamata
+#
+# All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are
+# met:
+# 
+#   * Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+# 
+#   * Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in
+#     the documentation and/or other materials provided with the
+#     distribution.
+# 
+#   * Neither the name of Yoshihiro Kawamata nor the names of its
+#     contributors may be used to endorse or promote products derived
+#     from this software without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+#-------------------
+# clean-ups
+#
+
+RL_WORDS=/tmp/rl_words_$$
+function clear_exit {
+    rm -f $RL_WORDS
+    exit $1
+}
+
+#-------------------
+# Wait for ENTER key pressed
+# outputs results to stdout
+#
+#     usage: wait_enter prompt
+#
+#       output ... 1: ENTER key pressed
+#                 -1: Key pressed but not ENTER
+#                 -2: Error occured
+#
+function wait_enter {
+    local prompt="$1"
+    local line
+
+    echo -n "$prompt -> " >&2; read line
+
+    if [ X"$line" = X ]; then
+        echo 1
+    else
+        echo -1
+    fi
+}
+
+#-------------------
+# ask user yes or no
+# outputs answer to stdout
+#
+#     usage: ask_yn prompt yn
+#
+#       yn ... y: defaults to yes
+#              n: defaults to no
+#              r: no default ... ask again
+#              else: no default ... return -1 if answered not yn
+#
+#       output ... 1: yes, 0: no, -1: else yn, -2: error occured
+#
+function ask_yn {
+
+    if [ -z "$2" ]; then
+        echo -2
+        return
+    fi
+
+    local prompt="$1"; shift
+    local yn_default="$1"; shift
+    local yn_ans
+
+    case X"$yn_default"X in
+        X[Yy]X) yn_default=Y; prompt="$prompt [Y/n] -> " ;;
+        X[Nn]X) yn_default=N; prompt="$prompt [y/N] -> " ;;
+        X[Rr]X) yn_default=R; prompt="$prompt [y/n] -> " ;;
+        *)      yn_default=E; prompt="$prompt [y/n] -> " ;;
+    esac
+
+    while :; do
+        echo -n "$prompt" >&2; read yn_ans
+
+        case X"$yn_ans"X in
+            X[Yy]X) echo 1; return;;
+            X[Nn]X) echo 0; return;;
+            XX)
+                case X"$yn_default"X in
+                    XYX) echo 1;  return;;
+                    XNX) echo 0;  return;;
+                    XRX) continue;;
+                    *)   echo -1; return;;
+                esac;;
+            *)
+                continue;;
+        esac
+    done
+}
+
+#-------------------
+# ask selection out of multiple items
+# outputs answer to stdout
+#
+#     usage: ask_which prompt default item1 item2 ...
+#
+#       Note: although user's choice is one originated
+#             default is zero originated
+#
+#       output: first word of selected item
+#               returns empty line unless selected normally
+#
+function ask_which {
+    if [ $# -lt 3 ]; then
+        return
+    fi
+
+    local prompt="$1";  shift
+    local default="$1"; shift
+    local i item val
+
+    # skip null item
+    #
+    i=0
+    for val in "$@"; do
+        if [ -n "$val" ]; then
+            item[$i]="$val"
+            i=$((i+1))
+        fi
+    done
+
+    # only one item is default itself
+    #
+    [ "${#item[@]}" = 1 ] && default=${item[0]}
+
+    i=0
+    while [ -n "${item[$i]}" ]; do
+        if [ "$default" = "${item[$i]}" ]; then
+            OIFS="$IFS"
+            IFS= prompt="$prompt\n"`printf '%3d: [%s]' $((i+1)) ${item[$i]}`
+            IFS="$OIFS"
+        else
+            OIFS="$IFS"
+            IFS= prompt="$prompt\n"`printf '%3d:  %s' $((i+1)) ${item[$i]}`
+            IFS="$OIFS"
+        fi
+        i=$((i+1))
+    done
+    echo "$prompt" >&2
+
+    local ans
+    ans=`rl_wread '' ''`
+
+    # take first argument
+    #
+    set -- $ans
+    ans=$1
+    
+    # return selected item
+    #
+    if expr "$ans" : '^[0-9][0-9]*$' >/dev/null && \
+            [ "$ans" -le ${#item[@]} ]; then
+        set -- ${item[$((ans-1))]}
+        echo $1
+    elif [ -n "$default" -a -z "$ans" ]; then
+        set -- $default
+        echo $1
+    fi
+}
+
+#-------------------
+# read user's input with readline functionality
+# outputs echoed to stdout
+#
+#     usage: rl_wread prompt-str default-str [completion words ....]
+#
+function rl_wread {
+    local prompt="$1";  shift
+    local default="$1"; shift
+
+    if which rlwrap >/dev/null 2>&1 ; then
+        echo "$@" > $RL_WORDS
+        rlwrap -b '' \
+               -f $RL_WORDS \
+               -P "$default" \
+               sh -f -c 'echo -n "'"$prompt"'->" >&2 ; read w || echo EOF; echo $w' || echo RL_ERR
+    else
+        #-------------------
+        # fallback to dumb input
+        #
+        if [ X"$default" = X ]; then
+            echo -n "${prompt}->" >&2
+            read w
+        else
+            echo -n "$prompt [$default] -> " >&2
+            read w
+            if [ X"$w" = X ]; then
+                w="$default"
+            fi
+        fi
+        echo $w
+    fi
+}
+
+#-------------------
+# echo message to stderr with header string
+#
+function msg {
+    echo '***' "$@" 1>&2
+}
+
+#-------------------
+# check if this account administrative
+#   if so, command with root privileges
+#   will be defined as function '_rootcmd'.
+#
+function check_rootcmd {
+    # check type of rootcmd
+    if [ "$(type _rootcmd)" = "_rootcmd is a function" ]; then
+        # _rootcmd already defined
+        return  # ok
+    elif [ "$(type _rootcmd)" != "_rootcmd not found" ]; then
+        # _rootcmd defined other than a function
+        msg "The name _rootcmd conflicts with something other than a function."
+        msg "will exit with error, sorry."
+        exit 1
+    fi
+
+    local TAB=$(echo -n "\t")  # to make tab visible in a source
+    local root
+    local wheel
+    echo
+    msg Checking your root authorization...
+    if id -p | grep -q "^uid${TAB}root$"; then
+        root=YES
+        function _rootcmd {
+            sh -c "$*"
+        }
+    elif id -p | egrep -q "^groups${TAB}(.*[0-9A-Za-z_] )?wheel( |\$)"; then
+        wheel=YES
+        if grep -q 'permit..*:wheel' /etc/doas.conf 2>/dev/null; then
+            function _rootcmd {
+                doas sh -c "$*"
+            }
+        else
+            function _rootcmd {
+                echo -n 'Root '  # to display "Root Password:"
+                su root -c "$*"
+            }
+        fi
+    else
+        msg "You aren't authorized to be root."
+        msg 'To install packages, you should be root or a member of wheel group.'
+        exit 1
+    fi
+
+    if [ "$root$wheel" = "" ]; then
+        echo
+        msg "It seems you don't seem to be able to get root privileges."
+        msg 'To install packages, you should be root or a member of wheel group.'
+        exit 1
+    fi
+
+    msg OK.
+}
+
+#-------------------
+# setup apmd and obsdfreqd
+# 
+setup_cpufreq () {
+    echo
+    msg 'enabling apmd to control CPU frequency for battery lifetime'
+    msg 'For more functionality, you can add the obsdfreqd daemon.'
+    if [ 1 = $(ask_yn "Will you install obsdfreqd?" n) ]; then
+        _rootcmd 'rcctl enable apmd
+rcctl set apmd flags -H
+rcctl start apmd
+pkg_add obsdfreqd
+rcctl enable obsdfreqd
+rcctl start obsdfreqd'
+        msg 'obsdfreqd installed'
+        msg 'This will control CPU frequency with apmd.'
+    else
+        _rootcmd 'rcctl enable apmd
+rcctl set apmd flags -A
+rcctl start apmd'
+        msg 'apmd enabled with auto mode'
+    fi
+}
+
+#-------------------
+# enable video and audio input
+# 
+enable_va () {
+    echo
+    msg 'Video and Audio handlings:'
+    [ 1 = $(ask_yn "Will you enable video/audio inputs?" r) ] || return
+
+    _rootcmd 'cat <<EOF >>/etc/fuguita/netconfs/templ.head/sysctl.conf
+kern.video.record=1 
+kern.audio.record=1
+EOF
+
+# copy above settings to /etc/sysctl.conf
+#
+chnetconf -d
+
+cat <<EOF >>/etc/rc.local
+#enable video also for wheel group
+chmod g+rw /dev/video*
+EOF
+
+sysctl kern.audio.record=1
+sysctl kern.video.record=1
+chmod g+rw /dev/video*'
+}
+
+#-------------------
+# select and install common applications
+#
+#   local sellist is a local variable
+#   which holds colon-separated values
+#   <item char>:<desc str>:<pkg name(s)>
+#
+install_apps () {
+    # installable package list
+    # note: blank lines must contain white space
+    #
+    local sellist
+    if [[ $ja_env = YES ]]; then
+        sellist='== Network ==
+a:Mozilla Firefox:firefox-i18n-ja
+b:Chromium:chromium
+c:Thunderbird:thunderbird-i18n-ja
+d:Sylpheed:sylpheed
+e:Filezilla:filezilla
+f:Transmission:transmission
+ 
+== Media ==
+g:Viewnior:viewnior
+h:GIMP:gimp--%stable
+i:Inkscape:inkscape
+j:VLC:vlc
+k:Audacious:audacious
+  
+== Documents ==
+l:GNU Emacs:emacs--gtk3%emacs
+m:VIM:vim
+n:Nano:nano
+o:Evince:evince--light
+p:LibreOffice:libreoffice-i18n-ja
+ 
+== Misc ==
+q:ML Term:mlterm
+r:More Japanese Fonts:hanazono mplus-fonts vlgothic noto-cjk genei-latin'
+    else
+        sellist='== Network ==
+a:Mozilla Firefox:firefox
+b:Chromium:chromium
+c:Thunderbird:thunderbird
+d:Sylpheed:sylpheed
+e:Filezilla:filezilla
+f:Transmission:transmission
+ 
+== Media ==
+g:Viewnior:viewnior
+h:GIMP:gimp--%stable
+i:Inkscape:inkscape
+j:VLC:vlc
+k:Audacious:audacious
+ 
+== Documents ==
+l:GNU Emacs:emacs--gtk3%emacs
+m:VIM:vim
+n:Nano:nano
+o:Evince:evince--light
+p:LibreOffice:libreoffice'
+    fi
+
+    # select apps then install them
+    # if not performed, retry this loop
+    #
+    while :; do
+        local pkgs
+        local c
+
+        echo
+        msg "Install applications:"
+        echo
+        echo "$sellist" | sed -e 's/^\([^:]*\):\([^:]*\).*/\1)\2/' | rs -t -c 0 3
+        echo "
+Example:  'am' - install Firefox and VIM
+         'am?' - show info about Firefox and VIM
+    Just ENTER - skip install."
+        pkgs=$(rl_wread 'install' '')
+
+        # check help needed
+        #
+        local needhelp=$(expr "$pkgs" : '.*\?')
+
+        # sanitize input
+        #
+        pkgs=$(echo -n "$pkgs" | tr A-Z a-z | tr -dc 0-9a-z)  # ignore bad chars
+        local instpkgs=''
+        for c in $(echo "$pkgs" | sed 's/./& /g'); do             # uniq every char
+            [[ "$instpkgs" = *${c}* ]] || instpkgs="$instpkgs$c"  # with keep appearance order
+        done
+
+        # make list for pkg_add
+        #
+        #local pkg_adds=$(for c in $(echo "$instpkgs" | sed 's/./& /g'); do
+        #                     echo "$sellist" | grep "^${c}:" | cut -d: -f3
+        #                 done)
+        local pkg_adds=''
+        for c in $(echo "$instpkgs" | sed 's/./& /g'); do
+            local pkg_name=$(echo "$sellist" | grep "^${c}:" | cut -d: -f3)
+            if [[ -z "$pkg_name" ]]; then
+                msg "'$c' not in the list"
+            else
+                pkg_adds=$(printf '%s\n%s' "$pkg_adds" "$pkg_name")
+            fi
+        done
+
+        # show description if help requested
+        #   for input like '?am', exec "pkg_info firefox vim" with pager
+        #
+        if [[ 0 < $needhelp ]]; then
+            if [[ -n "$pkg_adds" ]]; then
+                pkg_info $pkg_adds | ${PAGER:-more}
+                continue
+            else
+                msg "Please put symbol letter with '?', like '?am'"
+                continue
+            fi
+        else
+            if [[ -z "$pkg_adds" ]]; then
+                msg 'No packages selected.'
+                return  # from this function
+            else
+                :  # proceed to install
+            fi
+        fi
+
+        echo
+        msg 'You have selected the following packages:'
+        echo "$pkg_adds"
+        echo
+        if [ 1 = $(ask_yn "Will you install those packages?" r) ]; then
+
+	    # install specified pkgs
+	    #
+            _rootcmd pkg_add $pkg_adds
+
+	    # fix up for firefox
+	    #
+	    local unveil_main=/etc/firefox/unveil.main
+	    if [[ -f $unveil_main ]] && \
+		   ! grep -q '^/fuguita/.*' $unveil_main; then
+		_rootcmd sh -c "echo >> $unveil_main
+echo '# fixed up by dtjsetup'   >> $unveil_main
+echo '/fuguita/usr/X11R6/lib r' >> $unveil_main"
+	    fi
+
+            echo
+            msg "To install software not listed above, use the OpenBSD pkg_add command."
+            msg "You can also search for packages using the pkg_info -Q command."
+
+            return  # from this function: normal end
+        else
+            continue
+        fi
+    done
+}
+
+#-------------------
+# Japanese Specific Setups
+#
+setup_ja_confs () {
+    if [ "$ja_env" = YES ]; then
+
+	# set timezone unless already set
+	#
+	if ! ls -l /etc/localtime | egrep -q 'zoneinfo/(Japan|Asia/Tokyo)' ; then
+	    echo
+	    msg Japanese environment and related software have been set up.
+	    msg However, the time zone has not yet been set to JST.
+	    if [ $(ask_yn 'Set timezone to JST?' y) = 1 ]; then
+	       _rootcmd ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+	    fi
+	fi
+
+	# set localtime offset of kernel clock if wanted
+	#
+	echo
+	msg When you use this machine both running OpenBSD and Windows.
+	msg You can set the hardware clock to JST instead of UTC.
+
+	local sysctl_conf='/etc/fuguita/netconfs/templ.head/sysctl.conf'
+	local offset_tz=JST
+	local offset_min=540
+	local utc_offset='^[\ \	]\*kern\\.utc_offset='$offset_min'[\ \	]\*\$'
+	_rootcmd sed -i "/$utc_offset/d" $sysctl_conf
+	if [ $(ask_yn "Set hardware clock to ${offset_tz}?" n) = 1 ]; then
+	    _rootcmd echo "kern.utc_offset=$offset_min" '>>' $sysctl_conf
+	    _rootcmd chnetconf -d
+	fi
+	msg This will take effect on the next boot.
+
+	# Workaround:
+	#   Japanese glyphs are not displayed by IceWm's default.
+	#   Settings suitable for Japanese will be written in personal preferences.
+
+        # Is IceWM installed?
+        #
+	[[ "$wm" = "icewm" && -f /usr/local/share/icewm/preferences ]] || return
+
+        # already fixed?
+        #
+	mkdir -p $HOME/.icewm
+	grep -qi 'font.*sans' $HOME/.icewm/preferences 2>/dev/null && return
+
+        # fix font names for japanese
+        #
+	grep -i dejavu /usr/local/share/icewm/preferences \
+	    | sed -e 's/^# *//; s/[Dd]eja[Vv]u //' >> $HOME/.icewm/preferences
+
+	if [[ "$copytoskel" = "yes" ]]; then
+	    _rootcmd "cp -R $HOME/.icewm /etc/skel/"
+	fi
+    fi
+}
+
+
+#=======================
+# Active code from here
+#=======================
+
+#-------------------
+# initializations
+#
+
+export LANG=C  # for rlwrap at unconfigured locale
+
+trap 'echo $0: interrupted. >&2; clear_exit 1' INT
+
+if [ ! -r /usr/fuguita/version ]; then
+    msg FuguIta is not running.
+    if [ $(ask_yn 'Do you want to run this installer anyway?' y) -ne 1 ]; then
+        exit 1
+    fi
+    fi_version='ISNT_THIS'
+else
+    fi_version=$(</usr/fuguita/version)
+fi
+
+cat <<EOF
+#==========================================
+# Welcome to dtjsetup
+#     Desktop (and Japanese) setup utility
+#
+# for FuguIta-$fi_version
+#==========================================
+EOF
+
+# check if this user account is administrative
+#
+check_rootcmd
+
+# select Desktop Environment
+#
+while :; do
+    echo
+    dt=$(ask_which "Which desktop software will you install?" "rox-filer" "no desktop (wm only)" "rox-filer" "xfce" "mate" "lumina" "lxqt")
+    case "$dt" in
+        "")
+            :   # do nothing
+            ;;  # try again
+        no)
+            break
+            ;;
+        xfce|mate|lxqt)
+            echo
+            if [ 1 -eq $(ask_yn "Will you install extra packages of ${dt}?" n) ]; then
+                pkgs="$pkgs ${dt}-extras"
+            else
+                pkgs="$pkgs $dt"
+            fi
+            break
+            ;;
+        *) pkgs="$pkgs $dt"
+           break;;
+    esac
+done
+
+# select Window Manager
+#
+case "$dt" in
+    "no"|"rox-filer")
+        while :; do
+            echo
+            wm=$(ask_which "Which window manager will you install?" "icewm" "cwm" "fvwm" "twm" "icewm" "fluxbox" "jwm" $DTJ_WMS)
+            case "$wm" in
+                cwm|fvwm|twm) # already installed
+                    break;;   # on base system
+                *)
+                    pkgs="$pkgs $wm"
+                    break;;
+            esac
+        done;;
+    *)
+        wm=$dt
+esac
+
+# Setup Japanese Env?
+#
+echo
+if [ $(ask_yn "Will you setup Japanese language environment?" n) = 1 ]; then
+    ja_env=YES
+    pkgs="$pkgs ja-nkf ja-kterm-- ja-fonts-funet ja-fonts-gnu ja-sazanami-ttf mixfont-mplus-ipa"
+
+    # if so, select input method software
+    while :; do
+        echo
+        im=$(ask_which "Which input method will you install?" "fcitx-anthy" "fcitx-anthy" "ibus-anthy" "ibus-skk" "scim-anthy" "uim-gtk")
+        case "$im" in
+            "") ;;
+            fcitx-anthy) pkgs="$pkgs $im fcitx-gtk";  break;;
+            ibus-skk)    pkgs="$pkgs $im ibus";  break;;
+            *) pkgs="$pkgs $im";  break;;
+        esac
+    done
+else
+    ja_env=NO
+fi
+
+# Display of selections
+#
+echo
+msg You selected $wm as desktop software.
+msg Installing Japanese environment is $ja_env.
+if [ "$ja_env" = YES ]; then
+    msg Japanese input method is $im.
+else
+    msg No Japanese input method choosen.
+fi
+
+# do pkg_add
+#
+if [ -n "$pkgs" ]; then
+    # adjusting clock for TLS (HTTPS)
+    #
+    echo
+    msg adjusting clock for TLS connection...
+    _rootcmd rdate pool.ntp.org
+
+    # check install source
+    #
+    echo
+    msg Checking network accessibility...
+    if [ -f /etc/installurl ]; then
+        checkurl=$(</etc/installurl)
+    elif [ "$PKG_PATH" != "" ]; then
+        checkurl="$PKG_PATH"
+    else
+        msg Install source is not set yet.
+        msg Please check /etc/installurl or '$PKG_PATH'
+        exit 1
+    fi
+
+    # check if network accessible
+    #
+    if ! ftp -o /dev/null "$checkurl" </dev/null >/dev/null 2>&1; then
+        echo
+        msg cannot access to "$checkurl"
+        msg Please check network reachability, or the URL is correct.
+        exit 1
+    fi
+
+    msg OK.
+
+    echo
+    msg Installing packages: $pkgs
+    if [ 1 != $(ask_yn "Will you continue?" n) ]; then
+        exit
+    fi
+
+    _rootcmd pkg_add -I $pkgs
+    if [ $? -ne 0 ]; then
+        msg "Installing package(s) failed."
+        exit 1
+    fi
+fi
+
+# Detecting existing .xsession
+#
+xs="$HOME/.xsession"
+
+if [ -e "$xs" ]; then
+    xs_bak="${xs}_$(date +%Y%m%d_%H%M%S)"
+    echo
+    msg $xs already exists.
+    msg This will be replaced with a new file.
+    msg and the old one will be renamed to $xs_bak.
+fi
+
+# make backup of .xsession
+#
+echo
+msg Rewrite .xsession configuration file.
+if [ 1 != $(ask_yn "Will you continue?" n) ]; then
+    exit
+fi
+
+if [ -n "$xs_bak" ]; then
+    mv $HOME/.xsession "$xs_bak"
+fi
+
+# write .xsession - head part
+#
+cat <<EOF > $xs
+#!/bin/sh
+. \$HOME/.profile
+if [ -x /usr/local/bin/dbus-launch -a -z "\${DBUS_SESSION_BUS_ADDRESS}" ]; then
+        eval \`dbus-launch --sh-syntax --exit-with-x11\`
+fi
+
+# add fontpaths of fonts installed by pkg_add
+#
+for dir in \$(ls -1d /usr/local/share/fonts/*/fonts.{dir,scale} 2>/dev/null | sed -e 's/[^/]*$//' | uniq); do
+    xset fp+ \$dir
+done
+xset fp rehash
+EOF
+
+# write .xsession - Japanese IM part
+#
+if [ "$ja_env" = YES ]; then
+    echo >> $xs
+    echo "# set language locale" >> $xs
+    echo "export LANG=ja_JP.UTF-8" >> $xs
+    case "$im" in
+        uim-gtk)
+            xmod="uim"
+            im_mod="uim"
+            im_daemon="uim-xim & (sleep 30; uim-toolbar-gtk & ) &"
+            ;;
+        fcitx-anthy)
+            xmod="fcitx"
+            im_mod="fcitx"
+            im_daemon="fcitx5 &"
+            ;;
+        scim-anthy)
+            xmod="SCIM"
+            im_mod="xim"
+            im_daemon="scim -d"
+            ;;
+        ibus-anthy)
+            xmod="ibus"
+            im_mod="ibus"
+            im_daemon="ibus-daemon -d -x -r"
+            ;;
+        ibus-skk)
+            xmod="ibus"
+            im_mod="ibus"
+            im_daemon="ibus-daemon -d -x"
+            ;;
+        *)
+            xmod="$im"
+            im_mod="$im"
+            im_daemon="$im &"
+            ;;
+    esac
+    cat <<EOF >> $xs
+
+# $im
+#
+export XMODIFIERS="@im=$xmod"
+export GTK_IM_MODULE="$im_mod"
+export QT_IM_MODULE="$im_mod"
+eval "$im_daemon"
+EOF
+fi
+
+# write .xsession - Invocation of Desktop software
+#
+cat <<EOF >> $xs
+
+# start DT/WM and clients
+#
+dt="$dt"
+wm="$wm"
+case "\$wm" in
+    fluxbox)
+        wm="startfluxbox"
+        ;;
+esac
+case "\$dt" in
+    no)
+        xsetroot -solid gray12
+        xclock -geometry 115x115-0+0 -analog -update 1 -fg white -bg '#000020' -hd gray25 -hl white &
+        xterm -geometry +0+0 -rv &
+        \$wm
+        ;;
+    rox-filer)
+        rox -t top -p pin
+        \$wm
+        ;;
+    xfce)   startxfce4 ;;
+    mate)   mate-session ;;
+    lumina) start-lumina-desktop ;;
+    lxqt)   startlxqt ;;
+    *)
+        start\$dt
+        ;;
+esac
+
+# fail safe
+#
+if [ \$? -ne 0 ]; then
+    twm
+fi
+EOF
+
+# write generated .xsession to /etc/skel
+#
+echo
+if [ $(ask_yn 'Copy this .xsession file to /etc/skel ?' n) -eq 1 ]; then
+    copytoskel=yes
+    _rootcmd cp $HOME/.xsession /etc/skel/.
+else
+    copytoskel=no
+fi
+
+# post-install setups
+#
+setup_cpufreq   # CPU frequency control for battery lifetime
+install_apps    # Install Popular Applications
+enable_va       # enable video and audio input
+setup_ja_confs  # Japanese Specific Setups
+
+# That's all
+#
+echo
+msg all installation and configuration completed.
+msg Check if your $xs is OK, then re-login to X.
+
+if [ "$fi_version" != 'ISNT_THIS' ]; then
+    echo
+    msg 'Note: You can save this configuration and addtionally installed softwares'
+    msg '      by using usbfadm utility.'
+    msg '      And can reload them at next boot time by selecting boot mode 3.'
+fi
+
+clear_exit 0

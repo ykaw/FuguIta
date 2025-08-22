@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.42 2025/08/22 00:39:49 kaw Exp $
+# $Id: dtjsetup,v 1.43 2025/08/22 22:35:18 kaw Exp $
 #
 #========================================
 
@@ -361,7 +361,7 @@ c:Thunderbird:thunderbird-i18n-ja
 d:Sylpheed:sylpheed
 e:Filezilla:filezilla
 f:Transmission:transmission
- 
+
 --[Media]--
 g:pavucontrol:pavucontrol
 h:Viewnior:viewnior
@@ -369,14 +369,14 @@ i:GIMP:gimp--%stable
 j:Inkscape:inkscape
 k:VLC:vlc
 l:Audacious:audacious
-  
+
 --[Documents]--
 m:GNU Emacs:emacs--gtk3%emacs
 n:VIM:vim
 o:Nano:nano
 p:Evince:evince--light
 q:LibreOffice:libreoffice-i18n-ja
- 
+
 --[Misc]--
 r:MLTerm:mlterm
 s:More Japanese Fonts:hanazono mplus-fonts vlgothic noto-cjk genei-latin'
@@ -388,7 +388,7 @@ c:Thunderbird:thunderbird
 d:Sylpheed:sylpheed
 e:Filezilla:filezilla
 f:Transmission:transmission
- 
+
 --[Media]--
 g:pavucontrol:pavucontrol
 h:Viewnior:viewnior
@@ -396,7 +396,7 @@ i:GIMP:gimp--%stable
 j:Inkscape:inkscape
 k:VLC:vlc
 l:Audacious:audacious
- 
+
 --[Documents]--
 m:GNU Emacs:emacs--gtk3%emacs
 n:VIM:vim
@@ -415,7 +415,13 @@ q:LibreOffice:libreoffice'
         echo
         msg "Install applications:"
         echo
-        echo "$sellist" | sed -e 's/^\([^:]*\):\([^:]*\).*/\1) \2/' | rs -t -c 0 3
+        echo "$sellist" \
+            | sed -e 's/^\([^:]*\):\([^:]*\).*/\1) \2/
+                      s/^[ 	]*$/_/' \
+            | rs -c -t 16 0 \
+            | sed -e 's/_/ /g
+                      s/^[ 	]*$//' \
+            | uniq
         echo "
 Example:  'an' - install Firefox and VIM
          'an?' - show info about Firefox and VIM

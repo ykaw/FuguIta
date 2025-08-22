@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.41 2025/08/21 01:13:44 kaw Exp $
+# $Id: dtjsetup,v 1.42 2025/08/22 00:39:49 kaw Exp $
 #
 #========================================
 
@@ -354,7 +354,7 @@ install_apps () {
     #
     local sellist
     if [[ $ja_env = YES ]]; then
-        sellist='== Network ==
+        sellist='--[Network]--
 a:Mozilla Firefox:firefox-i18n-ja
 b:Chromium:chromium
 c:Thunderbird:thunderbird-i18n-ja
@@ -362,25 +362,26 @@ d:Sylpheed:sylpheed
 e:Filezilla:filezilla
 f:Transmission:transmission
  
-== Media ==
-g:Viewnior:viewnior
-h:GIMP:gimp--%stable
-i:Inkscape:inkscape
-j:VLC:vlc
-k:Audacious:audacious
+--[Media]--
+g:pavucontrol:pavucontrol
+h:Viewnior:viewnior
+i:GIMP:gimp--%stable
+j:Inkscape:inkscape
+k:VLC:vlc
+l:Audacious:audacious
   
-== Documents ==
-l:GNU Emacs:emacs--gtk3%emacs
-m:VIM:vim
-n:Nano:nano
-o:Evince:evince--light
-p:LibreOffice:libreoffice-i18n-ja
+--[Documents]--
+m:GNU Emacs:emacs--gtk3%emacs
+n:VIM:vim
+o:Nano:nano
+p:Evince:evince--light
+q:LibreOffice:libreoffice-i18n-ja
  
-== Misc ==
-q:ML Term:mlterm
-r:More Japanese Fonts:hanazono mplus-fonts vlgothic noto-cjk genei-latin'
+--[Misc]--
+r:MLTerm:mlterm
+s:More Japanese Fonts:hanazono mplus-fonts vlgothic noto-cjk genei-latin'
     else
-        sellist='== Network ==
+        sellist='--[Network]--
 a:Mozilla Firefox:firefox
 b:Chromium:chromium
 c:Thunderbird:thunderbird
@@ -388,19 +389,20 @@ d:Sylpheed:sylpheed
 e:Filezilla:filezilla
 f:Transmission:transmission
  
-== Media ==
-g:Viewnior:viewnior
-h:GIMP:gimp--%stable
-i:Inkscape:inkscape
-j:VLC:vlc
-k:Audacious:audacious
+--[Media]--
+g:pavucontrol:pavucontrol
+h:Viewnior:viewnior
+i:GIMP:gimp--%stable
+j:Inkscape:inkscape
+k:VLC:vlc
+l:Audacious:audacious
  
-== Documents ==
-l:GNU Emacs:emacs--gtk3%emacs
-m:VIM:vim
-n:Nano:nano
-o:Evince:evince--light
-p:LibreOffice:libreoffice'
+--[Documents]--
+m:GNU Emacs:emacs--gtk3%emacs
+n:VIM:vim
+o:Nano:nano
+p:Evince:evince--light
+q:LibreOffice:libreoffice'
     fi
 
     # select apps then install them
@@ -413,10 +415,10 @@ p:LibreOffice:libreoffice'
         echo
         msg "Install applications:"
         echo
-        echo "$sellist" | sed -e 's/^\([^:]*\):\([^:]*\).*/\1)\2/' | rs -t -c 0 3
+        echo "$sellist" | sed -e 's/^\([^:]*\):\([^:]*\).*/\1) \2/' | rs -t -c 0 3
         echo "
-Example:  'am' - install Firefox and VIM
-         'am?' - show info about Firefox and VIM
+Example:  'an' - install Firefox and VIM
+         'an?' - show info about Firefox and VIM
     Just ENTER - skip install."
         pkgs=$(rl_wread 'install' '')
 
@@ -448,14 +450,14 @@ Example:  'am' - install Firefox and VIM
         done
 
         # show description if help requested
-        #   for input like '?am', exec "pkg_info firefox vim" with pager
+        #   for input like '?an', exec "pkg_info firefox vim" with pager
         #
         if [[ 0 < $needhelp ]]; then
             if [[ -n "$pkg_adds" ]]; then
                 pkg_info $pkg_adds | ${PAGER:-more}
                 continue
             else
-                msg "Please put symbol letter with '?', like '?am'"
+                msg "Please put symbol letter with '?', like '?an'"
                 continue
             fi
         else

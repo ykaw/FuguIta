@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.25 2025/01/01 00:58:54 kaw Exp $
+# $Id: gennetconfs,v 1.26 2025/09/14 02:29:13 kaw Exp $
 #==================================================
 
 # Copyright (c) 2018--2025
@@ -78,6 +78,55 @@ Usage: $PROGNAME [-b] [-q] [-d 'description'] [-h] [config_name]
     -d description: brief description of this config
     -h: print this help
 EOT
+}
+
+# ask user yes or no
+# outputs answer to stdout
+#
+#     usage: ask_yn prompt yn
+#
+#       yn ... y: defaults to yes
+#              n: defaults to no
+#              r: no default ... ask again
+#              else: no default ... return -1 if answered not yn
+#
+#       output ... 1: yes, 0: no, -1: else yn, -2: error occured
+#
+ask_yn () {
+
+    if [ -z "$2" ]; then
+        echo -2
+        return
+    fi
+
+    local prompt="$1"; shift
+    local yn_default="$1"; shift
+    local yn_ans
+
+    case X"$yn_default"X in
+        X[Yy]X) yn_default=Y; prompt="$prompt [Y/n] -> " ;;
+        X[Nn]X) yn_default=N; prompt="$prompt [y/N] -> " ;;
+        X[Rr]X) yn_default=R; prompt="$prompt [y/n] -> " ;;
+        *)      yn_default=E; prompt="$prompt [y/n] -> " ;;
+    esac
+
+    while :; do
+        echo -n "$prompt" >&2; read yn_ans
+
+        case X"$yn_ans"X in
+            X[Yy]X) echo 1; return;;
+            X[Nn]X) echo 0; return;;
+            XX)
+                case X"$yn_default"X in
+                    XYX) echo 1;  return;;
+                    XNX) echo 0;  return;;
+                    XRX) continue;;
+                    *)   echo -1; return;;
+                esac;;
+            *)
+                continue;;
+        esac
+    done
 }
 
 # addvar name [arg1 arg2 ...]
@@ -345,6 +394,9 @@ if [[ -n "$1" ]]; then
     confdir="$basedir/$conf"
     mkdir -p "$confdir"  # even if $confdir already exists
     cd "$confdir" || exit 1
+elif [[ $(ask_yn "Warning: No config name specified on command line.\n         Network configuration files will be created\n         on current working directory.\nOK?" n) = 0 ]]; then
+    usage
+    exit 1
 else
     confdir=$(pwd)
 fi
@@ -388,11 +440,13 @@ done
 #
 for nic in $(ifconfig -a|grep '^[a-z][0-9a-z][0-9a-z]*: '|cut -d: -f1); do
     case "$(ifconfig $nic)" in
-        *'media: Ethernet '*)
-            eth_nics=${eth_nics:+"$eth_nics "}$nic
-        ;;
         *'media: IEEE802.11 '*)
             wifi_nics=${wifi_nics:+"$wifi_nics "}$nic
+        ;;
+
+        # note: TAB before 'lladr', not SPC
+        *'media: Ethernet '*|*'	lladdr '??:??:??:??:??:??*)
+            eth_nics=${eth_nics:+"$eth_nics "}$nic
         ;;
     esac
 done

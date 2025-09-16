@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.44 2025/09/16 13:31:08 kaw Exp $
+# $Id: dtjsetup,v 1.45 2025/09/16 14:00:55 kaw Exp $
 #
 #========================================
 
@@ -387,7 +387,7 @@ b:Chromium:chromium
 c:Thunderbird:thunderbird
 d:Claws Mail:claws-mail
 e:Filezilla:filezilla
-f:Transmission:transmission
+f:Transmission:transmission-gtk
 
 --[Media]--
 g:pavucontrol:pavucontrol

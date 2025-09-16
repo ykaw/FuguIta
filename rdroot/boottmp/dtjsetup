@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.43 2025/08/22 22:35:18 kaw Exp $
+# $Id: dtjsetup,v 1.44 2025/09/16 13:31:08 kaw Exp $
 #
 #========================================
 
@@ -358,9 +358,9 @@ install_apps () {
 a:Mozilla Firefox:firefox-i18n-ja
 b:Chromium:chromium
 c:Thunderbird:thunderbird-i18n-ja
-d:Sylpheed:sylpheed
+d:Claws Mail:claws-mail
 e:Filezilla:filezilla
-f:Transmission:transmission
+f:Transmission:transmission-gtk
 
 --[Media]--
 g:pavucontrol:pavucontrol
@@ -373,7 +373,7 @@ l:Audacious:audacious
 --[Documents]--
 m:GNU Emacs:emacs--gtk3%emacs
 n:VIM:vim
-o:Nano:nano
+o:Leafpad:leafpad
 p:Evince:evince--light
 q:LibreOffice:libreoffice-i18n-ja
 
@@ -385,7 +385,7 @@ s:More Japanese Fonts:hanazono mplus-fonts vlgothic noto-cjk genei-latin'
 a:Mozilla Firefox:firefox
 b:Chromium:chromium
 c:Thunderbird:thunderbird
-d:Sylpheed:sylpheed
+d:Claws Mail:claws-mail
 e:Filezilla:filezilla
 f:Transmission:transmission
 
@@ -400,7 +400,7 @@ l:Audacious:audacious
 --[Documents]--
 m:GNU Emacs:emacs--gtk3%emacs
 n:VIM:vim
-o:Nano:nano
+o:Leafpad:leafpad
 p:Evince:evince--light
 q:LibreOffice:libreoffice'
     fi
@@ -490,6 +490,8 @@ Example:  'an' - install Firefox and VIM
 	    local unveil_main=/etc/firefox/unveil.main
 	    if [[ -f $unveil_main ]] && \
 		   ! grep -q '^/fuguita/.*' $unveil_main; then
+                echo
+                msg "fixing Firefox's config file"
 		_rootcmd sh -c "echo >> $unveil_main
 echo '# fixed up by dtjsetup'   >> $unveil_main
 echo '/fuguita/usr/X11R6/lib r' >> $unveil_main"

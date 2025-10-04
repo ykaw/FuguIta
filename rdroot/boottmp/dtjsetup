@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.45 2025/09/16 14:00:55 kaw Exp $
+# $Id: dtjsetup,v 1.46 2025/10/04 05:29:57 kaw Exp $
 #
 #========================================
 
@@ -379,7 +379,7 @@ q:LibreOffice:libreoffice-i18n-ja
 
 --[Misc]--
 r:MLTerm:mlterm
-s:More Japanese Fonts:hanazono mplus-fonts vlgothic noto-cjk genei-latin'
+s:More Japanese Fonts:hanazono mplus-fonts vlgothic noto-cjk noto-emoji genei-latin'
     else
         sellist='--[Network]--
 a:Mozilla Firefox:firefox

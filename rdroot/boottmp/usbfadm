@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.131 2025/06/14 18:13:00 kaw Exp $
+# $Id: usbfadm,v 1.132 2025/10/23 01:02:37 kaw Exp $
 #
 #========================================
 
@@ -1883,7 +1883,11 @@ cmd_expand () {
 
     # check partitioning types
     #
-    if echo "$fdisk_output" | grep -q '^Disk: .* Usable LBA: '; then
+    #   note: format changed 'Usable LBA' line in GPT table
+    #         --7.7: "Disk: sd0<SPACE>Usable LBA: "
+    #         7.8--: "Disk: sd0<TAB>Usable LBA: "
+    #
+    if echo "$fdisk_output" | grep -q '^Disk: .*[ 	]Usable LBA: '; then
         exptype=gpt  # GPT with ESP
     elif echo "$fdisk_output" | grep -q 'Signature: 0xAA55'; then
         if echo "$fdisk_output" | grep -q '[0123]: EF .* EFI Sys'; then

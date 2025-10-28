@@ -1,5 +1,5 @@
---- RDROOT.MP.orig	Sat May  3 19:05:25 2025
-+++ RDROOT.MP	Sat May  3 19:05:25 2025
+--- RDROOT.MP.orig	Tue Oct 28 14:45:07 2025
++++ RDROOT.MP	Tue Oct 28 14:45:07 2025
 @@ -3,7 +3,7 @@
  #	GENERIC.MP - sample multiprocessor kernel
  #

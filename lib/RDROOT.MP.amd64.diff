@@ -1,5 +1,5 @@
---- GENERIC.MP	Tue Feb  9 23:06:19 2021
-+++ RDROOT.MP	Fri May  2 15:25:28 2025
+--- RDROOT.MP.orig	Mon Oct 27 17:36:37 2025
++++ RDROOT.MP	Mon Oct 27 17:36:37 2025
 @@ -1,6 +1,6 @@
  #	$OpenBSD: GENERIC.MP,v 1.16 2021/02/09 14:06:19 patrick Exp $
  

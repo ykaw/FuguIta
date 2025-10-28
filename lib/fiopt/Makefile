@@ -23,7 +23,7 @@ xxhash:
 
 rlwrap:
 	test -n "${RLWRAP}"
-	${MAKE} install PROG=${RLWRAP}
+	${MAKE} install PROG=${RLWRAP} CONFIG_OPTS="--without-libptytty"
 
 pv:
 	test -n "${PV}"

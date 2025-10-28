@@ -1,5 +1,5 @@
---- special.orig	Thu May  1 20:16:34 2025
-+++ special	Fri May  2 08:44:25 2025
+--- special.orig	Mon Oct 27 10:38:48 2025
++++ special	Mon Oct 27 17:21:39 2025
 @@ -12,6 +12,8 @@
  mem		type=char mode=0640 uname=root gname=kmem
  ..	#dev

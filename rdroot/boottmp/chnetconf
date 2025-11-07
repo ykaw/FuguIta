@@ -5,7 +5,7 @@
 #             with dirs under netconfs
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: chnetconf,v 1.21 2025/06/08 08:29:07 kaw Exp $
+# $Id: chnetconf,v 1.22 2025/11/07 23:54:49 kaw Exp $
 #========================================
 
 # Copyright (c) 2021--2025
@@ -163,7 +163,7 @@ fi
 # perform -r, -p or -l
 #
 case "$cmd" in
-    'reset_allinc') resetif; exit;;
+    'reset_allnic') resetif; exit;;
     'print_config') printconfig; exit;;
     'list_config')  listconfig; exit;;
 esac

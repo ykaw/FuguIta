@@ -3,7 +3,7 @@
 #==================================================
 # gennetconfs - generate network coniguration files
 #
-# $Id: gennetconfs,v 1.26 2025/09/14 02:29:13 kaw Exp $
+# $Id: gennetconfs,v 1.27 2025/12/11 05:46:07 kaw Exp $
 #==================================================
 
 # Copyright (c) 2018--2025
@@ -78,6 +78,15 @@ Usage: $PROGNAME [-b] [-q] [-d 'description'] [-h] [config_name]
     -d description: brief description of this config
     -h: print this help
 EOT
+}
+
+# completely quoting all meta characters in a string
+#
+fullquote () {
+  # 1. quoting whole string with a single quote
+  # 2. but an embedded single quotes will be converted: ' -> '\'' 
+  #    (close quote, escape ', re-quote)
+  echo -n "$1" | sed "s/'/'\\\''/g; s/^/'/; s/$/'/"
 }
 
 # ask user yes or no
@@ -551,16 +560,21 @@ while :; do  # this loop runs once
     echo
     echo 'Wi-Fi settings:'
     echo -n '  SSID -> '; read wifi_ssid
-    wlan="${wifi_ssid:+nwid $wifi_ssid}"
+    wlan=${wifi_ssid:+nwid $(fullquote "$wifi_ssid")}
 
     echo -n '  WPA Key -> '; read wifi_wpakey
-    wlan="$wlan${wifi_wpakey:+ wpakey $wifi_wpakey}"
-    [[ -n "$wifi_wpakey" ]] && break  # finish setting here
+    if [[ -n "$wifi_wpakey" ]]; then
+        wlan="$wlan"${wifi_wpakey:+ wpakey $(fullquote "$wifi_wpakey")}
+        break
+    fi
 
     echo -n '  WEP Key -> '; read wifi_wepkey
-    wlan="$wlan${wifi_wepkey:+ nwkey $wifi_wepkey}"
+    if [[ -n "$wifi_wepkey" ]]; then
+        wlan="$wlan"${wifi_wepkey:+ nwkey $(fullquote "$wifi_wepkey")}
+    fi
     break
 done
+
 #
 # store the values to var
 #

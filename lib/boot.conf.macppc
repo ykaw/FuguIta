@@ -1,0 +1,7 @@
+echo
+echo >> bsd-fi.mp is for
+echo >> multiprocessor kernel (default).
+echo >> Enter 'bsd-fi' for Uniprocessor.
+echo
+set timeout 10
+set image /bsd-fi.mp

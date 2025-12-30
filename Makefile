@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.135 2025/04/05 07:57:29 kaw Exp $
+# $Id: Makefile,v 1.136 2025/12/30 13:46:33 kaw Exp $
 
 #========================================
 # global definitions
@@ -95,6 +95,30 @@ ARM64_ISO=1
 .  endif
 .endif
 
+# arch-dependent options for mkhybrid
+#
+.if "$(MACHINE)" == macppc
+    MKHYB_OPT=-r -part -hfs -map /usr/src/gnu/usr.sbin/mkhybrid/src/more.mapping
+.elif "$(MACHINE)" == amd64
+    MKHYB_OPT=-a -R -L -l -d -D -N -b cdbr $(EFICD_OPT) -c boot.catalog
+.else
+    # i386 and arm64
+    MKHYB_OPT=-a -R -L -l -d -D -N -b cdbr -c boot.catalog
+.endif
+#
+# common options
+#
+MKHYB_OPT += -v -v \
+    -A "FuguIta: OpenBSD-based Live System" \
+    -P "Copyright (c) $$(date +%Y) Yoshihiro Kawamata" \
+    -p "Yoshihiro Kawamata, https://fuguita.org/" \
+    -V "$(FI)"
+
+.PHONY: iso-test
+iso-test:
+	: mkhybrid $(MKHYB_OPT) -o livecd-test.iso sysmedia
+
+
 #========================================
 # final target
 #
@@ -155,7 +179,7 @@ sync: staging.time
 #
 sysmedia.time:
 	$(MAKE) open-fuguita
-	$(MAKE) sysmedia/boot sysmedia/cdboot sysmedia/cdbr sysmedia/etc/boot.conf\
+	$(MAKE) sysmedia/boot sysmedia/cdboot sysmedia/cdbr sysmedia/ofwboot sysmedia/etc/boot.conf\
                 $(KERN_SP) $(KERN_MP)\
                 sysmedia/fuguita-$(VERSION)-$(ARCH).ffsimg
 	$(MAKE_EFICD)
@@ -168,17 +192,7 @@ sysmedia.time:
 # generate an ISO file
 #
 livecd.iso: sysmedia.time
-	mkhybrid -a -R -L -l -d -D -N\
-		-o livecd.iso\
-		-v -v\
-		-A "FuguIta: OpenBSD-based Live System"\
-		-P "Copyright (c) `date +%Y` Yoshihiro Kawamata"\
-		-p "Yoshihiro Kawamata, https://fuguita.org/"\
-		-V "$(FI)"\
-		-b cdbr\
-		$(EFICD_OPT)\
-		-c boot.catalog\
-		sysmedia\
+	mkhybrid $(MKHYB_OPT) -o livecd.iso sysmedia
 
 # on arm64, following boot loaders are not required
 # but null (dummy) files must be exist for usbfadm newdrive
@@ -191,6 +205,7 @@ sysmedia/$(bootstuff):
 .    endif
 # To keep the i-node number the same
 # so that the PBR does not lose sight of /boot
+	# unless copy succeeded, make a null file
 	-cat /usr/mdec/$(bootstuff) >sysmedia/$(bootstuff)
 .endfor
 
@@ -211,8 +226,15 @@ sysmedia/cdbr:
 	vnconfig -u vnd3
 	rmdir arm64cdboot
 .else
+	# unless copy succeeded, make a null file
 	-cat /usr/mdec/cdbr >sysmedia/cdbr
 .endif
+
+# for macppc
+#
+sysmedia/ofwboot:
+	# unless copy succeeded, make a null file
+	-cat /usr/mdec/ofwboot >sysmedia/ofwboot
 
 # create a UEFI boot image for amd64 if UEFI applications exist
 #

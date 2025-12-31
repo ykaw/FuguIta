@@ -2,4 +2,4 @@ fuguita_sys_mb=997    # size of sysmedia.img
 newdrive_defswap=16M  # default swap size at usbfadm newdrive
 memfstype=mfs         # 'mfs' or 'tmpfs'
 mfs_max_mb=1023       # mfs hard limit
-disable_uefiboot=No   # not prompt at usbfadm/newdrive
+disable_uefiboot=Yes  # not prompt at usbfadm/newdrive

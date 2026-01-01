@@ -7,7 +7,7 @@
 #====================
 
 
-# Copyright (c) 2006--2025, Yoshihiro Kawamata
+# Copyright (c) 2006--2026, Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without

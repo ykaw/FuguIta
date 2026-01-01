@@ -1,6 +1,6 @@
 #!/bin/ksh
 
-# Copyright (c) 2022--2025, Yoshihiro Kawamata
+# Copyright (c) 2022--2026, Yoshihiro Kawamata
 # All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -36,7 +36,7 @@
 # 010_extract.sh - Extract OpenBSD's install set to staging directory
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: 010_extract.sh,v 1.13 2025/01/01 00:58:54 kaw Exp $
+# $Id: 010_extract.sh,v 1.14 2026/01/01 03:20:08 kaw Exp $
 #
 #========================================
 

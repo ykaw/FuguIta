@@ -3,10 +3,10 @@
 #----------------------------------------
 # setup_fsimg.sh - setup file system image with specified size
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: setup_fsimg.sh,v 1.13 2025/01/01 00:58:54 kaw Exp $
+# $Id: setup_fsimg.sh,v 1.14 2026/01/01 03:20:08 kaw Exp $
 #----------------------------------------
 
-# Copyright (c) 2021--2025
+# Copyright (c) 2021--2026
 # Yoshihiro Kawamata
 #
 # All rights reserved.

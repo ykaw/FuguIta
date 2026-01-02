@@ -1,5 +1,5 @@
---- RDROOT.orig	Fri Jan  2 10:05:33 2026
-+++ RDROOT	Fri Jan  2 02:24:32 2026
+--- RDROOT.orig	Fri Jan  2 10:13:59 2026
++++ RDROOT	Fri Jan  2 16:08:18 2026
 @@ -10,7 +10,7 @@
  # device.
  
@@ -9,7 +9,7 @@
  maxusers	80			# estimated number of users
  
  option		PCIVERBOSE
-@@ -25,124 +25,128 @@
+@@ -25,79 +25,83 @@
  
  option		USER_PCICONF	# user-space PCI configuration
  
@@ -137,57 +137,28 @@
 +#X malo*		at pci?		# Marvell Libertas
 +#X acx*		at pci?		# TI ACX100/ACX111 (802.11b/g)
  
--amphy*		at mii?		# AMD 79C873 PHYs
--dcphy*		at mii?		# Digital Clone PHYs
--exphy*		at mii?		# 3Com internal PHYs
--inphy*		at mii?		# Intel 82555 PHYs
--iophy*		at mii?		# Intel 82553 PHYs
--icsphy*		at mii?		# ICS1890 PHYs
--lxtphy*		at mii?		# Level One LXT-970 PHYs
--nsphy*		at mii?		# NS83840 PHYs
-+#X amphy*		at mii?		# AMD 79C873 PHYs
-+#X dcphy*		at mii?		# Digital Clone PHYs
-+#X exphy*		at mii?		# 3Com internal PHYs
-+#X inphy*		at mii?		# Intel 82555 PHYs
-+#X iophy*		at mii?		# Intel 82553 PHYs
-+#X icsphy*		at mii?		# ICS1890 PHYs
-+#X lxtphy*		at mii?		# Level One LXT-970 PHYs
-+#X nsphy*		at mii?		# NS83840 PHYs
- #nsphyter*	at mii?		# NS83843 PHYs
--mtdphy*		at mii?		# Myson MTD972 PHYs
--acphy*		at mii?		# Altima AC101 PHYs
--qsphy*		at mii?		# Quality Semi QS6612 PHYs
--luphy*		at mii?		# Lucent LU6612 PHY
--sqphy*		at mii?		# Seeq 8022[013] PHYs
--rlphy*		at mii?		# Realtek 8139 internal PHYs
-+#X mtdphy*		at mii?		# Myson MTD972 PHYs
-+#X acphy*		at mii?		# Altima AC101 PHYs
-+#X qsphy*		at mii?		# Quality Semi QS6612 PHYs
-+#X luphy*		at mii?		# Lucent LU6612 PHY
-+#X sqphy*		at mii?		# Seeq 8022[013] PHYs
-+#X rlphy*		at mii?		# Realtek 8139 internal PHYs
- #tlphy*		at mii?		# ThunderLAN PHYs
--tqphy*		at mii?		# TDK Semiconductor PHYs
--brgphy*		at mii?		# Broadcom 10/100/1000 PHYs
-+#X tqphy*		at mii?		# TDK Semiconductor PHYs
-+#X brgphy*		at mii?		# Broadcom 10/100/1000 PHYs
+ amphy*		at mii?		# AMD 79C873 PHYs
+ dcphy*		at mii?		# Digital Clone PHYs
+@@ -107,14 +111,14 @@
+ icsphy*		at mii?		# ICS1890 PHYs
+ lxtphy*		at mii?		# Level One LXT-970 PHYs
+ nsphy*		at mii?		# NS83840 PHYs
+-#nsphyter*	at mii?		# NS83843 PHYs
++nsphyter*	at mii?		# NS83843 PHYs
+ mtdphy*		at mii?		# Myson MTD972 PHYs
+ acphy*		at mii?		# Altima AC101 PHYs
+ qsphy*		at mii?		# Quality Semi QS6612 PHYs
+ luphy*		at mii?		# Lucent LU6612 PHY
+ sqphy*		at mii?		# Seeq 8022[013] PHYs
+ rlphy*		at mii?		# Realtek 8139 internal PHYs
+-#tlphy*		at mii?		# ThunderLAN PHYs
++tlphy*		at mii?		# ThunderLAN PHYs
+ tqphy*		at mii?		# TDK Semiconductor PHYs
+ brgphy*		at mii?		# Broadcom 10/100/1000 PHYs
  bmtphy*		at mii?		# Broadcom 10/100 PHYs
--eephy*		at mii?		# Marvell 88E1000 Gigabit PHYs
--xmphy*		at mii?		# XaQti XMAC-II PHYs
--urlphy*		at mii?		# Realtek RTL8150L internal PHY
--rgephy*		at mii?		# Realtek 8169S/8110S PHY
--rlphy*		at mii?		# Realtek 8139 internal PHYs
--ciphy*		at mii?		# Cicada CS8201 10/100/1000 copper PHY
--ipgphy*		at mii?		# IC Plus IP1000A PHYs
--ukphy*		at mii?		# generic unknown PHYs
-+#X eephy*		at mii?		# Marvell 88E1000 Gigabit PHYs
-+#X xmphy*		at mii?		# XaQti XMAC-II PHYs
-+#X urlphy*		at mii?		# Realtek RTL8150L internal PHY
-+#X rgephy*		at mii?		# Realtek 8169S/8110S PHY
-+#X rlphy*		at mii?		# Realtek 8139 internal PHYs
-+#X ciphy*		at mii?		# Cicada CS8201 10/100/1000 copper PHY
-+#X ipgphy*		at mii?		# IC Plus IP1000A PHYs
-+#X ukphy*		at mii?		# generic unknown PHYs
+@@ -127,22 +131,22 @@
+ ipgphy*		at mii?		# IC Plus IP1000A PHYs
+ ukphy*		at mii?		# generic unknown PHYs
  
 -pwdog0		at pci?		# Quancom PWDOG1 watchdog timer
 +#X pwdog0		at pci?		# Quancom PWDOG1 watchdog timer
@@ -282,88 +253,7 @@
  
  # USB bus support
  usb*	at xhci?
-@@ -234,33 +238,33 @@
- uchcom*	at uhub?		# WinChipHead CH341/340 serial
- ucom*	at uchcom?
- uaudio* at uhub?		# USB Audio
--audio*	at uaudio?
-+#X audio*	at uaudio?
- umidi*	at uhub?		# USB MIDI
--midi*	at umidi?
-+#X midi*	at umidi?
- ulpt*	at uhub?		# USB Printers
- umass*	at uhub?		# USB Mass Storage devices
- uhidev*	at uhub?		# Human Interface Devices
--utpms*	at uhidev?		# Apple touchpad mouse
--wsmouse* at utpms? mux 0
-+#X utpms*	at uhidev?		# Apple touchpad mouse
-+#X wsmouse* at utpms? mux 0
- ums*	at uhidev?		# USB mouse
- wsmouse*	at ums? mux 0
- uts*	at uhub?		# USB touchscreen
--wsmouse*	at uts? mux 0
--uwacom*	at uhidev?		# USB Wacom tablet
--wsmouse* at uwacom? mux 0
-+#X wsmouse*	at uts? mux 0
-+#X uwacom*	at uhidev?		# USB Wacom tablet
-+#X wsmouse* at uwacom? mux 0
- ukbd*	at uhidev?		# USB keyboard
- wskbd*	at ukbd? mux 1
--ucycom*	at uhidev?		# Cypress serial
--ucom*	at ucycom?
--uslhcom* at uhidev?		# Silicon Labs CP2110 USB HID UART
--ucom*	at uslhcom?
--uhid*	at uhidev?		# USB generic HID support
--fido*	at uhidev?		# FIDO/U2F security key support
--ucc*	at uhidev?		# Consumer Control keyboards
--wskbd*	at ucc? mux 1
--ujoy*	at uhidev?		# USB joystick/gamecontroller support
--uhidpp*	at uhidev?		# Logitech HID++ Devices
--upd*	at uhidev?		# USB Power Devices sensors
-+#X ucycom*	at uhidev?		# Cypress serial
-+#X ucom*	at ucycom?
-+#X uslhcom* at uhidev?		# Silicon Labs CP2110 USB HID UART
-+#X ucom*	at uslhcom?
-+#X uhid*	at uhidev?		# USB generic HID support
-+#X fido*	at uhidev?		# FIDO/U2F security key support
-+#X ucc*	at uhidev?		# Consumer Control keyboards
-+#X wskbd*	at ucc? mux 1
-+#X ujoy*	at uhidev?		# USB joystick/gamecontroller support
-+#X uhidpp*	at uhidev?		# Logitech HID++ Devices
-+#X upd*	at uhidev?		# USB Power Devices sensors
- aue*	at uhub?		# ADMtek AN986 Pegasus Ethernet
- atu*	at uhub?		# Atmel AT76c50x based 802.11b
- axe*	at uhub?		# ASIX Electronics AX88172 USB Ethernet
-@@ -296,115 +300,115 @@
- urtw*	at uhub?		# Realtek 8187
- udcf*	at uhub?		# Gude Expert mouseCLOCK
- umbg*	at uhub?		# Meinberg Funkuhren USB5131/DCF600USB
--uthum*	at uhidev?		# TEMPerHUM sensor
--ugold*	at uhidev?		# gold TEMPer sensor
--utrh*	at uhidev?		# USBRH sensor
--utwitch* at uhidev?		# YUREX BBU sensor
-+#X uthum*	at uhidev?		# TEMPerHUM sensor
-+#X ugold*	at uhidev?		# gold TEMPer sensor
-+#X utrh*	at uhidev?		# USBRH sensor
-+#X utwitch* at uhidev?		# YUREX BBU sensor
- uow*	at uhub?		# Maxim/Dallas DS2490 1-Wire adapter
- onewire* at uow?
- 
- # USB Video
- uvideo* at uhub?
--video*  at uvideo?
-+#X video*  at uvideo?
- 
- utvfu*	at uhub?		# Fushicai Audio-Video Grabber
--video*	at utvfu?
--audio*	at utvfu?
-+#X video*	at utvfu?
-+#X audio*	at utvfu?
- 
- udl*		at uhub?
--wsdisplay*	at udl?
-+#X wsdisplay*	at udl?
- 
+@@ -317,94 +321,94 @@
  # I2C bus support
  iic*		at kiic?
  iic*		at piic?
@@ -466,16 +356,15 @@
 -audio*		at eap?
 -audio*		at emu?
 -audio*		at eso?
--audio*		at uaudio?
--audio*		at aoa?
--audio*		at daca?
 +#X audio*		at tumbler?
 +#X audio*		at onyx?
 +#X audio*		at cmpci?
 +#X audio*		at eap?
 +#X audio*		at emu?
 +#X audio*		at eso?
-+#X audio*		at uaudio?
+ audio*		at uaudio?
+-audio*		at aoa?
+-audio*		at daca?
 +#X audio*		at aoa?
 +#X audio*		at daca?
  

@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.133 2026/01/01 03:20:08 kaw Exp $
+# $Id: usbfadm,v 1.134 2026/05/15 02:58:58 kaw Exp $
 #
 #========================================
 
@@ -1355,7 +1355,7 @@ cmd_info () {
 #          default is our short hostname
 #
 cmd_saveas () {
-    if [[ -n "devname" ]] && mount $devname $mntdir1; then
+    if [[ -n "$devname" ]] && mount $devname $mntdir1; then
         [ -d $mntdir1/livecd-config/$verarch ] || mkdir -p $mntdir1/livecd-config/$verarch
         local confs=$(cd $mntdir1/livecd-config/$verarch && echo *)
         umount $devname

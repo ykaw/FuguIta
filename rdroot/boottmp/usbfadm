@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.134 2026/05/15 02:58:58 kaw Exp $
+# $Id: usbfadm,v 1.135 2026/05/26 19:59:07 kaw Exp $
 #
 #========================================
 
@@ -299,7 +299,7 @@ rl_wread () {
     # check if rlwrap is available
     #   When control tty is missing (in /etc/rc.shutdown for example),
     #   rlwrap in command substitution "$(rlwrap ...) " fails.
-    if retval=$(rlwrap true) 2>/dev/null 2>&1 ; then
+    if which rlwrap >/dev/null 2>&1 ; then
         echo "$@" > $lockdir/rl_words
         rlwrap -b '' \
                -f $lockdir/rl_words \

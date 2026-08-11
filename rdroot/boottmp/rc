@@ -168,7 +168,7 @@ parsesize () {
 #                        sd0a -> sd0a
 #               anything else -> NULL STRING
 #
-function duid2dev {
+duid2dev () {
     devpart="$1"
     case X"$devpart"X in
         X[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].[ad-p]X)
@@ -388,7 +388,7 @@ while :; do
     #-------------------------------
     # mount system-stored device
     #
-	vn_devname="vnd5"
+        vn_devname="vnd5"
     vn_devname_iso="vnd4"
 
     if ! /sbin/mount -r /dev/${rdev} /fuguita; then
@@ -908,7 +908,7 @@ kill_daemons () {
 usbfadm_r () {
     ( # Invoking auto-save process in a subshell
 
-      export PATH=\$PATH:/usr/local/bin:/usr/local/bin:/usr/fuguita/sbin:/usr/fuguita/bin
+      export PATH=\$PATH:/usr/local/sbin:/usr/local/bin:/usr/fuguita/sbin:/usr/fuguita/bin
 
       # check if 'saveas' is set
       #

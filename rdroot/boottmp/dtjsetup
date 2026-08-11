@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.48 2026/06/27 05:52:58 kaw Exp $
+# $Id: dtjsetup,v 1.49 2026/08/11 18:12:10 kaw Exp $
 #
 #========================================
 
@@ -458,7 +458,7 @@ Example:  'an' - install Firefox and VIM
         # show description if help requested
         #   for input like '?an', exec "pkg_info firefox vim" with pager
         #
-        if [[ 0 < $needhelp ]]; then
+        if [[ 0 -lt $needhelp ]]; then
             if [[ -n "$pkg_adds" ]]; then
                 pkg_info $pkg_adds | ${PAGER:-more}
                 continue

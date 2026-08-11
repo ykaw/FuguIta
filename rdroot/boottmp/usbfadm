@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.135 2026/05/26 19:59:07 kaw Exp $
+# $Id: usbfadm,v 1.136 2026/08/11 18:12:10 kaw Exp $
 #
 #========================================
 
@@ -1522,7 +1522,7 @@ cmd_newdrive () {
         vnfile=FuguIta-$(</usr/fuguita/version).img
         if [ -e "$vnfile" ]; then
             echo
-            [ 1 -gt $(ask_yn "Image file $vnfile already exists\nRemove it and proceed?" r) ] && break
+            [ 1 -gt $(ask_yn "Image file $vnfile already exists\nRemove it and proceed?" r) ] && return
         fi
         while :; do
             echo
@@ -1730,7 +1730,7 @@ EOT
             if [ $ps_free -lt $ps_fidat ]; then
                 echo 'That size exceeds the limit.'
                 return 1
-            elif [ 0 -gt $ps_fidat -a $ps_fidat -lt $(byte2sect 16M) ]; then
+            elif [ 0 -lt $ps_fidat -a $ps_fidat -lt $(byte2sect 16M) ]; then
                 if [ 1 -le $(ask_yn "$ans ($ps_fidat sectors) is very small value.\nDo you really take this value?" n) ]; then
                     break
                 else

@@ -926,6 +926,8 @@ usbfadm_r () {
       waitsec=5
       ulimit -d unlimited  # prevent rsync from failing
       ulimit -m unlimited  # due to lack of memory
+      stty sane  # set the terminal so that CR+LF works correctly
+                 # with not-logged-in
       while ! /usr/fuguita/sbin/usbfadm -r; do
           retry=\$((retry+1))
           if [ \$retry -ge \$retrymax ]; then

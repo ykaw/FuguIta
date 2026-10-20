@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-# $Id: Makefile,v 1.137 2026/01/01 03:20:07 kaw Exp $
+# $Id: Makefile,v 1.138 2026/10/20 16:39:04 kaw Exp $
 
 #========================================
 # global definitions
@@ -329,7 +329,7 @@ rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV\
 #
 # create rdroot.ffsimg
 #
-	./lib/setup_fsimg.sh rdroot.ffsimg 4M 1500 '-b 4096 -f 512'
+	./lib/setup_fsimg.sh rdroot.ffsimg 4M 2900 '-b 4096 -f 512'
 	         # parameters for minimum resources ^^^^^^^^^^^^^^
 	vnconfig vnd0 rdroot.ffsimg
 	mount /dev/vnd0a /mnt
@@ -340,10 +340,9 @@ rdroot.ffsimg: /usr/src/etc/etc.$(ARCH)/MAKEDEV\
 	ln -sf boottmp /mnt/bin
 	ln -sf boottmp /mnt/etc
 	ln -sf boottmp /mnt/sbin
-	mkdir -p /mnt/{dev,fuguita,mnt,ram,sysmedia,sysmedia-iso,tmp}
+	mkdir -p /mnt/{dev,fuguita,mnt,ram,sysmedia,sysmedia-iso}
 	chmod go-rwx /mnt/sysmedia-iso
-	chmod 1777 /mnt/tmp
-	cd /mnt/dev && cp -p /usr/src/etc/etc.$$(uname -m)/MAKEDEV . && sh ./MAKEDEV all vnd4 vnd5
+	cd /mnt/dev && cp -p /usr/src/etc/etc.$$(uname -m)/MAKEDEV . && sh ./MAKEDEV all vnd4 vnd5 vnd6 vnd7 vnd8 vnd9
 #       datasize in login.conf determines the max limit of mfs
 	sed '/^daemon:/,/:tc=default:/ s/:datasize=[^:][^:]*:/:datasize=infinity:/'\
 	    /usr/src/etc/etc.$(ARCH)/login.conf > /mnt/boottmp/login.conf

@@ -4,7 +4,7 @@
 #
 # fiupdate - live updater for FuguIta
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: fiupdate,v 1.31 2026/08/11 18:12:10 kaw Exp $
+# $Id: fiupdate,v 1.32 2026/10/20 16:39:04 kaw Exp $
 #
 #========================================
 
@@ -542,8 +542,8 @@ case $MNTTYPE in
 
         # detach devices
         #
-        umount -f /dev/vnd5a  # vnd5 is /sysmedia/fuguita-*.ffsimg
-        vnconfig -u vnd5      # which is mounted on /fuguita
+        umount -f /dev/vnd9a  # vnd9 is /sysmedia/fuguita-*.ffsimg
+        vnconfig -u vnd9      # which is mounted on /fuguita
 
         umount -f /sysmedia
         ;;
@@ -579,11 +579,11 @@ case $MNTTYPE in
 
         # detach devices
         #
-        umount -f /dev/vnd5a  # vnd5 is /sysmedia/fuguita-*.ffsimg
-        vnconfig -u vnd5      # which is mounted on /fuguita
+        umount -f /dev/vnd9a  # vnd9 is /sysmedia/fuguita-*.ffsimg
+        vnconfig -u vnd9      # which is mounted on /fuguita
 
-        umount -f /dev/vnd4a  # vnd4 is /sysmedia-iso/ISO/FuguIta-*-*.iso
-        vnconfig -u vnd4      # which is mounted on /sysmedia
+        umount -f /dev/vnd8a  # vnd8 is /sysmedia-iso/ISO/FuguIta-*-*.iso
+        vnconfig -u vnd8      # which is mounted on /sysmedia
 
         umount -f /sysmedia-iso
         ;;

@@ -1,5 +1,5 @@
---- RDROOT.orig	Sat Oct 12 20:32:50 2024
-+++ RDROOT	Sat Oct 12 20:32:50 2024
+--- RDROOT.orig	Mon Sep  7 16:31:29 2026
++++ RDROOT	Mon Sep  7 21:45:22 2026
 @@ -39,7 +39,7 @@
  option		UDF		# UDF (DVD) file system
  option		MSDOSFS		# MS-DOS file system
@@ -14,7 +14,7 @@
  pseudo-device	msts	1	# MSTS line discipline
  pseudo-device	endrun	1	# EndRun line discipline
 -pseudo-device	vnd	4	# vnode disk devices
-+pseudo-device	vnd	6	# vnode disk devices
++pseudo-device	vnd	10	# vnode disk devices
  pseudo-device	ksyms	1	# kernel symbols device
  pseudo-device	kstat		# kernel statistics device
  

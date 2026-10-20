@@ -1,3 +1,5 @@
+# -*- mode: shell-script -*-
+#
 # Copyright (c) 2005--2026, Yoshihiro Kawamata
 # All rights reserved.
 # 
@@ -265,6 +267,17 @@ min () {
 }
 
 
+#-----------------------------
+# Interactive shell for debug 
+#
+dbshell () {
+    echo "\n==[debug shell]========" >&2
+    echo "= $@" >&2
+    echo "="    >&2
+    /boottmp/ksh -i
+}
+
+
 #====================
 # Active code from here
 #====================
@@ -388,37 +401,37 @@ while :; do
     #-------------------------------
     # mount system-stored device
     #
-        vn_devname="vnd5"
-    vn_devname_iso="vnd4"
+        vn_devname="vnd9"
+    vn_devname_iso="vnd8"
 
     if ! /sbin/mount -r /dev/${rdev} /fuguita; then
-	echo "Error: can't mount /dev/${rdev}"
-	continue
+        echo "Error: can't mount /dev/${rdev}"
+        continue
     fi
 
     if [ -f /fuguita/fuguita-${osrel}-${osmac}.ffsimg ]; then
-	/sbin/umount /fuguita
-	/sbin/mount -r /dev/${rdev} /sysmedia
-	/sbin/vnconfig ${vn_devname} /sysmedia/fuguita-${osrel}-${osmac}.ffsimg
-	/sbin/mount -r /dev/${vn_devname}a /fuguita && break  # normal exit
-	echo "Error: can't find /dev/${vn_devname}a:fuguita-${osrel}-${osmac}.ffsimg"
+        /sbin/umount /fuguita
+        /sbin/mount -r /dev/${rdev} /sysmedia
+        /sbin/vnconfig ${vn_devname} /sysmedia/fuguita-${osrel}-${osmac}.ffsimg
+        /sbin/mount -r /dev/${vn_devname}a /fuguita && break  # normal exit
+        echo "Error: can't find /dev/${vn_devname}a:fuguita-${osrel}-${osmac}.ffsimg"
     elif [ -d /fuguita/ISO ]; then
-	/sbin/umount /fuguita
-	/sbin/mount -r /dev/${rdev} /sysmedia
-	set -- /sysmedia/ISO/FuguIta-${osrel}-${osmac}-?????????.iso
-	shift $(($# - 1))
-	if [ -n "$1" -a \
-	     ! "$1" = "/sysmedia/ISO/FuguIta-${osrel}-${osmac}-?????????.iso" ] ;then
-	    umount /sysmedia
-	    mount -r /dev/${rdev} /sysmedia-iso
-	    /sbin/vnconfig ${vn_devname_iso} /sysmedia-iso/ISO/${1##*/}
-	    /sbin/mount -r /dev/${vn_devname_iso}a /sysmedia
-	    /sbin/vnconfig ${vn_devname} /sysmedia/fuguita-${osrel}-${osmac}.ffsimg
-	    /sbin/mount -r /dev/${vn_devname}a /fuguita && break  # normal exit
-	fi
-	echo "Error: can't find fuguita-${osrel}-${osmac}.ffsimg in /sysmedia/ISO/FuguIta-${osrel}-${osmac}-*.iso"
+        /sbin/umount /fuguita
+        /sbin/mount -r /dev/${rdev} /sysmedia
+        set -- /sysmedia/ISO/FuguIta-${osrel}-${osmac}-?????????.iso
+        shift $(($# - 1))
+        if [ -n "$1" -a \
+             ! "$1" = "/sysmedia/ISO/FuguIta-${osrel}-${osmac}-?????????.iso" ] ;then
+            umount /sysmedia
+            mount -r /dev/${rdev} /sysmedia-iso
+            /sbin/vnconfig ${vn_devname_iso} /sysmedia-iso/ISO/${1##*/}
+            /sbin/mount -r /dev/${vn_devname_iso}a /sysmedia
+            /sbin/vnconfig ${vn_devname} /sysmedia/fuguita-${osrel}-${osmac}.ffsimg
+            /sbin/mount -r /dev/${vn_devname}a /fuguita && break  # normal exit
+        fi
+        echo "Error: can't find fuguita-${osrel}-${osmac}.ffsimg in /sysmedia/ISO/FuguIta-${osrel}-${osmac}-*.iso"
     else
-	echo "Error: can't find fuguita-${osrel}-${osmac}.ffsimg in /dev/${rdev}"
+        echo "Error: can't find fuguita-${osrel}-${osmac}.ffsimg in /dev/${rdev}"
     fi
 
     #-------------------------------
@@ -434,7 +447,7 @@ done
 # read global system configurations
 #
 if [[ -r /fuguita/etc/fuguita/global.conf ]]; then
-    . /fuguita/etc/fuguita/global.conf  # for $mfs_max_mb
+    . /fuguita/etc/fuguita/global.conf  # read mfs_max_mb
 fi
 
 #-------------------------------
@@ -536,6 +549,16 @@ else
     /boottmp/mount_mfs -s $((2*1024*umem)) -o wxallowed swap /ram || exit
 fi
 
+#-------------------------------------------
+# create TMPFS and mount it on /etc
+#   pledge(2) allows to read /etc/localtime as realpath itself
+#   or realpath of files under /usr/share/zoneinfo/ .
+#   So /etc must be directory, not symlink
+#
+/fuguita/bin/rm etc  # remove symlink to boottmp
+/fuguita/bin/mkdir /etc
+/fuguita/sbin/mount_tmpfs -s 0 tmpfs /etc
+
 #-------------------------------
 # generate fstab from current
 # mounting status
@@ -547,6 +570,8 @@ while read ln; do
     case X"$3"X in
         X/X)
             echo /dev/rd0a / ffs rw 0 0 ;;
+        X/etcX)
+            echo $1 $3 $5 rw 0 0 ;;
         X/fuguitaX|X/sysmediaX)
             echo $1 $3 $5 ro 0 0 ;;
         X/ramX)
@@ -619,42 +644,47 @@ while :; do
             echo "manual_more_ram"
         fi > /boottmp/boot_mode
 
+        #----------------------------
+        # start of copying original filesystem
+        #
+        cd /
+
+        #--------------------------------------
+        # copy original contents of etc
+        # and generated fstab to /etc
+        #
+        (cd /fuguita/etc && pax -rwpe . /etc/.)
+        cp /boottmp/fstab /etc
+
         #-------------------------------------
-        # copy System Storage contents to rw-able file system
+        # copy rest of System Storage contents to rw-able /ram
         #
         echo "Running manual setup."
         echo -n "Copying system files to /ram ... "
-        cd /ram
         if [ X"$setup_rw_mode" = X0 ]; then
-            (cd ../fuguita && tar cf - altroot etc home tmp root var) | tar xpf -
+            (cd /fuguita && pax -rwpe altroot home tmp root var /ram)
         elif [ X"$setup_rw_mode" = X1 ]; then
-            (cd ../fuguita && tar cf - altroot etc home tmp root var) \
-            | tar -x \
-                  -p \
-                  -f - \
-                  -s '|^etc/X11/.*||' \
-                  -s '|^var/db/pkg/.*||' \
-                  -s '|^var/www/htdocs/.*||'
+            (cd /fuguita \
+             && pax -rwpe \
+                    -s '|^var/db/pkg/.*||' \
+                    -s '|^var/www/htdocs/.*||' \
+                    altroot home tmp root var \
+                    /ram)
         elif [ X"$setup_rw_mode" = X2 ]; then
-            (cd ../fuguita && pax -rwpe . /ram/. && cd /)
+            (cd /fuguita && pax -rwpe !(dev|etc|mnt) /ram) 2>/dev/null
+            rm -f /* 2>/dev/null  # remove symlinks temporarily
         fi
         echo "done"
-
-        #-----------------------
-        # symlink from / to ram
-        #
-        cd /
-        rm -rf /tmp
-        mv /etc /bootetc
-        ln -sf ram/* . 2> /dev/null
-        cp /boottmp/fstab /etc
 
         #-------------------------------------------
         # symlink rest of contents from / to System Storage
         #
-        ln -s fuguita/* .     2> /dev/null
-        #ln -s fuguita/.??* . 2> /dev/null ; # Maybe not needed
-
+        #   we use /boottmp/ln
+        #   because symlink /bin -> fuguita/bin has been
+        #   removed when mode 2
+        #
+        /boottmp/ln -s ram/* .     2> /dev/null
+        /boottmp/ln -s fuguita/* . 2> /dev/null
 
         # modify /etc/mtree/special
         #
@@ -678,6 +708,7 @@ while :; do
                 echo -n "Linking files from /ram to /fuguita ... "
                 mkshadowdir /fuguita/usr /ram/usr
             fi
+            echo "done"
 
             #-------------------------------------------
             # Replace symlinks to directories and files
@@ -724,13 +755,14 @@ while :; do
             done
 
             cd / && ln -sf ram/usr .
+
         elif [ X"$setup_rw_mode" = X1 ]; then
-            mkshadowdir /fuguita/etc/X11        /ram/etc/X11
-            mkshadowdir /fuguita/var/db/pkg     /ram/var/db/pkg
+            rm -rf /etc/X11/*
+            mkshadowdir /fuguita/etc/X11 /etc/X11
+
+            mkshadowdir /fuguita/var/db/pkg /ram/var/db/pkg
             mkshadowdir /fuguita/var/www/htdocs /ram/var/www/htdocs
         fi
-
-        echo "done"
 
         #========================================
         # Configurations under /etc
@@ -860,7 +892,8 @@ EOT
 
         # create misc stuffs
         #
-        ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+        rm -f /etc/localtime                          # This must be ordinary file
+        cp -p /usr/share/zoneinfo/UTC /etc/localtime  # because of pledge(2) specs
         echo 'https://cdn.openbsd.org/pub/OpenBSD' > /etc/installurl
         echo '/usr/sbin/fw_update -v'              > /etc/rc.firsttime
         cat <<EOT > /etc/rc.shutdown
@@ -1129,7 +1162,7 @@ EOT
                 if cd /ram; then
                     # locate crunched binary gzip to temporary /usr/bin
                     # because pax has fixed command search PATH in it.
-		    # gzip must be included in PATH
+                    # gzip must be included in PATH
                     mkdir -p /usr/bin
                     ln -s /boottmp/gzip /usr/bin
 
@@ -1157,8 +1190,6 @@ EOT
             # setup operational file/dir tree
             #
             cd /
-            rm -rf /tmp
-            mv /etc /bootetc
             ln -sf ram/* . 2> /dev/null    # connect /ram dirs to /
             ln -s fuguita/* . 2> /dev/null # connect rest of dirs in System Storage to /
             #
@@ -1169,7 +1200,7 @@ EOT
                 if cd /ram; then
                     # locate crunched binary gzip to temporary /usr/bin
                     # because pax has fixed command search PATH in it.
-		    # gzip must be included in PATH
+                    # gzip must be included in PATH
                     mkdir -p /usr/bin
                     ln -s /boottmp/gzip /usr/bin
 
@@ -1188,7 +1219,7 @@ EOT
                     for i in 1 2 3; do  # retry 3 time max
                         echo "Copying to ram was partially failed, retrying..."
                         if PATH=$PATH:/fuguita/usr/local/bin:/fuguita/usr/fuguita/bin \
-                           rsync -rlptgovHS . /ram/.; then
+                            rsync -rlptgovHS . /ram/.; then
                             echo "done"
                             break
                         fi
@@ -1198,7 +1229,14 @@ EOT
             cd /
             umount /mnt
 
-            cp /boottmp/fstab /etc  # fix /etc/fstab
+            # fix /etc/fstab
+            cp /boottmp/fstab /ram/etc
+            echo "swap /etc tmpfs rw,-s0 0 0" >> /ram/etc/fstab
+
+            # move /ram/etc to /etc
+            mv /ram/etc/.??* /etc 2>/dev/null
+            mv /ram/etc/* /etc 2>/dev/null
+            rmdir /ram/etc
         else
             echo "Failed to mount user's storage"
             continue
@@ -1329,7 +1367,7 @@ if [ -d /ram/usr -a ! -L /ram/usr/fuguita/version ]; then
     #   - delete encrypted volumes
     #
     echo 'on-memory operation:'
-    if ! mount | egrep -v ' on (/ |/ram )' | grep -q '.' && \
+    if ! mount | egrep -v ' on (/ |/etc |/ram )' | grep -q '.' && \
             swapctl -l 2>&1 | grep -q 'no swap devices configured'; then
         # mount & swap purged
         if [ -z "`bioctl softraid0`" ]; then

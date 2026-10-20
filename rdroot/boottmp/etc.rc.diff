@@ -1,6 +1,6 @@
---- rc.orig	Fri May 22 01:47:25 2026
-+++ rc	Fri May 22 01:47:43 2026
-@@ -178,9 +178,17 @@
+--- rc.orig	Fri Sep  4 13:40:49 2026
++++ rc	Mon Sep  7 03:03:09 2026
+@@ -184,9 +184,17 @@
  	# filesystems, otherwise record which ones are mounted read-only.
  	for _dkdev in $(df /usr/{lib,libexec} $_relink |
  	    sed '1d;s/ .*//' | sort -u); do
@@ -20,7 +20,21 @@
  		fi
  	done
  
-@@ -440,8 +448,9 @@
+@@ -437,8 +445,11 @@
+ # From now on, allow user to interrupt (^C) the boot process.
+ trap "echo 'Boot interrupted.'; exit 1" 3
+ 
+-# Unmount all filesystems except root.
+-umount -a >/dev/null 2>&1
++#----------------------------------
++# disabled not to umount TMPFS /etc
++#
++# # Unmount all filesystems except root.
++# umount -a >/dev/null 2>&1
+ 
+ # Mount all filesystems except those of type NFS and VND.
+ mount -a -t nonfs,vnd
+@@ -446,8 +457,9 @@
  # Re-mount the root filesystem read/writeable. (root on nfs requires this,
  # others aren't hurt.)
  mount -uw /
@@ -32,7 +46,7 @@
  
  rm -f /fastboot
  
-@@ -640,6 +649,7 @@
+@@ -655,6 +667,7 @@
  	echo 'creating runtime link editor directory cache.'
  	[[ -d /usr/local/lib ]] && shlib_dirs="/usr/local/lib $shlib_dirs"
  	[[ -d /usr/X11R6/lib ]] && shlib_dirs="/usr/X11R6/lib $shlib_dirs"
@@ -40,7 +54,7 @@
  	ldconfig $shlib_dirs
  fi
  
-@@ -685,7 +695,9 @@
+@@ -700,7 +713,9 @@
  
  # Re-link the kernel, placing the objects in a random order.
  # Replace current with relinked kernel and inform root about it.

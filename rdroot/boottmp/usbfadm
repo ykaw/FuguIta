@@ -5,7 +5,7 @@
 # usbfadm - USB Flash drive ADMinistration tool
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
 #
-# $Id: usbfadm,v 1.136 2026/08/11 18:12:10 kaw Exp $
+# $Id: usbfadm,v 1.137 2026/10/20 16:39:04 kaw Exp $
 #
 #========================================
 
@@ -426,15 +426,10 @@ copydirs () {
     local destdir; destdir="$2"
     [ -d "$srcdir" ]  || { echoerr "source directory $srcdir not found";       return; }
     [ -d "$destdir" ] || { echoerr "destination directory $destdir not found"; return; }
-    if which pv >/dev/null 2>&1 ; then
-        local srcsize=$(df -k /ram | awk '/ \/ram$/ { print $3 "K"}')
-        echo "copying $srcdir to $destdir (${srcsize}B approx.):"
-        (cd "$srcdir" && pax -wX -x cpio .) | (pv -s $srcsize; echo -n "waiting for pax to finish ... " >&2) | (cd "$destdir" && pax -rpe)
-        (echo -n "syncing ... "; sync; sync; sync; echo done.) >&2
-    else
-        (while :; do sleep 15; pkill -INFO dd || exit; done) &
-        pax -wX -x cpio "$srcdir" | dd bs=1m | (cd "$destdir" && pax -rpe)
-    fi
+    local srcsize=$(df -k "$srcdir" | awk '/ \'"$srcdir"'$/ { print $3 "K"}')
+    echo "copying $srcdir to $destdir (${srcsize}B approx.):"
+    (cd "$srcdir" && pax -wX -x cpio .) | (pv -s $srcsize; echo -n "waiting for pax to finish ... " >&2) | (cd "$destdir" && pax -rpe)
+    (echo -n "syncing ... "; sync; sync; sync; echo done.) >&2
 }
 
 #-------------------
@@ -1223,14 +1218,20 @@ cmd_sync () {
             echo
             if [ -d $mntdir1/livecd-config ]; then
                 if [ -d "$mntdir1/livecd-config/$verarch/$uconf" ]; then
-                    # previous backup exists ... do differencial copy
-                    rsync -v -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. $mntdir1/livecd-config/$verarch/$uconf/.
+                    # previous backup exists ... do differetial copy
+                    rsync -v -rlptgo --devices -xHS --delete \
+                          --exclude 'etc' \
+                          --include '*/tmp' \
+                          --exclude 'tmp/*' \
+                          /ram/. $mntdir1/livecd-config/$verarch/$uconf/.
+                    (cd / && rsync -avxH --delete etc $mntdir1/livecd-config/$verarch/$uconf/)
                 else
                     # first backup ... use cpio
-                    mkdir -p "$mntdir1/livecd-config/$verarch/$uconf"
+                    mkdir -p "$mntdir1/livecd-config/$verarch/$uconf/etc"
                     copydirs /ram "$mntdir1/livecd-config/$verarch/$uconf"
-                    rm -rf $mntdir1/livecd-config/$verarch/"$uconf"/tmp/{.??*,*}
+                    copydirs /etc "$mntdir1/livecd-config/$verarch/$uconf/etc"
                 fi
+                rm -rf $mntdir1/livecd-config/$verarch/"$uconf"/tmp/{.??*,*}
 
                 # not to reset $uconf at subsequent usbfadm invocation
                 #
@@ -2238,16 +2239,18 @@ case "$opt_mode" in
 
         if mount -o async,noatime $devname $mntdir1; then
             if [ "$opt_quiet" = 'yes' ]; then
-                rsync -q -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. $mntdir1/livecd-config/$verarch/$uconf/.
+                rsync -q -rlptgo --devices -xHS --delete --exclude 'etc' --include '*/tmp' --exclude 'tmp/*' /ram/. $mntdir1/livecd-config/$verarch/$uconf/.
+                (cd /etc && rsync -aqxH --delete . $mntdir1/livecd-config/$verarch/$uconf/etc/.)
                 retval=$?
             else
                 notice "sync ${devname} with current ${memfstype} as ${uconf}"
-                rsync --progress -rlptgo --devices -xHS --delete --include '*/tmp' --exclude 'tmp/*' /ram/. $mntdir1/livecd-config/$verarch/$uconf/.
+                rsync --progress -rlptgo --devices -xHS --delete --exclude 'etc' --include '*/tmp' --exclude 'tmp/*' /ram/. $mntdir1/livecd-config/$verarch/$uconf/.
+                (cd /etc && rsync --progress -axH --delete . $mntdir1/livecd-config/$verarch/$uconf/etc/.)
                 retval=$?
                 closenotice "done: sync ${devname} with current ${memfstype} as ${uconf}"
             fi
             # find $mntdir1 \! -type d \! -type f \! -type l -print | xargs rm -f
-            rm -rf $mntdir1/livecd-config/$uconf/tmp/{.??*,*}
+            rm -rf $mntdir1/livecd-config/$verarch/"$uconf"/tmp/{.??*,*}
             sync
             sleep 5
             umount $devname

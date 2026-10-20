@@ -14,7 +14,7 @@ build_install: ${PROGS}
 
 rsync: xxhash
 	test -n "${RSYNC}"
-	CFLAGS=-I${PREFIX}/include LDFLAGS=-L${PREFIX}/lib ${MAKE} install PROG=${RSYNC} CONFIG_OPTS="--disable-lz4 --disable-zstd"
+	CFLAGS=-I${PREFIX}/include LDFLAGS=-L${PREFIX}/lib ${MAKE} install PROG=${RSYNC} CONFIG_OPTS="--disable-lz4 --disable-zstd --disable-idn"
 
 xxhash:
 	test -n "${XXHASH}"

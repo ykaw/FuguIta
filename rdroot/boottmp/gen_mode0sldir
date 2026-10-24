@@ -4,7 +4,7 @@
 # gen_mode0sldir - generate fast-boot cache
 #
 # Yoshihiro Kawamata, kaw@on.rim.or.jp
-# $Id: gen_mode0sldir,v 1.9 2026/01/01 03:20:08 kaw Exp $
+# $Id: gen_mode0sldir,v 1.10 2026/10/24 21:01:50 kaw Exp $
 #========================================
 
 # Copyright (c) 2010--2026
@@ -43,8 +43,8 @@
 # environmental check
 #
 cd /ram || exit 1
-if [ ! -d /ram/etc/fuguita ]; then
-    mkdir /ram/etc/fuguita || exit 1
+if [ ! -d /etc/fuguita ]; then
+    mkdir /etc/fuguita || exit 1
 fi
 
 # replace some ordinary files to symlinks
@@ -59,4 +59,4 @@ find -x usr -type f -print | \
 # archive symlinks with cpio
 #
 find . \( -type l -o -type d -empty \) -print \
-| sort | pax -w -z -x cpio > /ram/etc/fuguita/mode0symlinks.cpio.gz
+| sort | pax -w -z -x cpio > /etc/fuguita/mode0symlinks.cpio.gz

@@ -1,5 +1,5 @@
---- RDROOT.orig	Fri May 22 18:31:04 2026
-+++ RDROOT	Fri May 22 18:31:04 2026
+--- RDROOT.orig	Sun Oct 25 10:13:21 2026
++++ RDROOT	Sun Oct 25 10:13:21 2026
 @@ -10,7 +10,7 @@
  # device.
  
@@ -9,9 +9,9 @@
  maxusers	80			# estimated number of users
  
  option		USER_PCICONF	# user-space PCI configuration
-@@ -22,7 +22,12 @@
- option		SUSPEND
+@@ -23,7 +23,12 @@
  option		HIBERNATE
+ option		AMDSEV
  
 -config		bsd	swap generic
 +config		bsd root on rd0a swap on wd0b and sd0b

@@ -1,5 +1,5 @@
---- RDROOT.orig	Sat May 23 23:21:51 2026
-+++ RDROOT	Sat May 23 23:21:51 2026
+--- RDROOT.orig	Wed Oct 28 01:09:33 2026
++++ RDROOT	Wed Oct 28 01:09:33 2026
 @@ -19,7 +19,7 @@
  # device.
  
@@ -9,7 +9,7 @@
  maxusers	80
  
  option		PCIVERBOSE
-@@ -30,7 +30,12 @@
+@@ -31,7 +31,12 @@
  makeoptions	KERNEL_BASE_PHYS="0x00200000"
  makeoptions	KERNEL_BASE_VIRT="0xffffff8000200000"
  

@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.50 2026/10/20 16:39:04 kaw Exp $
+# $Id: dtjsetup,v 1.51 2026/11/02 15:53:20 kaw Exp $
 #
 #========================================
 
@@ -46,7 +46,7 @@
 #
 
 RL_WORDS=/tmp/rl_words_$$
-function clear_exit {
+clear_exit() {
     rm -f $RL_WORDS
     exit $1
 }
@@ -61,7 +61,7 @@ function clear_exit {
 #                 -1: Key pressed but not ENTER
 #                 -2: Error occured
 #
-function wait_enter {
+wait_enter() {
     local prompt="$1"
     local line
 
@@ -87,7 +87,7 @@ function wait_enter {
 #
 #       output ... 1: yes, 0: no, -1: else yn, -2: error occured
 #
-function ask_yn {
+ask_yn() {
 
     if [ -z "$2" ]; then
         echo -2
@@ -136,7 +136,7 @@ function ask_yn {
 #       output: first word of selected item
 #               returns empty line unless selected normally
 #
-function ask_which {
+ask_which() {
     if [ $# -lt 3 ]; then
         return
     fi
@@ -200,7 +200,7 @@ function ask_which {
 #
 #     usage: rl_wread prompt-str default-str [completion words ....]
 #
-function rl_wread {
+rl_wread() {
     local prompt="$1";  shift
     local default="$1"; shift
 
@@ -231,7 +231,7 @@ function rl_wread {
 #-------------------
 # echo message to stderr with header string
 #
-function msg {
+msg() {
     echo '***' "$@" 1>&2
 }
 
@@ -240,7 +240,7 @@ function msg {
 #   if so, command with root privileges
 #   will be defined as function '_rootcmd'.
 #
-function check_rootcmd {
+check_rootcmd() {
     # check type of rootcmd
     if [ "$(type _rootcmd)" = "_rootcmd is a function" ]; then
         # _rootcmd already defined
@@ -259,17 +259,17 @@ function check_rootcmd {
     msg Checking your root authorization...
     if id -p | grep -q "^uid${TAB}root$"; then
         root=YES
-        function _rootcmd {
+        _rootcmd() {
             sh -c "$*"
         }
     elif id -p | egrep -q "^groups${TAB}(.*[0-9A-Za-z_] )?wheel( |\$)"; then
         wheel=YES
         if grep -q 'permit..*:wheel' /etc/doas.conf 2>/dev/null; then
-            function _rootcmd {
+            _rootcmd() {
                 doas sh -c "$*"
             }
         else
-            function _rootcmd {
+            _rootcmd() {
                 echo -n 'Root '  # to display "Root Password:"
                 su root -c "$*"
             }
@@ -293,7 +293,7 @@ function check_rootcmd {
 #-------------------
 # setup apmd and obsdfreqd
 # 
-setup_cpufreq () {
+setup_cpufreq() {
     echo
     msg 'enabling apmd to control CPU frequency for battery lifetime'
     msg 'For more functionality, you can add the obsdfreqd daemon.'
@@ -317,7 +317,7 @@ rcctl start apmd'
 #-------------------
 # enable video and audio input
 # 
-enable_va () {
+enable_va() {
     echo
     msg 'Video and Audio handlings:'
     [ 1 = $(ask_yn "Will you enable video/audio inputs?" r) ] || return
@@ -348,7 +348,7 @@ chmod g+rw /dev/video*'
 #   which holds colon-separated values
 #   <item char>:<desc str>:<pkg name(s)>
 #
-install_apps () {
+install_apps() {
     # installable package list
     # note: blank lines must contain white space
     #
@@ -481,21 +481,21 @@ Example:  'an' - install Firefox and VIM
         echo
         if [ 1 = $(ask_yn "Will you install those packages?" r) ]; then
 
-	    # install specified pkgs
-	    #
+            # install specified pkgs
+            #
             _rootcmd pkg_add $pkg_adds
 
-	    # fix up for firefox
-	    #
-	    local unveil_main=/etc/firefox/unveil.main
-	    if [[ -f $unveil_main ]] && \
-		   ! grep -q '^/fuguita/.*' $unveil_main; then
+            # fix up for firefox
+            #
+            local unveil_main=/etc/firefox/unveil.main
+            if [[ -f $unveil_main ]] && \
+                   ! grep -q '^/fuguita/.*' $unveil_main; then
                 echo
                 msg "fixing Firefox's config file"
-		_rootcmd sh -c "echo >> $unveil_main
+                _rootcmd sh -c "echo >> $unveil_main
 echo '# fixed up by dtjsetup'   >> $unveil_main
 echo '/fuguita/usr/X11R6/lib r' >> $unveil_main"
-	    fi
+            fi
 
             echo
             msg "To install software not listed above, use the OpenBSD pkg_add command."
@@ -511,59 +511,59 @@ echo '/fuguita/usr/X11R6/lib r' >> $unveil_main"
 #-------------------
 # Japanese Specific Setups
 #
-setup_ja_confs () {
+setup_ja_confs() {
     if [ "$ja_env" = YES ]; then
 
-	# set timezone unless already set
-	#
-	if ! ls -l /etc/localtime | egrep -q 'zoneinfo/(Japan|Asia/Tokyo)' ; then
-	    echo
-	    msg Japanese environment and related software have been set up.
-	    msg However, the time zone has not yet been set to JST.
-	    if [ $(ask_yn 'Set timezone to JST?' y) = 1 ]; then
-	       _rootcmd rm -f /etc/localtime
-	       _rootcmd cp -p /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
-	    fi
-	fi
+        # set timezone unless already set
+        #
+        if ! ls -l /etc/localtime | egrep -q 'zoneinfo/(Japan|Asia/Tokyo)' ; then
+            echo
+            msg Japanese environment and related software have been set up.
+            msg However, the time zone has not yet been set to JST.
+            if [ $(ask_yn 'Set timezone to JST?' y) = 1 ]; then
+               _rootcmd rm -f /etc/localtime
+               _rootcmd cp -p /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+            fi
+        fi
 
-	# set localtime offset of kernel clock if wanted
-	#
-	echo
-	msg When you use this machine both running OpenBSD and Windows.
-	msg You can set the hardware clock to JST instead of UTC.
+        # set localtime offset of kernel clock if wanted
+        #
+        echo
+        msg When you use this machine both running OpenBSD and Windows.
+        msg You can set the hardware clock to JST instead of UTC.
 
-	local sysctl_conf='/etc/fuguita/netconfs/templ.head/sysctl.conf'
-	local offset_tz=JST
-	local offset_min=540
-	local utc_offset='^[\ \	]\*kern\\.utc_offset='$offset_min'[\ \	]\*\$'
-	_rootcmd sed -i "/$utc_offset/d" $sysctl_conf
-	if [ $(ask_yn "Set hardware clock to ${offset_tz}?" n) = 1 ]; then
-	    _rootcmd echo "kern.utc_offset=$offset_min" '>>' $sysctl_conf
-	    _rootcmd chnetconf -d
-	fi
-	msg This will take effect on the next boot.
+        local sysctl_conf='/etc/fuguita/netconfs/templ.head/sysctl.conf'
+        local offset_tz=JST
+        local offset_min=540
+        local utc_offset='^[\ \	]\*kern\\.utc_offset='$offset_min'[\ \	]\*\$'
+        _rootcmd sed -i "/$utc_offset/d" $sysctl_conf
+        if [ $(ask_yn "Set hardware clock to ${offset_tz}?" n) = 1 ]; then
+            _rootcmd echo "kern.utc_offset=$offset_min" '>>' $sysctl_conf
+            _rootcmd chnetconf -d
+        fi
+        msg This will take effect on the next boot.
 
-	# Workaround:
-	#   Japanese glyphs are not displayed by IceWm's default.
-	#   Settings suitable for Japanese will be written in personal preferences.
+        # Workaround:
+        #   Japanese glyphs are not displayed by IceWm's default.
+        #   Settings suitable for Japanese will be written in personal preferences.
 
         # Is IceWM installed?
         #
-	[[ "$wm" = "icewm" && -f /usr/local/share/icewm/preferences ]] || return
+        [[ "$wm" = "icewm" && -f /usr/local/share/icewm/preferences ]] || return
 
         # already fixed?
         #
-	mkdir -p $HOME/.icewm
-	grep -qi 'font.*sans' $HOME/.icewm/preferences 2>/dev/null && return
+        mkdir -p $HOME/.icewm
+        grep -qi 'font.*sans' $HOME/.icewm/preferences 2>/dev/null && return
 
         # fix font names for japanese
         #
-	grep -i dejavu /usr/local/share/icewm/preferences \
-	    | sed -e 's/^# *//; s/[Dd]eja[Vv]u //' >> $HOME/.icewm/preferences
+        grep -i dejavu /usr/local/share/icewm/preferences \
+            | sed -e 's/^# *//; s/[Dd]eja[Vv]u //' >> $HOME/.icewm/preferences
 
-	if [[ "$copytoskel" = "yes" ]]; then
-	    _rootcmd "cp -R $HOME/.icewm /etc/skel/"
-	fi
+        if [[ "$copytoskel" = "yes" ]]; then
+            _rootcmd "cp -R $HOME/.icewm /etc/skel/"
+        fi
     fi
 }
 

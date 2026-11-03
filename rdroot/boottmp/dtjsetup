@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.52 2026/11/03 02:34:17 kaw Exp $
+# $Id: dtjsetup,v 1.53 2026/11/03 03:16:26 kaw Exp $
 #
 #========================================
 
@@ -291,7 +291,7 @@ check_rootcmd() {
 }
 
 #-------------------
-# rewrite the “unveil” setting in the web browser to match the real
+# rewrite the "unveil" setting in the web browser to match the real
 # path on the FuguIta
 # outputs answer to stdout
 #
@@ -306,9 +306,9 @@ rewrite_browser_unveils() {
 
     # check environment
     #
-    [[ ! -d "$basepath" ]] && exit 1
-    [[ -e "$newdir" ]] && exit 1
-    [[ -e "$olddir" ]] && exit 1
+    [[ ! -d "$basepath" ]] && return 1
+    [[ -e "$newdir" ]] && return 1
+    [[ -e "$olddir" ]] && return 1
 
     msg fixing unveil settings in "$basepath"
 

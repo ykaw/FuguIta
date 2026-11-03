@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.51 2026/11/02 15:53:20 kaw Exp $
+# $Id: dtjsetup,v 1.52 2026/11/03 02:34:17 kaw Exp $
 #
 #========================================
 
@@ -291,6 +291,51 @@ check_rootcmd() {
 }
 
 #-------------------
+# rewrite the “unveil” setting in the web browser to match the real
+# path on the FuguIta
+# outputs answer to stdout
+#
+#     usage: rewrite_browser_unveils /etc/firefox
+#            or
+#            rewrite_browser_unveils /etc/chromium
+#
+rewrite_browser_unveils() {
+    local basepath="$1"
+    local newdir="${basepath}.fuguita-mode0"
+    local olddir="${basepath}.orig"
+
+    # check environment
+    #
+    [[ ! -d "$basepath" ]] && exit 1
+    [[ -e "$newdir" ]] && exit 1
+    [[ -e "$olddir" ]] && exit 1
+
+    msg fixing unveil settings in "$basepath"
+
+    # rewrite browser's unveil settings
+    #
+    doas ksh <<EOT
+# copy and modify
+#
+cp -a "$basepath" "$newdir"
+
+# modify paths in unveil.*
+# to fit those of FuguIta
+#
+sed -i \
+    "s|^/tmp |/ram/tmp |;
+     s|^/usr/local/|/ram/usr/local/|;
+     s|^/usr/|/fuguita/usr/|;
+     s|^/var/|/ram/var/|" "$newdir"/unveil.*
+
+# postprocess
+#
+mv "$basepath" "$olddir"
+ln -s "$newdir" "$basepath"
+EOT
+}
+
+#-------------------
 # setup apmd and obsdfreqd
 # 
 setup_cpufreq() {
@@ -485,17 +530,10 @@ Example:  'an' - install Firefox and VIM
             #
             _rootcmd pkg_add $pkg_adds
 
-            # fix up for firefox
+            # fix ups for browser security restrictions
             #
-            local unveil_main=/etc/firefox/unveil.main
-            if [[ -f $unveil_main ]] && \
-                   ! grep -q '^/fuguita/.*' $unveil_main; then
-                echo
-                msg "fixing Firefox's config file"
-                _rootcmd sh -c "echo >> $unveil_main
-echo '# fixed up by dtjsetup'   >> $unveil_main
-echo '/fuguita/usr/X11R6/lib r' >> $unveil_main"
-            fi
+            rewrite_browser_unveils /etc/firefox
+            rewrite_browser_unveils /etc/chromium
 
             echo
             msg "To install software not listed above, use the OpenBSD pkg_add command."

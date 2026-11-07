@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.54 2026/11/04 01:16:58 kaw Exp $
+# $Id: dtjsetup,v 1.55 2026/11/07 11:00:28 kaw Exp $
 #
 #========================================
 
@@ -314,7 +314,8 @@ rewrite_browser_unveils() {
 
     # rewrite browser's unveil settings
     #
-    _rootcmd ksh <<EOT
+    #
+    doas ksh <<EOT
 # copy and modify
 #
 cp -a "$basepath" "$newdir"
@@ -333,6 +334,26 @@ sed -i \
 mv "$basepath" "$olddir"
 ln -s "$newdir" "$basepath"
 EOT
+}
+
+#-------------------
+# replace multi.level.item=value line with a new value
+# with format like /etc/sysctl.conf
+# existing configuration lines are commented out
+#
+# Note that both input and output are stdio
+#
+#   Usage: repl_item item new_value <infile >outfile
+#
+repl_item() {
+    local item="$1"
+    local val="$2"
+    [[ -z "$item" || -z "$val" ]] && return 
+
+    local item_expr=$(echo "$item" | sed "s/\./\\\./g")
+
+    sed -e "/^[ 	]*${item_expr}=/s/^/#/"
+    echo "${item}=${val}"
 }
 
 #-------------------
@@ -363,14 +384,16 @@ rcctl start apmd'
 # enable video and audio input
 # 
 enable_va() {
+    local sysctl_conf='/etc/fuguita/netconfs/templ.head/sysctl.conf'
     echo
     msg 'Video and Audio handlings:'
     [ 1 = $(ask_yn "Will you enable video/audio inputs?" r) ] || return
-
-    _rootcmd 'cat <<EOF >>/etc/fuguita/netconfs/templ.head/sysctl.conf
-kern.video.record=1 
-kern.audio.record=1
-EOF
+    cat "$sysctl_conf" \
+    | repl_item kern.video.record 1 \
+    | repl_item kern.audio.record 1 \
+    | _rootcmd ksh -c "cat >${sysctl_conf}.new
+mv ${sysctl_conf} ${sysctl_conf}.bak
+mv ${sysctl_conf}.new ${sysctl_conf}
 
 # copy above settings to /etc/sysctl.conf
 #
@@ -381,9 +404,11 @@ cat <<EOF >>/etc/rc.local
 chmod g+rw /dev/video*
 EOF
 
+# make them effective now, too
+#
 sysctl kern.audio.record=1
 sysctl kern.video.record=1
-chmod g+rw /dev/video*'
+chmod g+rw /dev/video*"
 }
 
 #-------------------
@@ -550,19 +575,15 @@ Example:  'an' - install Firefox and VIM
 # Japanese Specific Setups
 #
 setup_ja_confs() {
-    if [ "$ja_env" = YES ]; then
-
+    if [[ "$ja_env" = YES ]] &&
+       cmp -s /etc/localtime /usr/share/zoneinfo/UTC; then
         # set timezone unless already set
         #
-        if ! ls -l /etc/localtime | egrep -q 'zoneinfo/(Japan|Asia/Tokyo)' ; then
-            echo
-            msg Japanese environment and related software have been set up.
-            msg However, the time zone has not yet been set to JST.
-            if [ $(ask_yn 'Set timezone to JST?' y) = 1 ]; then
-               _rootcmd rm -f /etc/localtime
-               _rootcmd cp -p /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
-            fi
-        fi
+        echo
+        msg Japanese environment and related software have been set up.
+        msg So the time zone is set to JST, too.
+        _rootcmd rm -f /etc/localtime
+        _rootcmd cp -p /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
 
         # set localtime offset of kernel clock if wanted
         #
@@ -571,13 +592,16 @@ setup_ja_confs() {
         msg You can set the hardware clock to JST instead of UTC.
 
         local sysctl_conf='/etc/fuguita/netconfs/templ.head/sysctl.conf'
-        local offset_tz=JST
         local offset_min=540
-        local utc_offset='^[\ \	]\*kern\\.utc_offset='$offset_min'[\ \	]\*\$'
-        _rootcmd sed -i "/$utc_offset/d" $sysctl_conf
         if [ $(ask_yn "Set hardware clock to ${offset_tz}?" n) = 1 ]; then
-            _rootcmd echo "kern.utc_offset=$offset_min" '>>' $sysctl_conf
-            _rootcmd chnetconf -d
+            repl_item kern.utc_offset "$offset_min" < $sysctl_conf \
+                | _rootcmd "cat > ${sysctl_conf}.new
+mv ${sysctl_conf} ${sysctl_conf}.bak
+mv ${sysctl_conf}.new ${sysctl_conf}
+
+# copy above settings to /etc/sysctl.conf
+#
+chnetconf -d"
         fi
         msg This will take effect on the next boot.
 
@@ -754,10 +778,7 @@ if [ -n "$pkgs" ]; then
     msg OK.
 
     echo
-    msg Installing packages: $pkgs
-    if [ 1 != $(ask_yn "Will you continue?" n) ]; then
-        exit
-    fi
+    msg Installing following packages: $pkgs
 
     _rootcmd pkg_add -I $pkgs
     if [ $? -ne 0 ]; then
@@ -776,14 +797,6 @@ if [ -e "$xs" ]; then
     msg $xs already exists.
     msg This will be replaced with a new file.
     msg and the old one will be renamed to $xs_bak.
-fi
-
-# make backup of .xsession
-#
-echo
-msg Rewrite .xsession configuration file.
-if [ 1 != $(ask_yn "Will you continue?" n) ]; then
-    exit
 fi
 
 if [ -n "$xs_bak" ]; then
@@ -899,6 +912,8 @@ EOF
 # write generated .xsession to /etc/skel
 #
 echo
+msg "If you place an .xsession file in /etc/skel,"
+msg "it will be copied to the user's home directory when an account is created."
 if [ $(ask_yn 'Copy this .xsession file to /etc/skel ?' n) -eq 1 ]; then
     copytoskel=yes
     _rootcmd cp $HOME/.xsession /etc/skel/.
@@ -908,8 +923,8 @@ fi
 
 # post-install setups
 #
-setup_cpufreq   # CPU frequency control for battery lifetime
 install_apps    # Install Popular Applications
+setup_cpufreq   # CPU frequency control for battery lifetime
 enable_va       # enable video and audio input
 setup_ja_confs  # Japanese Specific Setups
 

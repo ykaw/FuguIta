@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.55 2026/11/07 11:00:28 kaw Exp $
+# $Id: dtjsetup,v 1.56 2026/11/07 19:09:31 kaw Exp $
 #
 #========================================
 
@@ -315,7 +315,7 @@ rewrite_browser_unveils() {
     # rewrite browser's unveil settings
     #
     #
-    doas ksh <<EOT
+    _rootcmd ksh <<EOT
 # copy and modify
 #
 cp -a "$basepath" "$newdir"

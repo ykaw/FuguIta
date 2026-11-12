@@ -4,7 +4,7 @@
 #
 # dtjsetup - Desktop (and Japanese) setup utility
 # KAWAMATA, Yoshihiro / kaw@on.rim.or.jp
-# $Id: dtjsetup,v 1.56 2026/11/07 19:09:31 kaw Exp $
+# $Id: dtjsetup,v 1.57 2026/11/12 10:45:22 kaw Exp $
 #
 #========================================
 
@@ -575,9 +575,13 @@ Example:  'an' - install Firefox and VIM
 # Japanese Specific Setups
 #
 setup_ja_confs() {
-    if [[ "$ja_env" = YES ]] &&
-       cmp -s /etc/localtime /usr/share/zoneinfo/UTC; then
+    [[ "$ja_env" != YES ]] && return
+
+    if cmp -s /etc/localtime /usr/share/zoneinfo/UTC; then
         # set timezone unless already set
+        #
+        # Note that symlink to a zonefile takes no effect
+        # because of pledge(2) specification against FuguIta
         #
         echo
         msg Japanese environment and related software have been set up.
@@ -604,15 +608,15 @@ mv ${sysctl_conf}.new ${sysctl_conf}
 chnetconf -d"
         fi
         msg This will take effect on the next boot.
+    fi
 
-        # Workaround:
-        #   Japanese glyphs are not displayed by IceWm's default.
-        #   Settings suitable for Japanese will be written in personal preferences.
+    # Workaround:
+    #   Japanese glyphs are not displayed by IceWm's default.
+    #   Settings suitable for Japanese will be written in personal preferences.
 
-        # Is IceWM installed?
-        #
-        [[ "$wm" = "icewm" && -f /usr/local/share/icewm/preferences ]] || return
-
+    # Is IceWM installed?
+    #
+    if [[ "$wm" = "icewm" && -f /usr/local/share/icewm/preferences ]]; then
         # already fixed?
         #
         mkdir -p $HOME/.icewm

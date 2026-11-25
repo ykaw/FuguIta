@@ -1,15 +1,15 @@
---- special.orig	Fri Oct 23 23:57:03 2026
-+++ special	Sat Oct 24 21:22:06 2026
-@@ -12,6 +12,9 @@
- mem		type=char mode=0640 uname=root gname=kmem
- ..	#dev
+--- special.orig	Wed Nov 25 08:44:10 2026
++++ special	Wed Nov 25 08:43:29 2026
+@@ -120,6 +120,9 @@
+ ypldap.conf	type=file mode=0600 uname=root gname=wheel optional
+ ..	#etc
  
 +sbin		type=link
 +ram		type=dir mode=0755 uname=root gname=wheel
 +
- etc		type=dir mode=0755 uname=root gname=wheel
- acme-client.conf	type=file mode=0644 uname=root gname=wheel optional
- bgpd.conf	type=file mode=0600 uname=root gname=wheel optional
+ root		type=dir mode=0700 uname=root gname=wheel
+ .cshrc		type=file mode=0644 uname=root gname=wheel
+ .login		type=file mode=0644 uname=root gname=wheel
 @@ -129,9 +132,6 @@
  authorized_keys	type=file mode=0600 uname=root gname=wheel
  ..	#root/.ssh
